@@ -2,4 +2,8 @@
 # ftp://ftp.ddbj.nig.ac.jp/ddbj_database/dra/fastq/DRA002/DRA002265/*
 
 # The files downloaded were metadata files for the experiment/samples and fastq files. I'm a bit confused on the aliases used to name the files
-# So I changed the file names bu
+# So I changed the file names to match the sample names
+
+ # Code to relocate each file from individual
+ # Wrote this code to display the alias and sample code for each FASTQ file
+ cat DRA002265.experiment.xml | grep 'EXPERIMENT alias=' | cut -c 24-32 > tmp && cat DRA002265.experiment.xml |  grep '<LIBRARY_NAME>' | cut -c 31-71 |  paste tmp -

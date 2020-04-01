@@ -5,5 +5,5 @@
 # So I changed the file names to match the sample names
 
  # Code to relocate each file from individual
- # Wrote this code to display the alias and sample code for each FASTQ file
+ # Wrote this code to display the alias and sample code for each fastq file
  cat DRA002265.experiment.xml | grep 'EXPERIMENT alias=' | cut -c 24-32 > tmp && cat DRA002265.experiment.xml |  grep '<LIBRARY_NAME>' | cut -c 31-71 |  paste tmp -

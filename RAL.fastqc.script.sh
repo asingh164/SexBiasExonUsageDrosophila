@@ -7,6 +7,8 @@
 #  This is a script to run FastQC on the fastq files for the DGRP lines that were sequenced  ####
 #  Run this script in the folder containing the fastq files that you want to run through FastQC
 #  After running FastQC it combines data from all runs using MultiQC
+#  NOTE: I don't know if this is founded, but I have a feeling that FastQC works much quicker on uncompressed files
+#        so I unzipped all files using bzip2 -df prior to running this bash script 
 
 ####################################################################################################
 

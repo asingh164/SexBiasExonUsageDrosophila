@@ -4,6 +4,9 @@
 ####  Program details:  ###
 ###########################
 
+## Author: Amardeep Singh -- amardeep.singh[at]utoronto.ca
+## RNAseq data obtained from reposity associated with Osada et al. Genetics DOI: 10.1534/genetics.117.201459/-/DC1.1
+
 #  This is a script to run FastQC on the fastq files for the DGRP lines that were sequenced  ####
 #  Run this script in the folder containing the fastq files that you want to run through FastQC
 #  After running FastQC it combines data from all runs using MultiQC

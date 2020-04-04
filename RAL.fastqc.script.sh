@@ -19,7 +19,7 @@
 # Decompress all .bz2 files
 parallel -j 30 bzip2 ::: *.bz2
 
-# First, we will create an output directory for fastqc outputs one directory above the current directory
+# First, we will create an output directory for fastqc outputs one directory above the current directory assuming it doesn't already exist
 mkdir ../fastqc.output.files
 
 # Run fastqc on files. I set the number of threads to 30

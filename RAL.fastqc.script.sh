@@ -23,7 +23,7 @@ parallel -j 30 bzip2 ::: *.bz2
 mkdir ../fastqc.output.files
 
 # Run fastqc on files. I set the number of threads to 30
-fastqc RAL*.fastq -t 36 -o ../fastqc.output.files
+fastqc *.fastq -t 36 -o ../fastqc.output.files
 
 # Run MultiQC to aggregate FastQC outputs for all samples
 # Navigate over to fastqc output directory

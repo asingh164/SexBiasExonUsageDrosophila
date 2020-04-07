@@ -9,6 +9,7 @@
 ## To retrieve the genome assembly file yourself:
 # wget ftp.flybase.net/genomes/Drosophila_melanogaster/dmel_r6.32_FB2020_01/
 
+### Program Details ###
 # This is a program that I wrote to generate a genome index file for use in an RNAseq alignment
 ##
 

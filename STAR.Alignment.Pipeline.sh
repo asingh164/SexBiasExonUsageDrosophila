@@ -1,15 +1,20 @@
 #!/usr/bin/env bash
 
-# STAR alignment pipeline
-# This is a program that I wrote to align trimmed reads from
+#########################################
+######     STAR Genome Alignmnt     #####
+#########################################
+
+## Author: Amardeep Singh -- amardeep.singh[at]utoronto.ca
+## This program makes use of public releases of the Drosophila genome from Flybase (dmel_r6.32_FB2020_01)
+## To retrieve the genome assembly file yourself:
+# wget ftp.flybase.net/genomes/Drosophila_melanogaster/dmel_r6.32_FB2020_01/
+
+### Program Details ###
+# This program will align reads to the drosophila genome using STAR and then
+# convert the output BAM files to BAM files that are sorted by read name using SAMtools
 
 # STAR uses a lot of resources. The current settings (running in 30 jobs in parallel, each job using 10 threads = 300 threads + 32gb per job = 900gb of memory)
-
 ls *.fastq | parallel -j 30 STAR --genomeDir /plas1/amardeep.singh/Flybase.Dmel.Genome.Release/STAR.genome.index/ --runThreadN 10 --readFilesIn {} --outFileNamePrefix /plas1/amardeep.singh/RNA.Seq.Data/fastq.trimmed.files/mapped.files/{}_ --outSAMtype BAM SortedByCoordinate --outSAMunmapped Within --outSAMattributes Standard
-
-
-# Alignment quality control
-# Quality control of RNAseq alignment done with
 
 
 # Sorting BAM files by read name instead of coordinate for downstream analysis with DESeq

@@ -40,7 +40,7 @@ python /plas1/amardeep.singh/R/x86_64-redhat-linux-gnu-library/3.6/DEXSeq/python
 /plas1/amardeep.singh/RNA.Seq.Data/DEXSeq.Files/dmel-all-r6.32.filtered.flat.gff
 
 # 2. Counting reads in "exon bins" for each BAM file that will form the basis for analysis by DEXSeq
-ls SAM*.bam | parallel -j 40 python /plas1/amardeep.singh/R/x86_64-redhat-linux-gnu-library/3.6/DEXSeq/python_scripts/dexseq_count.py -f bam /plas1/amardeep.singh/RNA.Seq.Data/DEXSeq.Files/dmel-all-r6.32.filtered.flat.gff {} /plas1/amardeep.singh/RNA.Seq.Data/DEXSeq.Files/DEXSeq.BAM.files/{}.read.counts.txt
+ls SAM*.bam | parallel -j 40 python /plas1/amardeep.singh/R/x86_64-redhat-linux-gnu-library/3.6/DEXSeq/python_scripts/dexseq_count.py -r name -f bam -a 20 /plas1/amardeep.singh/RNA.Seq.Data/DEXSeq.Files/dmel-all-r6.32.filtered.flat.gff {} /plas1/amardeep.singh/RNA.Seq.Data/DEXSeq.Files/DEXSeq.bam.count.files/{}.read.counts.txt
 
 #---- ----
 
@@ -52,17 +52,17 @@ require(BiocParallel) # This is a package used for paralellization of jobs
 require(doBy)
 
 # Set working directory to the directory with samples
-setwd("/plas1/amardeep.singh/RNA.Seq.Data/DEXSeq.Files")
-# Generate a table that contains information on the sample runs
+setwd("/plas1/amardeep.singh/RNA.Seq.Data/DEXSeq.Files/DEXSeq.bam.count.files/")
 
+# Generate a table that contains information on the sample runs
 # Vectors containing file names for the samples
-file.names.for.samples = dir("/plas1/amardeep.singh/RNA.Seq.Data/DEXSeq.Files")[3:74]
+file.names.for.samples = dir("/plas1/amardeep.singh/RNA.Seq.Data/DEXSeq.Files/DEXSeq.bam.count.files")
 # grep file names for whole body tissue only
-file.names.for.samples = Filter(function(x) grepl("body", x), file.names.for.samples)
+#file.names.for.samples = Filter(function(x) grepl("body", x), file.names.for.samples)
 
 # Vectors containing sample names (cleaned up a bit -- Probably a more elegant way of doing this)
 sample.names.tmp = gsub(".fastq_Aligned.*","",file.names.for.samples)
-sample.names.tmp = gsub(".replicate.1.*","",sample.names.tmp)
+#sample.names.tmp = gsub(".replicate.1.*","",sample.names.tmp)
 sample.names = gsub("SAM.sorted.trimmed.","",sample.names.tmp)
 
 
@@ -71,8 +71,8 @@ sex.tmp = gsub("RAL.....", "", sample.names)
 sex = gsub("\\..*", "", sex.tmp)
 
 # Vector containing tissue of sample
-#tissue = gsub("RAL.*\\.", "", sample.names)
-#
+#tissue.tmp = gsub("RAL.*male.", "", sample.names)
+#tissue = gsub("replicate..*", "", tissue.tmp)
 
 # Make a dataframe for samples
 sample.table = data.frame(row.names = file.names.for.samples, sample.names = sample.names, sex = sex)
@@ -81,14 +81,17 @@ sample.table = data.frame(row.names = file.names.for.samples, sample.names = sam
 data.table = DEXSeqDataSetFromHTSeq(file.names.for.samples,
                                     sampleData = sample.table,
                                     design = ~sample + exon + exon:sex,
-                                    flattenedfile = "dmel-all-r6.32.filtered.flat.gff")
+                                    flattenedfile = "/plas1/amardeep.singh/RNA.Seq.Data/DEXSeq.Files/dmel-all-r6.32.filtered.flat.gff")
+
+full.model = ~sample + exon + sex:exon
+#reduced.model = ~sample + exon
 
 # Normalization of read counts
 data.table = estimateSizeFactors(data.table)
 
 # Estimate dispersion of read counts per exon bin ## NOTE: I've set this to use 50 cores, you may need to adjust depending on available resources
 BPPARAM = MulticoreParam(50)
-data.table = estimateDispersions(data.table, BPPARAM = MulticoreParam(50))
+data.table = estimateDispersions(data.table, BPPARAM = MulticoreParam(50), formula = full.model)
 
 # Filtering exons based on a average read count ## For now
 # Calculate average read count per exon
@@ -96,7 +99,7 @@ exon.read.counts = as.data.frame(counts(data.table))
 exon.read.counts$mean.reads.mapped = apply(exon.read.counts, 1, mean)
 
 # Remove exons with fewer than an average of 50 reads mapping to it
-exon.read.counts.subset = exon.read.counts[exon.read.counts$mean.reads.mapped > 50,]
+exon.read.counts.subset = exon.read.counts[exon.read.counts$mean.reads.mapped > 25,]
 
 # Count number of exons per gene
 gene.IDs = as.data.frame(substring(row.names(exon.read.counts.subset), 1, 11))
@@ -109,9 +112,12 @@ multi.exon.genes = gene.counts.unique[gene.counts.unique$gene.ID.length > 1,]
 gene.counts.unique = as.data.frame(unique(gene.IDs$gene.ID))
 colnames(gene.counts.unique) = "gene.ID"
 
-
 # Perform differential exon usage analysis
-data.table = testForDEU(data.table, BPPARAM = MulticoreParam(50))
+data.table = testForDEU(data.table, BPPARAM = MulticoreParam(50), fullModel = full.model)
+
+# Calculating Exon Fold Change
+data.table = estimateExonFoldChanges(data.table, fitExpToVar = "sex", BPPARAM = MulticoreParam(50))
+
 
 # Piping differential exon usage results into a new dataframe
 DEU.results = as.data.frame(DEXSeqResults(data.table))
@@ -121,10 +127,16 @@ DEU.results.filtered = DEU.results[as.character(DEU.results$groupID) %in% as.cha
 table(tapply(DEU.results.filtered$padj < 0.05, DEU.results.filtered$groupID, any))
 
 
+test.gene.data = DEU.results.filtered[DEU.results.filtered$groupID == "FBgn0000008",]
 
+female.data = test.gene.data[,c(grep("female",names(test.gene.data))), drop=F]
+female.data$mean = apply(female.data, 1, function(x) mean(x))
+female.data$se= apply(female.data, 1, function(x) sd(x)/sqrt(18))
+female.exon.usage = female.data[,19:20]
 
-
-
-
+male.data = test.gene.data[,c(grep("\\.male",names(test.gene.data))), drop=F]
+male.data$mean = apply(male.data, 1, function(x) mean(x))
+male.data$se= apply(male.data, 1, function(x) sd(x)/sqrt(18))
+male.exon.usage = male.data[,19:20]
 
 #

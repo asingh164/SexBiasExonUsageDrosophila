@@ -11,7 +11,7 @@
 # GTF file
 # wget ftp://ftp.ensemblgenomes.org/pub/metazoa/release-46/fasta/drosophila_melanogaster/
 
-# This script requires two R packages(JunctionSeq and QoRTs) which can be downloaded through Bioconductor
+# This script requires R package which can be downloaded through Bioconductor
 
 ### Script Details ###
 # This script is written primarily in R, Bash commands are denoted by #---- BASH ---- and end with # ---- ----
@@ -128,10 +128,23 @@ jscs <- runJunctionSeqAnalyses(sample.files = countFiles,
                                nCores = 40,
                                verbose=TRUE,
                                debug.mode = TRUE )
+# Save output to file
+writeCompleteResults(jscs, "April23",
+                     gzip.output = TRUE,
+                     FDR.threshold = 0.01,
+                     save.allGenes = TRUE, save.sigGenes = TRUE,
+                     save.fit = FALSE, save.VST = FALSE,
+                     save.bedTracks = TRUE,
+                     save.jscs = TRUE,
+                     bedtrack.format = c("BED", "GTF", "GFF3"),
+                     verbose = TRUE)
+
 
 ## JunctionSeq resample procedure
 # What I want to do here is to take half of my samples and replace the male and female description and then run the analysis on all 16
-jscs <- runJunctionSeqAnalyses(sample.files = countFiles,
+
+for (i in 1:10){
+  jscs <- runJunctionSeqAnalyses(sample.files = countFiles,
                                sample.names = decoder.for.juntionseq$unique.ID,
                                condition = decoder.for.juntionseq$sex,
                                flat.gff.file = "/plas1/amardeep.singh/Ensembl.Dmel.Genome.Release/JunctionSeq.files/count.files/body.only.replicate.1/withNovel.forJunctionSeq.gff.gz",
@@ -139,6 +152,9 @@ jscs <- runJunctionSeqAnalyses(sample.files = countFiles,
                                verbose=TRUE,
                                debug.mode = TRUE )
 
+
+
+}
 
 
 

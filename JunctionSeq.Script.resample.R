@@ -47,9 +47,7 @@ for (i in 1:10) {
                             size = (nrow(decoder.for.junctionseq) / 4),
                             replace = FALSE)
 
-  female.rows.sample <- sample(x = (decoder.for.junctionseq[decoder.for.junctionseq$sex == "female", ])$index,
-                              size = (nrow(decoder.for.junctionseq) / 4),
-                              replace = FALSE)
+  female.rows.sample <- male.rows.sample - 1
 
   decoder.for.junctionseq.resample <- decoder.for.junctionseq
   decoder.for.junctionseq.resample$sex.resample <- as.character(decoder.for.junctionseq.resample$sex)
@@ -59,36 +57,37 @@ for (i in 1:10) {
   ###  Run the differential exon usage (DEU) analysis:
 
   # Creast a design dataframe which has a column for the condition you are testng (This will need to change when adding factors not sure how yet)
-  design.df <- data.frame(condition = factor(decoder.for.junctionseq.resample$sex.resample))
+  design.df.resample <- data.frame(condition = factor(decoder.for.junctionseq.resample$sex.resample))
 
-  # Building the count set object that JunctionSeq will analyze and add to it all of the parameters of the analysis
-  count.set.object <- readJunctionSeqCounts(countfiles = countFiles,
-                                            samplenames = decoder.for.junctionseq.resample$unique.ID,
-                                            design = design.df,
-                                            flat.gff.file = "/plas1/amardeep.singh/Ensembl.Dmel.Genome.Release/JunctionSeq.files/count.files/body.only.replicate.1/withNovel.forJunctionSeq.gff.gz",
-                                            nCores = 40,
-                                            verbose = TRUE)
+  # Run Junctionseq
+  count.set.object.resample <- readJunctionSeqCounts(countfiles = countFiles,
+                                                    samplenames = decoder.for.junctionseq.resample$unique.ID,
+                                                    design = design.df.resample,
+                                                    flat.gff.file = "/plas1/amardeep.singh/Ensembl.Dmel.Genome.Release/JunctionSeq.files/count.files/body.only.replicate.1/withNovel.forJunctionSeq.gff.gz",
+                                                    nCores = 50,
+                                                    verbose = TRUE)
 
   # Generate size factors for normalization and load them into the count.set.object
-  count.set.object <- estimateJunctionSeqSizeFactors(count.set.object)
+  count.set.object.resample <- estimateJunctionSeqSizeFactors(count.set.object.resample)
+
 
   # Generate test specific dispersion estimates and load into count.set.object
-  count.set.object <- estimateJunctionSeqDispersions(count.set.object, nCores = 40)
+  count.set.object.resample <- estimateJunctionSeqDispersions(count.set.object.resample, nCores = 50)
 
   # Fit the observed dispersions to a regression to create a fitted dispersion
-  count.set.object <- fitJunctionSeqDispersionFunction(count.set.object)
+  count.set.object.resample <- fitJunctionSeqDispersionFunction(count.set.object.resample)
 
-  # Perform the hypothesis tests to test for differential splice junction/exon usage (DEU)
-  count.set.object <- testForDiffUsage(count.set.object, nCores = 40)
+  # Perform the hypothesis tests to test or differential splice junction/exon usage (DEU)
+  count.set.object.resample  <- testForDiffUsage(count.set.object.resample , nCores = 50)
 
   # Calculate effect sizes and parameter estimates
-  count.set.object <- estimateEffectSizes(count.set.object)
+  count.set.object.resample <- estimateEffectSizes(count.set.object.resample)
 
   # Save output to file
-  setwd("/plas1/amardeep.singh/Ensembl.Dmel.Genome.Release/JunctionSeq.files/Resample.outputs")
-  output.prefix = paste0("April25_replicate.", i)
-  writeCompleteResults(count.set.object,
-                      outfile.prefix = output.prefix,
+  setwd("/plas1/amardeep.singh/Ensembl.Dmel.Genome.Release/JunctionSeq.files/ResampledData")
+  outputprefix = paste0("resample", i)
+  writeCompleteResults(count.set.object.resample,
+                      outfile.prefix = outputprefix,
                       gzip.output = TRUE,
                       FDR.threshold = 0.01,
                       save.allGenes = TRUE, save.sigGenes = TRUE,
@@ -97,4 +96,5 @@ for (i in 1:10) {
                       save.jscs = TRUE,
                       bedtrack.format = c("BED", "GTF", "GFF3"),
                       verbose = TRUE)
+  print(i)
 }

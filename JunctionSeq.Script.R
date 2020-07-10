@@ -59,6 +59,9 @@ java -Xmx10G -jar /plas1/amardeep.singh/apps/QoRTs-STABLE.jar mergeNovelSplices 
 /plas1/amardeep.singh/Ensembl.Dmel.Genome.Release/JunctionSeq.files/count.files
 
 # ---- R Code ----
+### NOTE: Junctonseq (as of July 2020) will require that you install an older version of DESeq2 (versio 1.10.1)
+##                https://www.bioconductor.org/packages/3.2/bioc/src/contrib/DESeq2_1.10.1.tar.gz
+
 require(DESeq2)
 require(JunctionSeq)
 require(BiocParallel) # This is a package used for paralellization of jobs
@@ -91,7 +94,7 @@ count.set.object <- readJunctionSeqCounts(countfiles = countFiles,
                                           samplenames = decoder.for.junctionseq$unique.ID,
                                           design = design.df,
                                           flat.gff.file = "/plas1/amardeep.singh/Ensembl.Dmel.Genome.Release/JunctionSeq.files/count.files/body.only.replicate.1/withNovel.forJunctionSeq.gff.gz",
-                                          nCores = 40,
+                                          nCores = 50,
                                           verbose = TRUE)
 
 # Generate size factors for normalization and load them into the count.set.object
@@ -142,6 +145,91 @@ writeCompleteResults(jscs, "April23",
 
 ## JunctionSeq resample procedure
 # What I want to do here is to take half of my samples and replace the male and female description and then run the analysis on all 16
+
+rm(list=ls())
+# Loading in decoder file
+decoder <- read.table("/plas1/amardeep.singh/Ensembl.Dmel.Genome.Release/JunctionSeq.files/QoRTs.decoder.file.for.JunctionSeq.txt", header = TRUE, stringsAsFactors = FALSE)
+# Here I am subsetting only the samples that I want to use (for this analysis I started just with body tissue and only a single female replicate)
+decoder.for.junctionseq <- decoder[!(grepl("head|replicate.2", decoder$unique.ID)),]
+
+## Resampleling  decoder file
+# Add a unique ID value to each genotype
+decoder.for.junctionseq$ID.for.sampling = rep(1:18, times = 1, each = 2)
+# Add an empty resample sex column
+decoder.for.junctionseq$resampled.sex = decoder.for.junctionseq$sex
+
+# Resample half of the unique IDs to reassign sex
+resampled.ID = sample(decoder.for.junctionseq$ID.for.sampling, 9, replace = FALSE, prob = NULL)
+
+# Replace sex for resampled IDs
+decoder.for.junctionseq[, "ID.for.sampling"] %in% resampled.ID =
+
+#Providing the directory for the count files:
+countFiles <- paste0("/plas1/amardeep.singh/Ensembl.Dmel.Genome.Release/JunctionSeq.files/count.files/body.only.replicate.1/", decoder.for.junctionseq$unique.ID, "/QC.spliceJunctionAndExonCounts.withNovel.forJunctionSeq.txt.gz")
+
+# Resample decoder file
+
+###  Run the differential exon usage (DEU) analysis
+
+# Creast a design dataframe which has a column for the condition you are testng (This will need to change when adding factors not sure how yet)
+design.df <- data.frame(condition = factor(decoder.for.junctionseq$sex))
+
+# Building the count set object that JunctionSeq will analyze and add to it all of the parameters of the analysis
+count.set.object <- readJunctionSeqCounts(countfiles = countFiles,
+                                          samplenames = decoder.for.junctionseq$unique.ID,
+                                          design = design.df,
+                                          flat.gff.file = "/plas1/amardeep.singh/Ensembl.Dmel.Genome.Release/JunctionSeq.files/count.files/body.only.replicate.1/withNovel.forJunctionSeq.gff.gz",
+                                          nCores = 50,
+                                          verbose = TRUE)
+
+# Generate size factors for normalization and load them into the count.set.object
+count.set.object <- estimateJunctionSeqSizeFactors(count.set.object)
+
+# Generate test specific dispersion estimates and load into count.set.object
+count.set.object <- estimateJunctionSeqDispersions(count.set.object, nCores = 40)
+
+# Fit the observed dispersions to a regression to create a fitted dispersion
+count.set.object <- fitJunctionSeqDispersionFunction(count.set.object)
+
+# Perform the hypothesis tests to test for differential splice junction/exon usage (DEU)
+count.set.object <- testForDiffUsage(count.set.object, nCores = 40)
+
+# Calculate effect sizes and parameter estimates
+count.set.object <- estimateEffectSizes(count.set.object)
+
+# Save output to file
+writeCompleteResults(count.set.object, "April23",
+                    gzip.output = TRUE,
+                    FDR.threshold = 0.01,
+                    save.allGenes = TRUE, save.sigGenes = TRUE,
+                    save.fit = FALSE, save.VST = FALSE,
+                    save.bedTracks = TRUE,
+                    save.jscs = TRUE,
+                    bedtrack.format = c("BED", "GTF", "GFF3"),
+                    verbose = TRUE)
+
+# This function will run is a wrapper for the above functions
+jscs <- runJunctionSeqAnalyses(sample.files = countFiles,
+                               sample.names = decoder.for.junctionseq$unique.ID,
+                               condition = decoder.for.junctionseq$sex,
+                               flat.gff.file = "/plas1/amardeep.singh/Ensembl.Dmel.Genome.Release/JunctionSeq.files/count.files/body.only.replicate.1/withNovel.forJunctionSeq.gff.gz",
+                               nCores = 40,
+                               verbose=TRUE,
+                               debug.mode = TRUE )
+# Save output to file
+writeCompleteResults(jscs, "April23",
+                     gzip.output = TRUE,
+                     FDR.threshold = 0.01,
+                     save.allGenes = TRUE, save.sigGenes = TRUE,
+                     save.fit = FALSE, save.VST = FALSE,
+                     save.bedTracks = TRUE,
+                     save.jscs = TRUE,
+                     bedtrack.format = c("BED", "GTF", "GFF3"),
+                     verbose = TRUE)
+
+
+
+
 
 for (i in 1:10){
   jscs <- runJunctionSeqAnalyses(sample.files = countFiles,

@@ -43,6 +43,10 @@ countFiles <- paste0("/plas1/amardeep.singh/Ensembl.Dmel.Genome.Release/Junction
 
 
 for (i in 1:10) {
+  rm(decoder.for.junctionseq.resample)
+  rm(design.df.resample)
+  rm(count.set.object.resample)
+
   male.rows.sample <- sample(x = (decoder.for.junctionseq[decoder.for.junctionseq$sex == "male", ])$index,,
                             size = (nrow(decoder.for.junctionseq) / 4),
                             replace = FALSE)
@@ -84,7 +88,7 @@ for (i in 1:10) {
   count.set.object.resample <- estimateEffectSizes(count.set.object.resample)
 
   # Save output to file
-  setwd("/plas1/amardeep.singh/Ensembl.Dmel.Genome.Release/JunctionSeq.files/ResampledData")
+  setwd("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/ResampledData")
   outputprefix = paste0("resample", i)
   writeCompleteResults(count.set.object.resample,
                       outfile.prefix = outputprefix,
@@ -98,3 +102,53 @@ for (i in 1:10) {
                       verbose = TRUE)
   print(i)
 }
+
+jseq.allgenes.resampled.1 = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/ResampledData/ResultsFiles/resample1allGenes.results.txt", header = TRUE)
+jseq.allgenes.resampled.2 = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/ResampledData/ResultsFiles/resample2allGenes.results.txt", header = TRUE)
+jseq.allgenes.resampled.3 = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/ResampledData/ResultsFiles/resample3allGenes.results.txt", header = TRUE)
+jseq.allgenes.resampled.4 = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/ResampledData/ResultsFiles/resample4allGenes.results.txt", header = TRUE)
+jseq.allgenes.resampled.5 = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/ResampledData/ResultsFiles/resample5allGenes.results.txt", header = TRUE)
+jseq.allgenes.resampled.6 = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/ResampledData/ResultsFiles/resample6allGenes.results.txt", header = TRUE)
+jseq.allgenes.resampled.7 = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/ResampledData/ResultsFiles/resample7allGenes.results.txt", header = TRUE)
+jseq.allgenes.resampled.8 = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/ResampledData/ResultsFiles/resample8allGenes.results.txt", header = TRUE)
+jseq.allgenes.resampled.9 = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/ResampledData/ResultsFiles/resample9allGenes.results.txt", header = TRUE)
+jseq.allgenes.resampled.10 = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/ResampledData/ResultsFiles/resample10allGenes.results.txt", header = TRUE)
+
+par(mfrow = c(3,4))
+hist(jseq.allgenes.resampled.1$pvalue)
+hist(jseq.allgenes.resampled.2$pvalue)
+hist(jseq.allgenes.resampled.3$pvalue)
+hist(jseq.allgenes.resampled.4$pvalue)
+hist(jseq.allgenes.resampled.5$pvalue)
+hist(jseq.allgenes.resampled.6$pvalue)
+hist(jseq.allgenes.resampled.7$pvalue)
+hist(jseq.allgenes.resampled.8$pvalue)
+hist(jseq.allgenes.resampled.9$pvalue)
+hist(jseq.allgenes.resampled.10$pvalue)
+
+par(mfrow = c(3,4))
+hist(jseq.allgenes.resampled.1$padjust)
+hist(jseq.allgenes.resampled.2$padjust)
+hist(jseq.allgenes.resampled.3$padjust)
+hist(jseq.allgenes.resampled.4$padjust)
+hist(jseq.allgenes.resampled.5$padjust)
+hist(jseq.allgenes.resampled.6$padjust)
+hist(jseq.allgenes.resampled.7$padjust)
+hist(jseq.allgenes.resampled.8$padjust)
+hist(jseq.allgenes.resampled.9$padjust)
+hist(jseq.allgenes.resampled.10$padjust)
+
+resample9allGenes.results.txt.gz
+
+
+
+
+
+
+
+
+
+
+
+
+#

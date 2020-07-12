@@ -1,4 +1,5 @@
-# I downloaded fastq files from the following ftp server
+# I downloaded fastq files from the following ftp server for the following citation:
+# Osada et al. 2017. Genetics. 206(4): 2139–2148
 # ftp://ftp.ddbj.nig.ac.jp/ddbj_database/dra/fastq/DRA002/DRA002265/*
 
 # The files downloaded were metadata files for the experiment/samples and fastq files. I'm a bit confused on the aliases used to name the files

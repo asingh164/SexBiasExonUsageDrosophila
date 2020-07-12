@@ -1,0 +1,128 @@
+#
+#####################################################################
+######        Sliding Window Based Tajima's D Analysis         ######
+#####################################################################
+
+### This is a script that will calculate Tajima's D in a sliding window in the DPGP3
+## Author: Amardeep Singh -- amardeep.singh[at]utoronto.ca
+## This script makes use of publicly available sequence data for the DPGP3 population
+
+##   NOTES: Most of this script is written in Bash, except where indicated when I have included R code
+
+#######################
+###  Obtaining data ###
+#######################
+# Obtain "consensus sequences" for the 197 DGPG3 haploid genomes from John Pool's website
+wget http://pooldata.genetics.wisc.edu/dpgp3_sequences.tar.bz2
+# Obtain the code provided for filtering the sequences from John Pool's website
+wget http://johnpool.net/masking.zip
+##
+
+################################################
+### Prepare a Multi-fasta file for SNP-Sites ###
+################################################
+
+## This code was run on all chromosome arms separately that were in unique directories per chromosome arm
+#After unpacking the sequence files for each chromosome I ran filtering steps
+# Filter for masked sites in highly related individuals (IBD)
+perl ibd_mask_seq.pl
+# Filter for admixture
+perl admixture_mask_seq.pl
+### NOTE: After running the filters above:
+# Take filtered .seq files and add unique header to SNP-Sites and change the
+# file extension to .fasta
+for file in *seq; do awk 'BEGIN{print ">'$file'"}1' $file > $file.fasta; done;
+### ZI382 X Chr sequence was missing and ZI28 had an extra nucleotide for the X chromosome sequence so these two were removed
+rm ZI28_Chr*.fasta
+rm ZI382_Chr*.fasta
+
+# Concatenate all .fasta files and zip the resultant file to save space and then
+# pass this file on to SNP-sites
+
+cat *.fasta > ChrX.fas
+##
+
+########################################################################
+### Making VCF files from multi-alignment fasta files with SNP-sites ###
+########################################################################
+
+snp-sites -v -o ChrX.vcf ChrX.fas &
+snp-sites -v -o Chr2L.vcf Chr2L.fas &
+snp-sites -v -o Chr2R.vcf Chr2R.fas &
+snp-sites -v -o Chr3L.vcf Chr3L.fas &
+snp-sites -v -o Chr3R.vcf Chr3R.fas &
+
+# Remove headers from vcf files
+sed -i '/^##/d' *.vcf
+
+############################################
+### Convert SNP-sits VCF to "Normal VCF" ###    ## I forked this code form Ruzicka et al 2019 PLoS Bio
+############################################
+
+----- R code -----
+
+## Modify VCF for Tajima's D analysis (r5 coordinates + remove positions where depth<20)
+## Same procedure is applied for each chromosome arm in each population
+
+## Import vcf file of interest
+vcf <- read.table("/Volumes/Time_Machine_Backups/nexus_originals/dgrp_sequences/dgrp_Chr2L/vcf/vcf_without_reference/r5/original/r5.vcf")
+
+#Sanity check
+#plot(rownames(vcf),vcf$V2)
+
+#Three possible types of acceptable allele
+
+#No missing values
+type1 <- c("A","T","G","C")
+part1 <- subset(vcf,V5 %in% type1)
+part1[part1==1] <- "1/1"
+part1[part1==0] <- "0/0"
+
+#Missing value = 2
+type2 <- c("A,*","T,*","G,*","C,*")
+part2 <- subset(vcf,V5 %in% type2)
+part2[part2==2] <- "./."
+part2[part2==1] <- "1/1"
+part2[part2==0] <- "0/0"
+part2$V5 <- ifelse(part2$V5=="A,*","A",ifelse(part2$V5=="T,*","T",ifelse(part2$V5=="C,*","C",ifelse(part2$V5=="G,*","G",NA))))
+
+#Missing value = 1
+type3 <- c("*,A","*,T","*,G","*,C")
+part3 <- subset(vcf,V5 %in% type3)
+part3[part3==2] <- "1/1"
+part3[part3==1] <- "./."
+part3[part3==0] <- "0/0"
+part3$V5 <- ifelse(part3$V5=="*,A","A",ifelse(part3$V5=="*,T","T",ifelse(part3$V5=="*,C","C",ifelse(part3$V5=="*,G","G",NA))))
+
+#Rbind parts 1,2,3
+vcf <- rbind(part1,part2,part3)
+#Transform position column to numeric
+vcf$V2 <- as.numeric(vcf$V2)
+#Order by position column
+vcf <- vcf[order(vcf$V2),]
+#Replace chromosome column with 1
+vcf$V1 <- 1
+#Filter for depth (DP>19)
+vcf <- subset(vcf,rowCounts(vcf[,10:ncol(vcf)]!="./.")>19)
+vcf$V2 <- format(vcf$V2,scientific=F)
+
+write.table(vcf,"/Volumes/Time_Machine_Backups/nexus_originals/dgrp_sequences/dgrp_Chr2L/vcf/vcf_without_reference/r5/modified/body.vcf",sep="\t",row.names = F,quote=F,col.names=F)
+
+rm(vcf)
+rm(part1)
+rm(part2)
+rm(part3)
+
+----- /R code -----
+
+## Concatenate
+grep '^#' r5.vcf > header.vcf; cat header.vcf body.vcf > r5/r5_modified.vcf; rm body.vcf; rm header.vcf;
+
+
+
+
+
+
+
+
+#

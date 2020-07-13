@@ -1,7 +1,7 @@
 #
-#####################################################################
-######        Sliding Window Based Tajima's D Analysis         ######
-#####################################################################
+##########################################
+######      Tajima's D Analysis     ######
+##########################################
 
 ### This is a script that will calculate Tajima's D in a sliding window in the DPGP3
 ## Author: Amardeep Singh -- amardeep.singh[at]utoronto.ca
@@ -59,28 +59,32 @@ sed -i '/^##/d' *.vcf
 ### Convert SNP-sits VCF to "Normal VCF" ###    ## I forked this code form Ruzicka et al 2019 PLoS Bio
 ############################################
 
------ R code -----
+#----- R code -----
+require(matrixStats)
 
 ## Modify VCF for Tajima's D analysis (r5 coordinates + remove positions where depth<20)
-## Same procedure is applied for each chromosome arm in each population
 
-## Import vcf file of interest
-vcf <- read.table("/Volumes/Time_Machine_Backups/nexus_originals/dgrp_sequences/dgrp_Chr2L/vcf/vcf_without_reference/r5/original/r5.vcf")
+## Import vcf files of interest ## Need to change these two depending on the specific file
+chr.vcf <- read.table("/plas1/amardeep.singh/RNA.Seq.Data/DPGP3.Genomic.Data/Chr3L.vcf")
+print("Chromosome Loaded!")
+output.name = "chr.3L"
+chr.number = "3L"
 
 #Sanity check
-#plot(rownames(vcf),vcf$V2)
+#plot(rownames(test.vcf),test.vcf$V2)
 
 #Three possible types of acceptable allele
-
 #No missing values
 type1 <- c("A","T","G","C")
-part1 <- subset(vcf,V5 %in% type1)
+part1 <- subset(chr.vcf,V5 %in% type1)
+if (nrow(part1) > 0) {
 part1[part1==1] <- "1/1"
 part1[part1==0] <- "0/0"
+} else {print("Nothing in Part 1!")}
 
 #Missing value = 2
 type2 <- c("A,*","T,*","G,*","C,*")
-part2 <- subset(vcf,V5 %in% type2)
+part2 <- subset(chr.vcf,V5 %in% type2)
 part2[part2==2] <- "./."
 part2[part2==1] <- "1/1"
 part2[part2==0] <- "0/0"
@@ -88,7 +92,7 @@ part2$V5 <- ifelse(part2$V5=="A,*","A",ifelse(part2$V5=="T,*","T",ifelse(part2$V
 
 #Missing value = 1
 type3 <- c("*,A","*,T","*,G","*,C")
-part3 <- subset(vcf,V5 %in% type3)
+part3 <- subset(chr.vcf,V5 %in% type3)
 part3[part3==2] <- "1/1"
 part3[part3==1] <- "./."
 part3[part3==0] <- "0/0"
@@ -101,12 +105,12 @@ vcf$V2 <- as.numeric(vcf$V2)
 #Order by position column
 vcf <- vcf[order(vcf$V2),]
 #Replace chromosome column with 1
-vcf$V1 <- 1
+vcf$V1 <- chr.number
 #Filter for depth (DP>19)
 vcf <- subset(vcf,rowCounts(vcf[,10:ncol(vcf)]!="./.")>19)
 vcf$V2 <- format(vcf$V2,scientific=F)
 
-write.table(vcf,"/Volumes/Time_Machine_Backups/nexus_originals/dgrp_sequences/dgrp_Chr2L/vcf/vcf_without_reference/r5/modified/body.vcf",sep="\t",row.names = F,quote=F,col.names=F)
+write.table(vcf, file = paste("/plas1/amardeep.singh/RNA.Seq.Data/DPGP3.Genomic.Data/", output.name, "_modified.vcf", sep = ""), sep="\t",row.names = F, quote=F, col.names=F)
 
 rm(vcf)
 rm(part1)
@@ -115,8 +119,17 @@ rm(part3)
 
 ----- /R code -----
 
-## Concatenate
-grep '^#' r5.vcf > header.vcf; cat header.vcf body.vcf > r5/r5_modified.vcf; rm body.vcf; rm header.vcf;
+## Concatenate all VCFs and add header ## I had generated this header previously
+cat chr.X_modified.vcf chr.2L_modified.vcf chr.2R_modified.vcf chr.3L_modified.vcf chr.3R_modified.vcf > DPGP3.filtered.vcf
+## Add header
+cat vcf.header DPGP3.filtered.vcf > tmp && mv tmp DPGP3.filtered.vcf
+
+#######################################
+###     Window Based Tajimas D      ###
+#######################################
+
+# This analysis was done with vcftools ## I did two different analysis, one with a window size of 1kb and one with a window size of 1bp (i.e. SNP level)
+vcftools --vcf DPGP3.filtered.vcf --TajimaD 1000 --out DPGP.1000bp.Windo
 
 
 ###################################################################
@@ -173,20 +186,11 @@ sig.tajimaD = tajimasD.data.sig.non.sig[tajimasD.data.sig.non.sig$hit == 1,]$Taj
 nonsig.tajimaD.resamples = sample(nonsig.tajimaD, 10000, replace = TRUE)
 sig.tajimaD.resamples = sample(sig.tajimaD, 10000, replace = TRUE)
 
-##################
-### PopGenome ###
-##################
-
-GENOME.class <- readVCF("/plas1/amardeep.singh/RNA.Seq.Data/PopGenome.Analysis/DPGP3.filtered.vcf.gz",numcols=100000,
-                        tid="1",from=1, to= 1000000000, approx=FALSE, out="", parallel=FALSE, gffpath=/plas1/amardeep.singh/Ensembl.Dmel.Genome.Release/gtf/)
 
 
 
 
 
-
-
-#
 
 
 

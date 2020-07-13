@@ -59,32 +59,28 @@ sed -i '/^##/d' *.vcf
 ### Convert SNP-sits VCF to "Normal VCF" ###    ## I forked this code form Ruzicka et al 2019 PLoS Bio
 ############################################
 
-#----- R code -----
-require(matrixStats)
+----- R code -----
 
 ## Modify VCF for Tajima's D analysis (r5 coordinates + remove positions where depth<20)
+## Same procedure is applied for each chromosome arm in each population
 
-## Import vcf files of interest ## Need to change these two depending on the specific file
-chr.vcf <- read.table("/plas1/amardeep.singh/RNA.Seq.Data/DPGP3.Genomic.Data/Chr3L.vcf")
-print("Chromosome Loaded!")
-output.name = "chr.3L"
-chr.number = "3L"
+## Import vcf file of interest
+vcf <- read.table("/Volumes/Time_Machine_Backups/nexus_originals/dgrp_sequences/dgrp_Chr2L/vcf/vcf_without_reference/r5/original/r5.vcf")
 
 #Sanity check
-#plot(rownames(test.vcf),test.vcf$V2)
+#plot(rownames(vcf),vcf$V2)
 
 #Three possible types of acceptable allele
+
 #No missing values
 type1 <- c("A","T","G","C")
-part1 <- subset(chr.vcf,V5 %in% type1)
-if (nrow(part1) > 0) {
+part1 <- subset(vcf,V5 %in% type1)
 part1[part1==1] <- "1/1"
 part1[part1==0] <- "0/0"
-} else {print("Nothing in Part 1!")}
 
 #Missing value = 2
 type2 <- c("A,*","T,*","G,*","C,*")
-part2 <- subset(chr.vcf,V5 %in% type2)
+part2 <- subset(vcf,V5 %in% type2)
 part2[part2==2] <- "./."
 part2[part2==1] <- "1/1"
 part2[part2==0] <- "0/0"
@@ -92,7 +88,7 @@ part2$V5 <- ifelse(part2$V5=="A,*","A",ifelse(part2$V5=="T,*","T",ifelse(part2$V
 
 #Missing value = 1
 type3 <- c("*,A","*,T","*,G","*,C")
-part3 <- subset(chr.vcf,V5 %in% type3)
+part3 <- subset(vcf,V5 %in% type3)
 part3[part3==2] <- "1/1"
 part3[part3==1] <- "./."
 part3[part3==0] <- "0/0"
@@ -105,12 +101,12 @@ vcf$V2 <- as.numeric(vcf$V2)
 #Order by position column
 vcf <- vcf[order(vcf$V2),]
 #Replace chromosome column with 1
-vcf$V1 <- chr.number
+vcf$V1 <- 1
 #Filter for depth (DP>19)
 vcf <- subset(vcf,rowCounts(vcf[,10:ncol(vcf)]!="./.")>19)
 vcf$V2 <- format(vcf$V2,scientific=F)
 
-write.table(vcf, file = paste("/plas1/amardeep.singh/RNA.Seq.Data/DPGP3.Genomic.Data/", output.name, "_modified.vcf", sep = ""), sep="\t",row.names = F, quote=F, col.names=F)
+write.table(vcf,"/Volumes/Time_Machine_Backups/nexus_originals/dgrp_sequences/dgrp_Chr2L/vcf/vcf_without_reference/r5/modified/body.vcf",sep="\t",row.names = F,quote=F,col.names=F)
 
 rm(vcf)
 rm(part1)
@@ -119,68 +115,8 @@ rm(part3)
 
 ----- /R code -----
 
-## Concatenate all VCFs and add header ## I had generated this header previously
-cat chr.X_modified.vcf chr.2L_modified.vcf chr.2R_modified.vcf chr.3L_modified.vcf chr.3R_modified.vcf > DPGP3.filtered.vcf
-## Add header
-cat vcf.header DPGP3.filtered.vcf > tmp && mv tmp DPGP3.filtered.vcf
-
-###################################################################
-### Intersect list of significant hits with Tajimas D estimates ###
-###################################################################
-
-## Format the Junctionseq output file into a BED file
-# Generate list of coordinates of exons that showed significant dimorphism -- This corresponds to fields 14-16 in the output from JunctionSeq
-cat April23sigGenes.results.txt | awk ' BEGIN {OFS = FS = "\t"} {print $14 "\t" $15 "\t" $16} ' > sigGenes.coordinates.bed
-# Remove header from file
-sed -i '/^chr/d' sigGenes.coordinates.bed
-
-## Format the DPGP3 Tajimas D file to a bed format
-cat DPGP3.filtered.Tajima.D | awk ' BEGIN {OFS = FS = "\t"} {print $1 "\t" $2 "\t" $2+999}' > DPGP3.filtered.Tajima.D.coordinates.bed
-# Remove header from file
-sed -i '/^CHROM/d ' DPGP3.filtered.Tajima.D.coordinates.bed
-
-## Intersect the Junctionseq significant hits bed file with the DPGP3 bed file
-# First, sort the bed files
-sort -k1,1 -k2,2n DPGP3.filtered.Tajima.D.coordinates.bed > DPGP3.filtered.Tajima.D.coordinates.sorted.bed
-sort -k1,1 -k2,2n sigGenes.coordinates.bed >sigGenes.coordinates.sorted.bed
-
-bedtools intersect -sorted -wa -a /plas1/amardeep.singh/RNA.Seq.Data/DPGP3.Genomic.Data/DPGP3.filtered.Tajima.D.coordinates.sorted.bed -b sigGenes.coordinates.sorted.bed > sig.windows.txt
-
-###################################################################
-###   Assign windows in in DPGP3 as containing sig hits or not  ###
-###################################################################
-
-# --- R Code ---
-# Read in Tajimas D data
-dpgp3.tajimaD = read.table("/plas1/amardeep.singh/RNA.Seq.Data/DPGP3.Genomic.Data/DPGP3.filtered.Tajima.D", sep = "\t", header = TRUE)
-# Read in significant windows file
-windows.sig.hits = read.table("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/sig.windows.txt", sep = "\t", header = FALSE)
-
-# Add unique ID column to both files
-dpgp3.tajimaD$ID = paste(dpgp3.tajimaD$CHROM, dpgp3.tajimaD$BIN_START, sep = ":")
-windows.sig.hits$ID = paste(windows.sig.hits$V1, windows.sig.hits$V2, sep = ":")
-# Filter out repeated windows in the 'windows.sig.hits' file
-windows.sig.hits.unique = unique(windows.sig.hits$ID)
-
-# Add a column to signify if the window contains an exon with significant SD in usage
-dpgp3.tajimaD$hit = NA
-dpgp3.tajimaD[dpgp3.tajimaD$ID %in% windows.sig.hits.unique,]$hit = 1
-dpgp3.tajimaD[!(dpgp3.tajimaD$ID %in% windows.sig.hits.unique),]$hit = 0
-
-
-
-boxplot = boxplot(tajimasD.data.sig.non.sig$TajimaD ~ tajimasD.data.sig.non.sig$hit)
-
-nonsig.tajimaD = tajimasD.data.sig.non.sig[tajimasD.data.sig.non.sig$hit == 0,]$TajimaD
-sig.tajimaD = tajimasD.data.sig.non.sig[tajimasD.data.sig.non.sig$hit == 1,]$TajimaD
-
-## Bootstrap tajimasD for both sig and nonsig
-nonsig.tajimaD.resamples = sample(nonsig.tajimaD, 10000, replace = TRUE)
-sig.tajimaD.resamples = sample(sig.tajimaD, 10000, replace = TRUE)
-
-############################
-### Gene-level Tajimas D ###
-############################
+## Concatenate
+grep '^#' r5.vcf > header.vcf; cat header.vcf body.vcf > r5/r5_modified.vcf; rm body.vcf; rm header.vcf;
 
 
 

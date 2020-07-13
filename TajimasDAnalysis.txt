@@ -119,6 +119,75 @@ rm(part3)
 grep '^#' r5.vcf > header.vcf; cat header.vcf body.vcf > r5/r5_modified.vcf; rm body.vcf; rm header.vcf;
 
 
+###################################################################
+### Intersect list of significant hits with Tajimas D estimates ###
+###################################################################
+
+## Format the Junctionseq output file into a BED file
+# Generate list of coordinates of exons that showed significant dimorphism -- This corresponds to fields 14-16 in the output from JunctionSeq
+cat April23sigGenes.results.txt | awk ' BEGIN {OFS = FS = "\t"} {print $14 "\t" $15 "\t" $16} ' > sigGenes.coordinates.bed
+# Remove header from file
+sed -i '/^chr/d' sigGenes.coordinates.bed
+
+## Format the DPGP3 Tajimas D file to a bed format
+cat DPGP3.filtered.Tajima.D | awk ' BEGIN {OFS = FS = "\t"} {print $1 "\t" $2 "\t" $2+999}' > DPGP3.filtered.Tajima.D.coordinates.bed
+# Remove header from file
+sed -i '/^CHROM/d ' DPGP3.filtered.Tajima.D.coordinates.bed
+
+## Intersect the Junctionseq significant hits bed file with the DPGP3 bed file
+# First, sort the bed files
+sort -k1,1 -k2,2n DPGP3.filtered.Tajima.D.coordinates.bed > DPGP3.filtered.Tajima.D.coordinates.sorted.bed
+sort -k1,1 -k2,2n sigGenes.coordinates.bed >sigGenes.coordinates.sorted.bed
+
+bedtools intersect -sorted -wa -a /plas1/amardeep.singh/RNA.Seq.Data/DPGP3.Genomic.Data/DPGP3.filtered.Tajima.D.coordinates.sorted.bed -b sigGenes.coordinates.sorted.bed > sig.windows.txt
+
+###################################################################
+###   Assign windows in in DPGP3 as containing sig hits or not  ###
+###################################################################
+
+# --- R Code ---
+# Read in Tajimas D data
+dpgp3.tajimaD = read.table("/plas1/amardeep.singh/RNA.Seq.Data/DPGP3.Genomic.Data/DPGP3.filtered.Tajima.D", sep = "\t", header = TRUE)
+# Read in significant windows file
+windows.sig.hits = read.table("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/sig.windows.txt", sep = "\t", header = FALSE)
+
+# Add unique ID column to both files
+dpgp3.tajimaD$ID = paste(dpgp3.tajimaD$CHROM, dpgp3.tajimaD$BIN_START, sep = ":")
+windows.sig.hits$ID = paste(windows.sig.hits$V1, windows.sig.hits$V2, sep = ":")
+# Filter out repeated windows in the 'windows.sig.hits' file
+windows.sig.hits.unique = unique(windows.sig.hits$ID)
+
+# Add a column to signify if the window contains an exon with significant SD in usage
+dpgp3.tajimaD$hit = NA
+dpgp3.tajimaD[dpgp3.tajimaD$ID %in% windows.sig.hits.unique,]$hit = 1
+dpgp3.tajimaD[!(dpgp3.tajimaD$ID %in% windows.sig.hits.unique),]$hit = 0
+
+
+
+boxplot = boxplot(tajimasD.data.sig.non.sig$TajimaD ~ tajimasD.data.sig.non.sig$hit)
+
+nonsig.tajimaD = tajimasD.data.sig.non.sig[tajimasD.data.sig.non.sig$hit == 0,]$TajimaD
+sig.tajimaD = tajimasD.data.sig.non.sig[tajimasD.data.sig.non.sig$hit == 1,]$TajimaD
+
+## Bootstrap tajimasD for both sig and nonsig
+nonsig.tajimaD.resamples = sample(nonsig.tajimaD, 10000, replace = TRUE)
+sig.tajimaD.resamples = sample(sig.tajimaD, 10000, replace = TRUE)
+
+##################
+### PopGenome ###
+##################
+
+GENOME.class <- readVCF("/plas1/amardeep.singh/RNA.Seq.Data/PopGenome.Analysis/DPGP3.filtered.vcf.gz",numcols=100000,
+                        tid="1",from=1, to= 1000000000, approx=FALSE, out="", parallel=FALSE, gffpath=/plas1/amardeep.singh/Ensembl.Dmel.Genome.Release/gtf/)
+
+
+
+
+
+
+
+#
+
 
 
 

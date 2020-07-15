@@ -3,6 +3,303 @@
 ######      Tajima's D Analysis     ######
 ##########################################
 
+### This is a script that will calculate Tajima's D in a sliding window in the DGRP
+## Author: Amardeep Singh -- amardeep.singh[at]utoronto.ca
+## This script makes use of publicly available sequence data for the DPGP3 population
+
+##   NOTES: Most of this script is written in Bash, except where indicated when I have included R code
+
+#######################
+###  Obtaining data ###
+#######################
+# Obtain "consensus sequences" for the 197 DGPG3 haploid genomes from John Pool's website
+wget http://pooldata.genetics.wisc.edu/dgrp_sequences.tar.bz2
+# Obtain the code provided for filtering the sequences from John Pool's website
+wget http://johnpool.net/masking.zip
+
+################################################
+### Prepare a Multi-fasta file for SNP-Sites ###
+################################################
+
+## This code was run on all chromosome arms separately that were in unique directories per chromosome arm
+#After unpacking the sequence files for each chromosome I ran filtering steps
+# Filter for masking sites in highly related individuals (IBD)
+perl ibd_mask_seq.pl
+# Filter for admixture
+perl admixture_mask_seq.pl
+
+### NOTE: After running the filters above:
+# Take filtered .seq files and add unique header to SNP-Sites and change the
+# file extension to .fasta
+for file in *seq; do awk 'BEGIN{print ">'$file'"}1' $file > $file.fasta; done;
+rm *.seq #Clean up intermediate files
+
+# Concatenate all .fasta files and zip the resultant file to save space and then
+# pass this file on to SNP-sites
+
+cat DGRP_ChrX/*.fasta > ChrX.fas &
+cat DGRP_Chr2L/*.fasta > Chr2L.fas &
+cat DGRP_Chr2R/*.fasta > Chr2R.fas &
+cat DGRP_Chr3L/*.fasta > Chr3L.fas &
+cat DGRP_Chr3R/*.fasta > Chr3R.fas &
+
+########################################################################
+### Making VCF files from multi-alignment fasta files with SNP-sites ###
+########################################################################
+
+# Making VCF files from .fas  multi-alignment files
+snp-sites -v -o ChrX.vcf ChrX.fas &
+snp-sites -v -o Chr2L.vcf Chr2L.fas &
+snp-sites -v -o Chr2R.vcf Chr2R.fas &
+snp-sites -v -o Chr3L.vcf Chr3L.fas &
+snp-sites -v -o Chr3R.vcf Chr3R.fas &
+
+# Remove headers from vcf files
+sed -i '/^##/d' *.vcf
+
+############################################
+### Convert SNP-sits VCF to "Normal VCF" ###    ## I forked this code form Ruzicka et al 2019 PLoS Bio
+############################################
+
+#----- R code -----
+require(matrixStats)
+
+## Modify VCF for Tajima's D analysis (r5 coordinates + remove positions where depth<20)
+
+## Import vcf files of interest ## Need to change these two depending on the specific file
+chr.vcf <- read.table("/plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/ChrX.vcf")
+print("Chromosome Loaded!")
+output.name = "chr.X"
+chr.number = "X"
+
+#Sanity check
+#plot(rownames(test.vcf),test.vcf$V2)
+
+#Three possible types of acceptable allele
+#No missing values
+type1 <- c("A","T","G","C")
+part1 <- subset(chr.vcf,V5 %in% type1)
+if (nrow(part1) > 0) {
+part1[part1==1] <- "1/1"
+part1[part1==0] <- "0/0"
+}
+
+#Missing value = 2
+type2 <- c("A,*","T,*","G,*","C,*")
+part2 <- subset(chr.vcf,V5 %in% type2)
+if (nrow(part2) > 0) {
+part2[part2==2] <- "./."
+part2[part2==1] <- "1/1"
+part2[part2==0] <- "0/0" }
+part2$V5 <- ifelse(part2$V5=="A,*","A",ifelse(part2$V5=="T,*","T",ifelse(part2$V5=="C,*","C",ifelse(part2$V5=="G,*","G",NA))))
+
+
+#Missing value = 1
+type3 <- c("*,A","*,T","*,G","*,C")
+part3 <- subset(chr.vcf,V5 %in% type3)
+if (nrow(part3) > 0) {
+part3[part3==2] <- "1/1"
+part3[part3==1] <- "./."
+part3[part3==0] <- "0/0"
+part3$V5 <- ifelse(part3$V5=="*,A","A",ifelse(part3$V5=="*,T","T",ifelse(part3$V5=="*,C","C",ifelse(part3$V5=="*,G","G",NA))))
+} else {print("Nothing in Part 1!")}
+
+#Rbind parts 1,2,3
+vcf <- rbind(part1,part2,part3)
+#Transform position column to numeric
+vcf$V2 <- as.numeric(vcf$V2)
+#Order by position column
+vcf <- vcf[order(vcf$V2),]
+#Replace chromosome column with 1
+vcf$V1 <- chr.number
+#Filter for depth (DP>19)
+vcf <- subset(vcf,rowCounts(vcf[,10:ncol(vcf)]!="./.")>19)
+vcf$V2 <- format(vcf$V2,scientific=F)
+
+write.table(vcf, file = paste("/plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/", output.name, "_modified.vcf", sep = ""), sep="\t",row.names = F, quote=F, col.names=F)
+
+rm(list=ls())
+
+----- /R code -----
+
+## Concatenate all VCFs and add header ## I had generated this header previously
+cat chr.X_modified.vcf chr.2L_modified.vcf chr.2R_modified.vcf chr.3L_modified.vcf chr.3R_modified.vcf > DGRP.filtered.vcf
+## Add header
+cat vcf.header DGRP.filtered.vcf > tmp && mv tmp DGRP.filtered.vcf
+
+#######################################
+###     Window Based Tajimas D      ###
+#######################################
+
+# This analysis was done with vcftools ## I did two different analysis, one with a window size of 1kb and one with a window size of 1bp (i.e. SNP level)
+vcftools --vcf DGRP.filtered.vcf --TajimaD 1000 --out DGRP.1000bp.Window & ## this generates estimates of Tajimas D in windows of 1000bp
+vcftools --vcf DGRP.filtered.vcf --TajimaD 1 --out DGRP.SNP.Level &  ## This generates estimates of Tajimas D at the SNP level
+# Clean out sites without any SNPs to estimates Tajima's D
+sed -i '/nan/d' DGRP.1000bp.Window.Tajima.D
+sed -i '/nan/d' DGRP.SNP.Level.Tajima.D
+
+
+##########################################################
+### Intersect list of significant hits with Tajimas D  ###
+##########################################################
+
+#### WINDOW BASED ANALYSIS ####
+
+## Format the Junctionseq output file into a BED file
+# Generate list of coordinates of exons that showed significant dimorphism -- This corresponds to fields 14-16 in the output from JunctionSeq
+cat April23sigGenes.results.txt | awk ' BEGIN {OFS = FS = "\t"} {print $14 "\t" $15 "\t" $16} ' > sigGenes.coordinates.bed
+# Remove header from file
+sed -i '/^chr/d' sigGenes.coordinates.bed
+
+## Format the DGRP Tajimas D file to a bed format
+cat DGRP.1000bp.Window.Tajima.D | awk ' BEGIN {OFS = FS = "\t"} {print $1 "\t" $2 "\t" $2+999}' > DGRP.1000bp.Window.Tajima.D.coordinates.bed
+# Remove header from file
+sed -i '/^CHROM/d ' DGRP.1000bp.Window.Tajima.D.coordinates.bed
+
+## Intersect the Junctionseq significant hits bed file with the DPGP3 bed file
+# First, sort the bed files
+sort -k1,1 -k2,2n DGRP.1000bp.Window.Tajima.D.coordinates.bed > DGRP.1000bp.Window.Tajima.D.coordinates.sorted.bed
+sort -k1,1 -k2,2n sigGenes.coordinates.bed >sigGenes.coordinates.sorted.bed
+
+bedtools intersect -sorted -wa -a /plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.1000bp.Window.Tajima.D.coordinates.sorted.bed -b /plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/sigGenes.coordinates.sorted.bed > sig.windows.DGRP.txt
+
+#########
+
+#### SNP LEVEL ANALYSIS ####
+# Sort the DGRP file
+# Format the DPGP3 Tajimas D file to a bed format
+cat DGRP.SNP.Level.Tajima.D | awk ' BEGIN {OFS = FS = "\t"} {print $1 "\t" $2 "\t" $2+1 "\t" $4}' > DGRP.SNP.Level.Tajima.D.coordinates.bed
+# Remove header from file
+sed -i '/^CHROM/d ' DGRP.SNP.Level.Tajima.D.coordinates.bed
+
+## Intersect the Junctionseq significant hits bed file with the DPGP3 bed file
+# First, sort the bed files
+sort -k1,1 -k2,2n DGRP.SNP.Level.Tajima.D.coordinates.bed > DGRP.SNP.Level.Tajima.D.coordinates.sorted.bed
+
+
+# Take list of SNPs and intersect it with a GFF to find out which genes each SNP belongs to (if they fall in coding regions at all)
+
+bedtools intersect -wa -wb -a /plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.SNP.Level.Tajima.D.coordinates.sorted.bed -b /plas1/amardeep.singh/Flybase.Dmel.Genome.Release/gtf/dmel-all-r6.32.filtered.gtf > DGRP.SNP.Level.Intersect.Output
+
+## Remove duplicate records
+cat DGRP.SNP.Level.Intersect.Output | sort -u -s -k1,2 > DGRP.SNP.Level.Intersect.Filtered.Output
+
+# Redirect the fields of interest
+cat DGRP.SNP.Level.Intersect.Filtered.Output | awk 'BEGIN { OFS = FS = "\t" } { print $1 "\t" $2 "\t" $4 "\t" substr($13, 10,11)}' > DGRP.SNP.Level.Intersect.Filtered.Output.formatted
+
+# --- R Code ---
+# Now we are going to calculate the Tajima's D for each gene, averaged across all SNPs in a gene
+
+DGRP.data = read.table("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/DGRP.Intersect/DGRP.SNP.Level.Intersect.Filtered.Output.formatted", sep = "\t", header = FALSE)
+tajimasD.per.gene = aggregate(DGRP.data[, "V3"], list(DGRP.data$V4), mean)
+write.table(tajimasD.per.gene, "/plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.TajimasD.Per.Gene", sep = "\t", quote = F, row.name = F, col.name = F)
+#\--- R CODE ---
+
+###################################################################
+###           WINDOW BASED ANALYSIS -- Assigning Hits           ###
+###################################################################
+
+# --- R Code ---
+# Read in Tajimas D data
+DGRP.tajimaD = read.table("/plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.1000bp.Window.Tajima.D", sep = "\t", header = TRUE)
+# Read in significant windows file
+windows.sig.hits = read.table("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/sig.windows.DGRP.txt", sep = "\t", header = FALSE)
+
+# Add unique ID column to both files
+DGRP.tajimaD$ID = paste(DGRP.tajimaD$CHROM, DGRP.tajimaD$BIN_START, sep = ":")
+windows.sig.hits$ID = paste(windows.sig.hits$V1, windows.sig.hits$V2, sep = ":")
+# Filter out repeated windows in the 'windows.sig.hits' file
+windows.sig.hits.unique = unique(windows.sig.hits$ID)
+
+# Add a column to signify if the window contains an exon with significant SD in usage
+DGRP.tajimaD$hit = NA
+DGRP.tajimaD[DGRP.tajimaD$ID %in% windows.sig.hits.unique,]$hit = 1
+DGRP.tajimaD[!(DGRP.tajimaD$ID %in% windows.sig.hits.unique),]$hit = 0
+
+
+# \--- R Code ---
+###################################################################
+###             SNP LEVEL ANALYSIS -- Assigning Hits            ###
+###################################################################
+
+# --- R Code ---
+# Loading in data files
+# Read in JunctionSeq results
+junctionseq.results = read.table("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/April23allGenes.results.txt", header = TRUE, sep = "\t")
+# Read in Tajimas D per gene results
+tajimasD.per.gene = read.table("/plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.TajimasD.Per.Gene", header = FALSE, sep = "\t")
+# Rename the Tajima's D column
+colnames(tajimasD.per.gene)[2] = "TajimasD"
+
+# Cleaning up junctionseq file
+# Remove any sites that were not tested
+junctionseq.results = junctionseq.results[!(is.na(junctionseq.results$pvalue)),]
+# Lets remove any rows where the expr in males or females is less than 10
+junctionseq.results.filtered = junctionseq.results[junctionseq.results$expr_male < 10,]
+junctionseq.results.filtered = junctionseq.results.filtered[junctionseq.results.filtered$expr_female < 10,]
+
+# Merge the two data files
+junctionseq.results.merged = merge(junctionseq.results.filtered, tajimasD.per.gene, by.x = "geneID", by.y = "V1", sort = FALSE)
+
+junctionseq.results.merged = junctionseq.results.merged[, c(1,25,26)]
+junctionseq.results.merged = junctionseq.results.merged[!duplicated(test[1:3]),]
+
+# Assign significant hits
+junctionseq.results.merged$sig.hit = NA
+junctionseq.results.merged$sig.hit[junctionseq.results.merged$geneWisePadj <= 0.01] = 1
+junctionseq.results.merged$sig.hit[!(junctionseq.results.merged$geneWisePadj <= 0.01)] = 0
+
+# Collapse duplicates
+junctionseq.results.merged.unique = unique(junctionseq.results.merged)
+
+# Bootstrap intervals for mean Tajima's D
+# Sig hits
+sig.hits = vector(mode = "numeric", length = 10000)
+nonsig.hits = vector(mode = "numeric", length = 10000)
+
+for (i in 1:10000) {
+  sig.hits[i] = mean(sample(junctionseq.results.merged.unique$TajimasD[junctionseq.results.merged.unique$sig.hit == 1], 3035, replace = TRUE))
+  nonsig.hits[i] = mean(sample(junctionseq.results.merged.unique$TajimasD[junctionseq.results.merged.unique$sig.hit == 0], 4031, replace = TRUE))
+}
+quantile(sig.hits, c(0.05,0.95))
+quantile(nonsig.hits, c(0.05,0.95))
+
+## Plot
+
+
+plot()
+boxplot[test2$Tajimas]
+boxplot = boxplot(tajimasD.data.sig.non.sig$TajimaD ~ tajimasD.data.sig.non.sig$hit)
+
+nonsig.tajimaD = tajimasD.data.sig.non.sig[tajimasD.data.sig.non.sig$hit == 0,]$TajimaD
+sig.tajimaD = tajimasD.data.sig.non.sig[tajimasD.data.sig.non.sig$hit == 1,]$TajimaD
+
+## Bootstrap tajimasD for both sig and nonsig
+nonsig.tajimaD.resamples = sample(nonsig.tajimaD, 10000, replace = TRUE)
+sig.tajimaD.resamples = sample(sig.tajimaD, 10000, replace = TRUE)
+
+
+
+
+
+
+
+
+
+
+
+
+
+#
+
+
+
+
+
+##########################################
+######      Tajima's D Analysis     ######
+##########################################
+
 ### This is a script that will calculate Tajima's D in a sliding window in the DPGP3
 ## Author: Amardeep Singh -- amardeep.singh[at]utoronto.ca
 ## This script makes use of publicly available sequence data for the DPGP3 population
@@ -129,12 +426,18 @@ cat vcf.header DPGP3.filtered.vcf > tmp && mv tmp DPGP3.filtered.vcf
 #######################################
 
 # This analysis was done with vcftools ## I did two different analysis, one with a window size of 1kb and one with a window size of 1bp (i.e. SNP level)
-vcftools --vcf DPGP3.filtered.vcf --TajimaD 1000 --out DPGP.1000bp.Windo
+vcftools --vcf DPGP3.filtered.vcf --TajimaD 1000 --out DPGP3.1000bp.Window ## this generates estimates of Tajimas D in windows of 1000bp
+vcftools --vcf DPGP3.filtered.vcf --TajimaD 1 --out DPGP3.SNP.Level   ## This generates estimates of Tajimas D at the SNP level
+# Clean out sites without any SNPs to estimates Tajima's D
+sed -i '/nan/d' DPGP3.1000bp.Window.Tajima.D
+sed -i '/nan/d' DPGP3.SNP.Level.Tajima.D
 
 
-###################################################################
-### Intersect list of significant hits with Tajimas D estimates ###
-###################################################################
+##########################################################
+### Intersect list of significant hits with Tajimas D  ###
+##########################################################
+
+#### WINDOW BASED ANALYSIS ####
 
 ## Format the Junctionseq output file into a BED file
 # Generate list of coordinates of exons that showed significant dimorphism -- This corresponds to fields 14-16 in the output from JunctionSeq
@@ -143,19 +446,54 @@ cat April23sigGenes.results.txt | awk ' BEGIN {OFS = FS = "\t"} {print $14 "\t" 
 sed -i '/^chr/d' sigGenes.coordinates.bed
 
 ## Format the DPGP3 Tajimas D file to a bed format
-cat DPGP3.filtered.Tajima.D | awk ' BEGIN {OFS = FS = "\t"} {print $1 "\t" $2 "\t" $2+999}' > DPGP3.filtered.Tajima.D.coordinates.bed
+cat DPGP3.1000bp.Window.Tajima.D | awk ' BEGIN {OFS = FS = "\t"} {print $1 "\t" $2 "\t" $2+999}' > DPGP3.1000bp.Window.Tajima.D.coordinates.bed
 # Remove header from file
-sed -i '/^CHROM/d ' DPGP3.filtered.Tajima.D.coordinates.bed
+sed -i '/^CHROM/d ' DPGP3.1000bp.Window.Tajima.D.coordinates.bed
 
 ## Intersect the Junctionseq significant hits bed file with the DPGP3 bed file
 # First, sort the bed files
-sort -k1,1 -k2,2n DPGP3.filtered.Tajima.D.coordinates.bed > DPGP3.filtered.Tajima.D.coordinates.sorted.bed
+sort -k1,1 -k2,2n DPGP3.1000bp.Window.Tajima.D.coordinates.bed > DPGP3.1000bp.Window.Tajima.D.coordinates.sorted.bed
 sort -k1,1 -k2,2n sigGenes.coordinates.bed >sigGenes.coordinates.sorted.bed
 
-bedtools intersect -sorted -wa -a /plas1/amardeep.singh/RNA.Seq.Data/DPGP3.Genomic.Data/DPGP3.filtered.Tajima.D.coordinates.sorted.bed -b sigGenes.coordinates.sorted.bed > sig.windows.txt
+bedtools intersect -sorted -wa -a /plas1/amardeep.singh/RNA.Seq.Data/DPGP3.Genomic.Data/DPGP3.1000bp.Window.Tajima.D.coordinates.sorted.bed -b sigGenes.coordinates.sorted.bed > sig.windows.txt
+
+#########
+
+#### SNP LEVEL ANALYSIS ####
+# Sort the DPGP3 file
+# Format the DPGP3 Tajimas D file to a bed format
+cat DPGP3.SNP.Level.Tajima.D | awk ' BEGIN {OFS = FS = "\t"} {print $1 "\t" $2 "\t" $2+1 "\t" $4}' > DPGP3.SNP.Level.Tajima.D.coordinates.bed
+# Remove header from file
+sed -i '/^CHROM/d ' DPGP3.SNP.Level.Tajima.D.coordinates.bed
+
+## Intersect the Junctionseq significant hits bed file with the DPGP3 bed file
+# First, sort the bed files
+sort -k1,1 -k2,2n DPGP3.SNP.Level.Tajima.D.coordinates.bed > DPGP3.SNP.Level.Tajima.D.coordinates.sorted.bed
+
+
+What I want to do is take my list of SNPs and intersect it with a GFF to find out which genes each SNP belongs to (if they fall in coding regions at all)
+/plas1/amardeep.singh/Flybase.Dmel.Genome.Release/gtf
+
+bedtools intersect -wa -wb -a /plas1/amardeep.singh/RNA.Seq.Data/DPGP3.Genomic.Data/DPGP3.SNP.Level.Tajima.D.coordinates.sorted.bed
+  \ -b /plas1/amardeep.singh/Flybase.Dmel.Genome.Release/gtf/dmel-all-r6.32.filtered.gtf > DPGP3.SNP.Level.Intersect.Output
+
+## Remove duplicate records
+cat DPGP3.SNP.Level.Intersect.Output | sort -u -s -k1,2 > DPGP3.SNP.Level.Intersect.Filtered.Output
+
+# Redirect the feilds of interest
+cat DPGP3.SNP.Level.Intersect.Filtered.Output | awk 'BEGIN { OFS = FS = "\t" } { print $1 "\t" $2 "\t" $4 "\t" substr($13, 10,11)}' > DPGP3.SNP.Level.Intersect.Filtered.Output.formatted
+
+# --- R Code ---
+# Now we are going to calculate the Tajima's D for each gene, averaged across all SNPs in a gene
+
+dpgp3.data = read.table("/plas1/amardeep.singh/RNA.Seq.Data/DPGP3.Genomic.Data/DPGP3.SNP.Level.Intersect.Filtered.Output.formatted", sep = "\t", header = FALSE)
+test = aggregate(dpgp3.data[, "V3"], list(dpgp3.data$V4), mean)
+tajimasD.per.gene = aggregate(dpgp3.data[, "V3"], list(dpgp3.data$V4), mean)
+write.table(tajimasD.per.gene, "/plas1/amardeep.singh/RNA.Seq.Data/DPGP3.Genomic.Data/DPGP3.TajimasD.Per.Gene", sep = "\t", quote = F, row.name = F, col.name = F)
+#\--- R CODE ---
 
 ###################################################################
-###   Assign windows in in DPGP3 as containing sig hits or not  ###
+###           WINDOW BASED ANALYSIS -- Assigning Hits           ###
 ###################################################################
 
 # --- R Code ---
@@ -175,8 +513,57 @@ dpgp3.tajimaD$hit = NA
 dpgp3.tajimaD[dpgp3.tajimaD$ID %in% windows.sig.hits.unique,]$hit = 1
 dpgp3.tajimaD[!(dpgp3.tajimaD$ID %in% windows.sig.hits.unique),]$hit = 0
 
+# \--- R Code ---
+###################################################################
+###             SNP LEVEL ANALYSIS -- Assigning Hits            ###
+###################################################################
+
+# --- R Code ---
+# Loading in data files
+# Read in JunctionSeq results
+junctionseq.results = read.table("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/April23allGenes.results.txt", header = TRUE, sep = "\t")
+# Read in Tajimas D per gene results
+tajimasD.per.gene = read.table("/plas1/amardeep.singh/RNA.Seq.Data/DPGP3.Genomic.Data/DPGP3.TajimasD.Per.Gene", header = FALSE, sep = "\t")
+# Rename the Tajima's D column
+colnames(tajimasD.per.gene)[2] = "TajimasD"
+
+# Cleaning up junctionseq file
+# Remove any sites that were not tested
+junctionseq.results = junctionseq.results[!(is.na(junctionseq.results$pvalue)),]
+# Lets remove any rows where the expr in males or females is less than 10
+junctionseq.results.filtered = junctionseq.results[junctionseq.results$expr_male < 10,]
+junctionseq.results.filtered = junctionseq.results.filtered[junctionseq.results.filtered$expr_female < 10,]
+
+# Merge the two data files
+junctionseq.results.merged = merge(junctionseq.results.filtered, tajimasD.per.gene, by.x = "geneID", by.y = "V1", sort = FALSE)
+
+junctionseq.results.merged = junctionseq.results.merged[, c(1,25,26)]
+junctionseq.results.merged = junctionseq.results.merged[!duplicated(test[1:3]),]
+
+# Assign significant hits
+junctionseq.results.merged$sig.hit = NA
+junctionseq.results.merged$sig.hit[junctionseq.results.merged$geneWisePadj <= 0.01] = 1
+junctionseq.results.merged$sig.hit[!(junctionseq.results.merged$geneWisePadj <= 0.01)] = 0
+
+# Collapse duplicates
+junctionseq.results.merged.unique = unique(junctionseq.results.merged)
+
+# Bootstrap intervals for mean Tajima's D
+# Sig hits
+sig.hits = vector(mode = "numeric", length = 10000)
+nonsig.hits = vector(mode = "numeric", length = 10000)
+
+for (i in 1:10000) {
+  sig.hits[i] = mean(sample(junctionseq.results.merged.unique$TajimasD[junctionseq.results.merged.unique$sig.hit == 1], 3035, replace = TRUE))
+  nonsig.hits[i] = mean(sample(junctionseq.results.merged.unique$TajimasD[junctionseq.results.merged.unique$sig.hit == 0], 4046, replace = TRUE))
+}
 
 
+## Plot
+
+
+plot()
+boxplot[test2$Tajimas]
 boxplot = boxplot(tajimasD.data.sig.non.sig$TajimaD ~ tajimasD.data.sig.non.sig$hit)
 
 nonsig.tajimaD = tajimasD.data.sig.non.sig[tajimasD.data.sig.non.sig$hit == 0,]$TajimaD

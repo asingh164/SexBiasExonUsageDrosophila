@@ -1,0 +1,91 @@
+#
+################################################################
+######              Gene Expression Pipeline               #####
+################################################################
+
+## Author: Amardeep Singh -- amardeep.singh[at]utoronto.ca
+## This program makes use of SAM files that I created separately see: STAR.Alignment.Pipeline.sh
+
+### Script Details ###
+# This script is written primarily in R, Bash commands are denoted by #---- BASH ---- and end with # ---- ----
+# This script is meant to determine differential gene expression between the sexes
+
+##
+# Path to sam files: /plas1/amardeep.singh/Ensembl.Dmel.Genome.Release/RAL.mapped.files.to.ensembl/bam.files/samtools.sort.out
+# PAth to gtf /plas1/amardeep.singh/Ensembl.Dmel.Genome.Release/gtf/Drosophila_melanogaster.BDGP6.28.99.gtf.gz
+
+# ---- R Script ----
+
+#####################################################################
+###     Creating count matrices of each aligned transcriptome     ###
+#####################################################################
+require("GenomicFeatures")
+require("Rsamtools")
+require("GenomicAlignments")
+require("DESeq2")
+
+
+#############################
+###   GENOMIC FEATURES    ###
+#############################
+# Read in gene model from GFF file
+gtf.TxDb = makeTxDbFromGFF("/plas1/amardeep.singh/Ensembl.Dmel.Genome.Release/gtf/Drosophila_melanogaster.BDGP6.28.99.gtf.gz", format="gtf")
+
+# Creates a list of exons grouped by gene
+exonsByGene = exonsBy(gtf.TxDb, by="gene")
+
+# Specify BAM files to be used for generating read count matrix
+bam_files = list.files("/plas1/amardeep.singh/Ensembl.Dmel.Genome.Release/RAL.mapped.files.to.ensembl/bam.files/samtools.sort.out/OnlyBodySamples", pattern="SAM.sorted.trimmed.RAL", full=TRUE)
+
+# Indicate that bamLst are BAM files
+bamLst = BamFileList(bam_files, yieldSize=100000)
+
+###############################
+###   GENOMIC ALIGNMENTS    ###
+###############################
+# Call sumarizeOvarlaps to count reads and produce sum_exp which gets inputted into DESeq2
+sum_exp <- summarizeOverlaps(exonsByGene, bamLst, mode="Union", singleEnd=TRUE, ignore.strand=TRUE)
+
+############################################
+###      Prepping files for DESEQ2       ###
+############################################
+# Differential gene expression analysis pipeline
+# Provide metadata about the individuals found the count matrix
+# (each column of matrix = individual, each row of RNA_Data = info about individual)
+# Making sure order of individuals in RNA Data and in summarized experiment match
+
+# Make a condition table
+condition.table = as.data.frame(factor(colnames(sum_exp)))
+colnames(condition.table) = "SampleName"
+condition.table$condition = rep(c("female", "male"), 18)
+condition.table$condition = as.factor(condition.table$condition)
+#condition.table = as.data.frame(condition.table)
+colData(sum_exp) = DataFrame(condition.table)
+
+
+###########################################
+###     Running the DESeq2 pipeline     ###
+###########################################
+
+#origin
+# build the DESeqDataSet from a SummarizedExperiment
+dds_interaction <- DESeqDataSet(sum_exp, design = ~ condition)
+#run DESeq2
+dds_interaction <- DESeq(dds_interaction)
+#name results
+all_genes_interaction <- results(dds_interaction)
+# Extract only the statistically significantly differentially expressed genes based on p-value:
+sig_genes_interaction <- all_genes_interaction[ which(all_genes_interaction$padj < 0.05 ), ]
+write.csv(sig_genes_interaction, file = "interaction_OriginWalpoleSexMale_sig.csv", quote = FALSE)
+#Path: /ohta/amalia.caballero/amalia_results/DESeq_all_sig
+
+
+
+
+
+
+
+
+
+
+#

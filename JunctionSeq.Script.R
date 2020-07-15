@@ -82,7 +82,7 @@ decoder <- read.table("/plas1/amardeep.singh/Ensembl.Dmel.Genome.Release/Junctio
 decoder.for.junctionseq <- decoder[!(grepl("head|replicate.2", decoder$unique.ID)),]
 
 #Providing the directory for the count files:
-countFiles <- paste0("/plas1/amardeep.singh/Ensembl.Dmel.Genome.Release/JunctionSeq.files/count.files/body.only.replicate.1/", decoder.for.junctionseq$unique.ID, "/QC.spliceJunctionAndExonCounts.withNovel.forJunctionSeq.txt.gz")
+countFiles <- paste0("/plas1/amardeep.singh/Ensembl.Dmel.Genome.Release/JunctionSeq.files/count.files/", decoder.for.junctionseq$unique.ID, "/QC.spliceJunctionAndExonCounts.withNovel.forJunctionSeq.txt.gz")
 
 ###  Run the differential exon usage (DEU) analysis:
 
@@ -92,8 +92,8 @@ design.df <- data.frame(condition = factor(decoder.for.junctionseq$sex))
 # Building the count set object that JunctionSeq will analyze and add to it all of the parameters of the analysis
 count.set.object <- readJunctionSeqCounts(countfiles = countFiles,
                                           samplenames = decoder.for.junctionseq$unique.ID,
-                                          design = design.df,
-                                          flat.gff.file = "/plas1/amardeep.singh/Ensembl.Dmel.Genome.Release/JunctionSeq.files/count.files/body.only.replicate.1/withNovel.forJunctionSeq.gff.gz",
+                                          design = condition,
+                                          flat.gff.file = "/plas1/amardeep.singh/Ensembl.Dmel.Genome.Release/JunctionSeq.files/count.files/withNovel.forJunctionSeq.gff.gz",
                                           nCores = 50,
                                           verbose = TRUE)
 
@@ -124,6 +124,7 @@ writeCompleteResults(count.set.object, "April23",
                     verbose = TRUE)
 
 
+
 ## Analyzing junctionseq output
 
 jseq.allgenes.gz = gzfile('/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/April23allGenes.results.txt.gz', 'rt')
@@ -134,6 +135,8 @@ length(unique((jseq.allgenes[jseq.allgenes$geneWisePadj < 0.01,])$geneID))
 # Remove all sites where there are fewer than 5 reads mapping to a site
 jseq.allgenes.remove.low.expression = jseq.allgenes[jseq.allgenes$expr_female > 5 | jseq.allgenes$expr_male > 5, ]
 length(unique((jseq.allgenes.remove.low.expression[jseq.allgenes.remove.low.expression$geneWisePadj < 0.01,])$geneID))
+
+
 
 
 #

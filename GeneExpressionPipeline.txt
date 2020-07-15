@@ -67,17 +67,15 @@ colData(sum_exp) = DataFrame(condition.table)
 ###     Running the DESeq2 pipeline     ###
 ###########################################
 
-#origin
 # build the DESeqDataSet from a SummarizedExperiment
-dds_interaction <- DESeqDataSet(sum_exp, design = ~ condition)
+dds_interaction = DESeqDataSet(sum_exp, design = ~ condition)
 #run DESeq2
-dds_interaction <- DESeq(dds_interaction)
+dds_interaction = DESeq(dds_interaction)
 #name results
-all_genes_interaction <- results(dds_interaction)
-# Extract only the statistically significantly differentially expressed genes based on p-value:
-sig_genes_interaction <- all_genes_interaction[ which(all_genes_interaction$padj < 0.05 ), ]
-write.csv(sig_genes_interaction, file = "interaction_OriginWalpoleSexMale_sig.csv", quote = FALSE)
-#Path: /ohta/amalia.caballero/amalia_results/DESeq_all_sig
+all_genes_interaction = results(dds_interaction)
+# Save output file
+write.table(all_genes_interaction, file = "DifferentialGeneExpression.txt", sep = "\t", row.names = TRUE, col.names = TRUE, quote = FALSE)
+## Note, I took this output table and re-formatted it in R so that the first column is now the FlyBase geneID
 
 
 

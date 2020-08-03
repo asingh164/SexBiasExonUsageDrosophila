@@ -16,6 +16,8 @@
 
 # ---- R Script ----
 
+###### Whole Body Tissue   ######
+
 #####################################################################
 ###     Creating count matrices of each aligned transcriptome     ###
 #####################################################################
@@ -35,16 +37,19 @@ gtf.TxDb = makeTxDbFromGFF("/plas1/amardeep.singh/Ensembl.Dmel.Genome.Release/gt
 exonsByGene = exonsBy(gtf.TxDb, by="gene")
 
 # Specify BAM files to be used for generating read count matrix
-bam_files = list.files("/plas1/amardeep.singh/Ensembl.Dmel.Genome.Release/RAL.mapped.files.to.ensembl/bam.files/samtools.sort.out/OnlyBodySamples", pattern="SAM.sorted.trimmed.RAL", full=TRUE)
+bam_files.body = list.files("/plas1/amardeep.singh/Ensembl.Dmel.Genome.Release/RAL.mapped.files.to.ensembl/bam.files/samtools.sort.out/OnlyBodySamples", pattern="SAM.sorted.trimmed.RAL", full=TRUE)
+bam_files.head = list.files("/plas1/amardeep.singh/Ensembl.Dmel.Genome.Release/RAL.mapped.files.to.ensembl/bam.files/samtools.sort.out/OnlyHeadSamples", pattern="SAM.sorted.trimmed.RAL", full=TRUE)
 
 # Indicate that bamLst are BAM files
-bamLst = BamFileList(bam_files, yieldSize=100000)
+bamLst.body = BamFileList(bam_files.body, yieldSize=100000)
+bamLst.head = BamFileList(bam_files.head, yieldSize=100000)
 
 ###############################
 ###   GENOMIC ALIGNMENTS    ###
 ###############################
 # Call sumarizeOvarlaps to count reads and produce sum_exp which gets inputted into DESeq2
-sum_exp <- summarizeOverlaps(exonsByGene, bamLst, mode="Union", singleEnd=TRUE, ignore.strand=TRUE)
+sum_exp.body <- summarizeOverlaps(exonsByGene, bamLst.body, mode="Union", singleEnd=TRUE, ignore.strand=TRUE)
+sum_exp.head <- summarizeOverlaps(exonsByGene, bamLst.head, mode="Union", singleEnd=TRUE, ignore.strand=TRUE)
 
 ############################################
 ###      Prepping files for DESEQ2       ###
@@ -55,27 +60,54 @@ sum_exp <- summarizeOverlaps(exonsByGene, bamLst, mode="Union", singleEnd=TRUE, 
 # Making sure order of individuals in RNA Data and in summarized experiment match
 
 # Make a condition table
-condition.table = as.data.frame(factor(colnames(sum_exp)))
-colnames(condition.table) = "SampleName"
-condition.table$condition = rep(c("female", "male"), 18)
-condition.table$condition = as.factor(condition.table$condition)
+# Body
+condition.table.body = as.data.frame(factor(colnames(sum_exp.body)))
+colnames(condition.table.body) = "SampleName"
+condition.table.body$condition = factor(rep(c("female", "male"), 18))
+condition.table.body$condition = as.factor(condition.table.body$condition)
 #condition.table = as.data.frame(condition.table)
-colData(sum_exp) = DataFrame(condition.table)
+colData(sum_exp.body) = DataFrame(condition.table.body)
 
+# Body
+condition.table.head = as.data.frame(factor(colnames(sum_exp.head)))
+colnames(condition.table.head) = "SampleName"
+condition.table.head$condition = factor(rep(c("female", "male"), 18))
+condition.table.head$condition = as.factor(condition.table.head$condition)
+#condition.table = as.data.frame(condition.table)
+colData(sum_exp.head) = DataFrame(condition.table.head)
 
 ###########################################
 ###     Running the DESeq2 pipeline     ###
 ###########################################
 
 # build the DESeqDataSet from a SummarizedExperiment
-dds_interaction = DESeqDataSet(sum_exp, design = ~ condition)
+
+# Whole Body
+dds_interaction.body = DESeqDataSet(sum_exp.body, design = ~ condition)
 #run DESeq2
-dds_interaction = DESeq(dds_interaction)
+dds_interaction.body = DESeq(dds_interaction.body)
 #name results
-all_genes_interaction = results(dds_interaction)
-# Save output file
-write.table(all_genes_interaction, file = "DifferentialGeneExpression.txt", sep = "\t", row.names = TRUE, col.names = TRUE, quote = FALSE)
-## Note, I took this output table and re-formatted it in R so that the first column is now the FlyBase geneID
+all_genes_interaction.body = results(dds_interaction.body, contrast=c("condition", "male", "female")) # This specifies the output such that the log2FC is male/female
+all_genes_interaction.alt.body = results(dds_interaction.body)
+
+# Head
+dds_interaction.head = DESeqDataSet(sum_exp.head, design = ~ condition)
+#run DESeq2
+dds_interaction.head = DESeq(dds_interaction.head)
+#name results
+all_genes_interaction.head = results(dds_interaction.head, contrast=c("condition", "male", "female")) # This specifies the output such that the log2FC is male/female
+all_genes_interaction.alt.head = results(dds_interaction.head)
+
+# Add FlyBase ID as first column
+all_genes_interaction.head$FlyBaseID= rownames(all_genes_interaction.head)
+all_genes_interaction.head = all_genes_interaction.head[,c(7,1:6)]
+all_genes_interaction.body$FlyBaseID= rownames(all_genes_interaction.body)
+all_genes_interaction.body = all_genes_interaction.body[,c(7,1:6)]
+
+# Save output files for both whole body and head
+write.table(all_genes_interaction.body, file = "/plas1/amardeep.singh/RNA.Seq.Data/GeneExpression/RAL.DifferentialGeneExpression.body.txt", sep = "\t", row.names = FALSE, col.names = TRUE, quote = FALSE)
+write.table(all_genes_interaction.head, file = "/plas1/amardeep.singh/RNA.Seq.Data/GeneExpression/RAL.DifferentialGeneExpression.head.txt", sep = "\t", row.names = FALSE, col.names = TRUE, quote = FALSE)
+
 
 
 

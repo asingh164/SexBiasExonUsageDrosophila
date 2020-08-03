@@ -1,18 +1,29 @@
-#
 ##########################################
 ######      Tajima's D Analysis     ######
 ##########################################
 
-### This is a script that will calculate Tajima's D in a sliding window in the DGRP
-## Author: Amardeep Singh -- amardeep.singh[at]utoronto.ca
-## This script makes use of publicly available sequence data for the DPGP3 population
+########################################################################################################################
+########################################################################################################################
+### This is a script that will calculate Tajima's D in a sliding window in the DGRP and the DPGP3 Populations        ###
+###  DGRP script is in the first half, second half deals with the DPGP3 Population                                   ###
+### Author: Amardeep Singh -- amardeep.singh[at]utoronto.ca                                                          ###
+### This script makes use of publicly available sequence data for the DGRP population                                ###
+########################################################################################################################
+########################################################################################################################
 
 ##   NOTES: Most of this script is written in Bash, except where indicated when I have included R code
+
+###################################################################
+###################################################################
+#####   D G R P     P O P U L A T I O N     P I P E L I N E   #####
+###################################################################
+###################################################################
+
 
 #######################
 ###  Obtaining data ###
 #######################
-# Obtain "consensus sequences" for the 197 DGPG3 haploid genomes from John Pool's website
+# Obtain "consensus sequences" for the DGRP genomes from John Pool's website
 wget http://pooldata.genetics.wisc.edu/dgrp_sequences.tar.bz2
 # Obtain the code provided for filtering the sequences from John Pool's website
 wget http://johnpool.net/masking.zip
@@ -93,7 +104,6 @@ part2[part2==1] <- "1/1"
 part2[part2==0] <- "0/0" }
 part2$V5 <- ifelse(part2$V5=="A,*","A",ifelse(part2$V5=="T,*","T",ifelse(part2$V5=="C,*","C",ifelse(part2$V5=="G,*","G",NA))))
 
-
 #Missing value = 1
 type3 <- c("*,A","*,T","*,G","*,C")
 part3 <- subset(chr.vcf,V5 %in% type3)
@@ -127,65 +137,76 @@ cat chr.X_modified.vcf chr.2L_modified.vcf chr.2R_modified.vcf chr.3L_modified.v
 ## Add header
 cat vcf.header DGRP.filtered.vcf > tmp && mv tmp DGRP.filtered.vcf
 
-#######################################
-###     Window Based Tajimas D      ###
-#######################################
+##################################################
+###     Calculating Tajimas D in the DGRP      ###
+##################################################
 
 # This analysis was done with vcftools ## I did two different analysis, one with a window size of 1kb and one with a window size of 1bp (i.e. SNP level)
+### Calculating Tajimas D in 1000bp Windows
 vcftools --vcf DGRP.filtered.vcf --TajimaD 1000 --out DGRP.1000bp.Window & ## this generates estimates of Tajimas D in windows of 1000bp
+
+### Calculating Tajimas D at the SNP level
 vcftools --vcf DGRP.filtered.vcf --TajimaD 1 --out DGRP.SNP.Level &  ## This generates estimates of Tajimas D at the SNP level
-# Clean out sites without any SNPs to estimates Tajima's D
+
+# Clean out sites.windows without any SNPs to estimates Tajima's D
 sed -i '/nan/d' DGRP.1000bp.Window.Tajima.D
 sed -i '/nan/d' DGRP.SNP.Level.Tajima.D
 
 
-##########################################################
-### Intersect list of significant hits with Tajimas D  ###
-##########################################################
+#####################################################################################################################
+###   Intersect list of significant hits from JunctionSeq Analysis with with TajimasD Calculations in the DGRP    ###
+#####################################################################################################################
 
 #### WINDOW BASED ANALYSIS ####
 
-## Format the Junctionseq output file into a BED file
+## Format the Junctionseq output files into a BED files
 # Generate list of coordinates of exons that showed significant dimorphism -- This corresponds to fields 14-16 in the output from JunctionSeq
-cat April23sigGenes.results.txt | awk ' BEGIN {OFS = FS = "\t"} {print $14 "\t" $15 "\t" $16} ' > sigGenes.coordinates.bed
-# Remove header from file
-sed -i '/^chr/d' sigGenes.coordinates.bed
+# Whole body
+cat /plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/BodyOutput/Aug1.Body.OnlysigGenes.results.txt | awk ' BEGIN {OFS = FS = "\t"} {print $14 "\t" $15 "\t" $16} ' > /plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/sigGenes.body.coordinates.bed
+# Head
+cat /plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/HeadOutput/Aug1.Head.OnlysigGenes.results.txt | awk ' BEGIN {OFS = FS = "\t"} {print $14 "\t" $15 "\t" $16} ' > /plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/sigGenes.head.coordinates.bed
+
+# Remove header from files
+sed -i '/^chr/d' /plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/sigGenes.body.coordinates.bed
+sed -i '/^chr/d' /plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/sigGenes.head.coordinates.bed
 
 ## Format the DGRP Tajimas D file to a bed format
-cat DGRP.1000bp.Window.Tajima.D | awk ' BEGIN {OFS = FS = "\t"} {print $1 "\t" $2 "\t" $2+999}' > DGRP.1000bp.Window.Tajima.D.coordinates.bed
+cat /plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.1000bp.Window.Tajima.D | awk ' BEGIN {OFS = FS = "\t"} {print $1 "\t" $2 "\t" $2+999}' > /plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.1000bp.Window.Tajima.D.coordinates.bed
 # Remove header from file
-sed -i '/^CHROM/d ' DGRP.1000bp.Window.Tajima.D.coordinates.bed
+sed -i '/^CHROM/d ' /plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.1000bp.Window.Tajima.D.coordinates.bed
 
-## Intersect the Junctionseq significant hits bed file with the DPGP3 bed file
+## Intersect the Junctionseq significant hits bed files with the DPGP3 bed file
 # First, sort the bed files
-sort -k1,1 -k2,2n DGRP.1000bp.Window.Tajima.D.coordinates.bed > DGRP.1000bp.Window.Tajima.D.coordinates.sorted.bed
-sort -k1,1 -k2,2n sigGenes.coordinates.bed >sigGenes.coordinates.sorted.bed
+sort -k1,1 -k2,2n /plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.1000bp.Window.Tajima.D.coordinates.bed > /plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.1000bp.Window.Tajima.D.coordinates.sorted.bed
+sort -k1,1 -k2,2n /plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/sigGenes.body.coordinates.bed > sigGenes.body.coordinates.sorted.bed
+sort -k1,1 -k2,2n /plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/sigGenes.head.coordinates.bed > sigGenes.head.coordinates.sorted.bed
 
-bedtools intersect -sorted -wa -a /plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.1000bp.Window.Tajima.D.coordinates.sorted.bed -b /plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/sigGenes.coordinates.sorted.bed > sig.windows.DGRP.txt
+# Intersect with siggenes files for head and body
+# Whole body
+bedtools intersect -sorted -wa -a /plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.1000bp.Window.Tajima.D.coordinates.sorted.bed -b /plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/sigGenes.body.coordinates.sorted.bed > /plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/sig.windows.body.DGRP.txt
+# Head
+bedtools intersect -sorted -wa -a /plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.1000bp.Window.Tajima.D.coordinates.sorted.bed -b /plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/sigGenes.head.coordinates.sorted.bed > /plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/sig.windows.head.DGRP.txt
 
-#########
 
 #### SNP LEVEL ANALYSIS ####
+
 # Sort the DGRP file
 # Format the DPGP3 Tajimas D file to a bed format
-cat DGRP.SNP.Level.Tajima.D | awk ' BEGIN {OFS = FS = "\t"} {print $1 "\t" $2 "\t" $2+1 "\t" $4}' > DGRP.SNP.Level.Tajima.D.coordinates.bed
+cat /plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.SNP.Level.Tajima.D | awk ' BEGIN {OFS = FS = "\t"} {print $1 "\t" $2 "\t" $2+1 "\t" $4}' > /plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.SNP.Level.Tajima.D.coordinates.bed
 # Remove header from file
-sed -i '/^CHROM/d ' DGRP.SNP.Level.Tajima.D.coordinates.bed
+sed -i '/^CHROM/d ' /plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.SNP.Level.Tajima.D.coordinates.bed
 
-## Intersect the Junctionseq significant hits bed file with the DPGP3 bed file
+## Intersect the Junctionseq significant hits bed file with the DGRP bed file
 # First, sort the bed files
-sort -k1,1 -k2,2n DGRP.SNP.Level.Tajima.D.coordinates.bed > DGRP.SNP.Level.Tajima.D.coordinates.sorted.bed
-
-
+sort -k1,1 -k2,2n /plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.SNP.Level.Tajima.D.coordinates.bed > /plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.SNP.Level.Tajima.D.coordinates.sorted.bed
 # Take list of SNPs and intersect it with a GFF to find out which genes each SNP belongs to (if they fall in coding regions at all)
-
-bedtools intersect -wa -wb -a /plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.SNP.Level.Tajima.D.coordinates.sorted.bed -b /plas1/amardeep.singh/Flybase.Dmel.Genome.Release/gtf/dmel-all-r6.32.filtered.gtf > DGRP.SNP.Level.Intersect.Output
+bedtools intersect -wa -wb -a /plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.SNP.Level.Tajima.D.coordinates.sorted.bed -b /plas1/amardeep.singh/Flybase.Dmel.Genome.Release/gtf/dmel-all-r6.32.filtered.gtf > /plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/DGRP.SNP.Level.Intersect.Output
 
 ## Remove duplicate records
-cat DGRP.SNP.Level.Intersect.Output | sort -u -s -k1,2 > DGRP.SNP.Level.Intersect.Filtered.Output
+cat /plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/DGRP.SNP.Level.Intersect.Output | sort -u -s -k1,2 > /plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/DGRP.SNP.Level.Intersect.Filtered.Output
 
 # Redirect the fields of interest
-cat DGRP.SNP.Level.Intersect.Filtered.Output | awk 'BEGIN { OFS = FS = "\t" } { print $1 "\t" $2 "\t" $4 "\t" substr($13, 10,11)}' > DGRP.SNP.Level.Intersect.Filtered.Output.formatted
+cat /plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/DGRP.SNP.Level.Intersect.Filtered.Output | awk 'BEGIN { OFS = FS = "\t" } { print $1 "\t" $2 "\t" $4 "\t" substr($13, 10,11)}' > /plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/DGRP.SNP.Level.Intersect.Filtered.Output.formatted
 
 # --- R Code ---
 # Now we are going to calculate the Tajima's D for each gene, averaged across all SNPs in a gene
@@ -195,6 +216,8 @@ tajimasD.per.gene = aggregate(DGRP.data[, "V3"], list(DGRP.data$V4), mean)
 write.table(tajimasD.per.gene, "/plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.TajimasD.Per.Gene", sep = "\t", quote = F, row.name = F, col.name = F)
 #\--- R CODE ---
 
+
+
 ###################################################################
 ###           WINDOW BASED ANALYSIS -- Assigning Hits           ###
 ###################################################################
@@ -203,18 +226,29 @@ write.table(tajimasD.per.gene, "/plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.
 # Read in Tajimas D data
 DGRP.tajimaD = read.table("/plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.1000bp.Window.Tajima.D", sep = "\t", header = TRUE)
 # Read in significant windows file
-windows.sig.hits = read.table("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/sig.windows.DGRP.txt", sep = "\t", header = FALSE)
+windows.sig.hits.body = read.table("/plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/sig.windows.body.DGRP.txt", sep = "\t", header = FALSE)
+windows.sig.hits.head = read.table("/plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/sig.windows.head.DGRP.txt", sep = "\t", header = FALSE)
 
-# Add unique ID column to both files
+# Add unique ID column to files
 DGRP.tajimaD$ID = paste(DGRP.tajimaD$CHROM, DGRP.tajimaD$BIN_START, sep = ":")
-windows.sig.hits$ID = paste(windows.sig.hits$V1, windows.sig.hits$V2, sep = ":")
-# Filter out repeated windows in the 'windows.sig.hits' file
-windows.sig.hits.unique = unique(windows.sig.hits$ID)
+windows.sig.hits.body$ID = paste(windows.sig.hits.body$V1, windows.sig.hits.body$V2, sep = ":")
+windows.sig.hits.head$ID = paste(windows.sig.hits.head$V1, windows.sig.hits.head$V2, sep = ":")
+
+# Filter out repeated windows in the 'windows.sig.hits' files for body and head tissue
+windows.sig.hits.body.unique = unique(windows.sig.hits.body$ID)
+windows.sig.hits.head.unique = unique(windows.sig.hits.head$ID)
 
 # Add a column to signify if the window contains an exon with significant SD in usage
-DGRP.tajimaD$hit = NA
-DGRP.tajimaD[DGRP.tajimaD$ID %in% windows.sig.hits.unique,]$hit = 1
-DGRP.tajimaD[!(DGRP.tajimaD$ID %in% windows.sig.hits.unique),]$hit = 0
+DGRP.tajimaD$body.hit = NA
+DGRP.tajimaD$head.hit = NA
+
+# Assign hits to body tissue
+DGRP.tajimaD[DGRP.tajimaD$ID %in% windows.sig.hits.body.unique,]$body.hit = 1
+DGRP.tajimaD[!(DGRP.tajimaD$ID %in% windows.sig.hits.body.unique),]$body.hit = 0
+
+# Assign hits to head tissue
+DGRP.tajimaD[DGRP.tajimaD$ID %in% windows.sig.hits.head.unique,]$head.hit = 1
+DGRP.tajimaD[!(DGRP.tajimaD$ID %in% windows.sig.hits.head.unique),]$head.hit = 0
 
 
 # \--- R Code ---
@@ -225,42 +259,63 @@ DGRP.tajimaD[!(DGRP.tajimaD$ID %in% windows.sig.hits.unique),]$hit = 0
 # --- R Code ---
 # Loading in data files
 # Read in JunctionSeq results
-junctionseq.results = read.table("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/April23allGenes.results.txt", header = TRUE, sep = "\t")
+junctionseq.results.body = read.table("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/BodyOutput/Aug1.Body.OnlyallGenes.results.txt", header = TRUE, sep = "\t")
+junctionseq.results.head = read.table("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/HeadOutput/Aug1.Head.OnlyallGenes.results.txt", header = TRUE, sep = "\t")
 # Read in Tajimas D per gene results
 tajimasD.per.gene = read.table("/plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.TajimasD.Per.Gene", header = FALSE, sep = "\t")
 # Rename the Tajima's D column
 colnames(tajimasD.per.gene)[2] = "TajimasD"
 
-# Cleaning up junctionseq file
+# Cleaning up junctionseq files
 # Remove any sites that were not tested
-junctionseq.results = junctionseq.results[!(is.na(junctionseq.results$pvalue)),]
+junctionseq.results.body = junctionseq.results.body[!(is.na(junctionseq.results.body$pvalue)),]
+junctionseq.results.head = junctionseq.results.head[!(is.na(junctionseq.results.head$pvalue)),]
+
 # Lets remove any rows where the expr in males or females is less than 10
-junctionseq.results.filtered = junctionseq.results[junctionseq.results$expr_male < 10,]
-junctionseq.results.filtered = junctionseq.results.filtered[junctionseq.results.filtered$expr_female < 10,]
+junctionseq.results.body.filtered = junctionseq.results.body[junctionseq.results.body$expr_male > 10 & junctionseq.results.body$expr_female > 10 ,]
+junctionseq.results.head.filtered = junctionseq.results.head[junctionseq.results.head$expr_male > 10 & junctionseq.results.head$expr_female > 10 ,]
 
-# Merge the two data files
-junctionseq.results.merged = merge(junctionseq.results.filtered, tajimasD.per.gene, by.x = "geneID", by.y = "V1", sort = FALSE)
 
-junctionseq.results.merged = junctionseq.results.merged[, c(1,25,26)]
-junctionseq.results.merged = junctionseq.results.merged[!duplicated(test[1:3]),]
+# Merge the junctionseq files with the TajimasD per gene file
+junctionseq.results.body.merged = merge(junctionseq.results.body.filtered, tajimasD.per.gene, by.x = "geneID", by.y = "V1", sort = FALSE)
+junctionseq.results.head.merged = merge(junctionseq.results.head.filtered, tajimasD.per.gene, by.x = "geneID", by.y = "V1", sort = FALSE)
+
+# Clean up data and remove duplicate genes (i.e., keep only the gene level and not exon level info)
+junctionseq.results.body.merged = junctionseq.results.body.merged[, c(1,25,26)]
+junctionseq.results.body.merged = junctionseq.results.body.merged[!duplicated(junctionseq.results.body.merged[1:3]),]
+
+junctionseq.results.head.merged = junctionseq.results.head.merged[, c(1,25,26)]
+junctionseq.results.head.merged = junctionseq.results.head.merged[!duplicated(junctionseq.results.head.merged[1:3]),]
 
 # Assign significant hits
-junctionseq.results.merged$sig.hit = NA
-junctionseq.results.merged$sig.hit[junctionseq.results.merged$geneWisePadj <= 0.01] = 1
-junctionseq.results.merged$sig.hit[!(junctionseq.results.merged$geneWisePadj <= 0.01)] = 0
+# Body
+junctionseq.results.body.merged$sig.hit = NA
+junctionseq.results.body.merged$sig.hit[junctionseq.results.body.merged$geneWisePadj <= 0.01] = 1
+junctionseq.results.body.merged$sig.hit[!(junctionseq.results.body.merged$geneWisePadj <= 0.01)] = 0
+# Head
+junctionseq.results.head.merged$sig.hit = NA
+junctionseq.results.head.merged$sig.hit[junctionseq.results.head.merged$geneWisePadj <= 0.01] = 1
+junctionseq.results.head.merged$sig.hit[!(junctionseq.results.head.merged$geneWisePadj <= 0.01)] = 0
 
 # Collapse duplicates
-junctionseq.results.merged.unique = unique(junctionseq.results.merged)
+junctionseq.results.body.merged.unique = unique(junctionseq.results.body.merged)
+junctionseq.results.head.merged.unique = unique(junctionseq.results.head.merged)
 
 # Bootstrap intervals for mean Tajima's D
 # Sig hits
-sig.hits = vector(mode = "numeric", length = 10000)
-nonsig.hits = vector(mode = "numeric", length = 10000)
+body.sig.hits = vector(mode = "numeric", length = 10000)
+body.nonsig.hits = vector(mode = "numeric", length = 10000)
+head.sig.hits = vector(mode = "numeric", length = 10000)
+head.nonsig.hits = vector(mode = "numeric", length = 10000)
 
 for (i in 1:10000) {
-  sig.hits[i] = mean(sample(junctionseq.results.merged.unique$TajimasD[junctionseq.results.merged.unique$sig.hit == 1], 3035, replace = TRUE))
-  nonsig.hits[i] = mean(sample(junctionseq.results.merged.unique$TajimasD[junctionseq.results.merged.unique$sig.hit == 0], 4031, replace = TRUE))
+  body.sig.hits[i] = mean(sample(junctionseq.results.body.merged.unique$TajimasD[junctionseq.results.body.merged.unique$sig.hit == 1], nrow(junctionseq.results.body.merged.unique[junctionseq.results.body.merged.unique$sig.hit == 1,]), replace = TRUE))
+  body.nonsig.hits[i] = mean(sample(junctionseq.results.body.merged.unique$TajimasD[junctionseq.results.body.merged.unique$sig.hit == 0], nrow(junctionseq.results.body.merged.unique[junctionseq.results.body.merged.unique$sig.hit == 0,]), replace = TRUE))
+  head.sig.hits[i] = mean(sample(junctionseq.results.head.merged.unique$TajimasD[junctionseq.results.head.merged.unique$sig.hit == 1], nrow(junctionseq.results.head.merged.unique[junctionseq.results.head.merged.unique$sig.hit == 1,]), replace = TRUE))
+  head.nonsig.hits[i] = mean(sample(junctionseq.results.head.merged.unique$TajimasD[junctionseq.results.head.merged.unique$sig.hit == 0], nrow(junctionseq.results.head.merged.unique[junctionseq.results.head.merged.unique$sig.hit == 0,]), replace = TRUE))
+print(i)
 }
+
 quantile(sig.hits, c(0.05,0.95))
 quantile(nonsig.hits, c(0.05,0.95))
 
@@ -279,20 +334,62 @@ nonsig.tajimaD.resamples = sample(nonsig.tajimaD, 10000, replace = TRUE)
 sig.tajimaD.resamples = sample(sig.tajimaD, 10000, replace = TRUE)
 
 
+#########################################################
+###     Tajimas D and Sex-Bias in Gene expression     ###
+#########################################################
+
+# Load in Tajimas D data and intersect with JunctionSeq output
+
+# --- R Code ---
+# Loading in data files
+# Read in JunctionSeq results
+junctionseq.results.body = read.table("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/BodyOutput/Aug1.Body.OnlyallGenes.results.txt", header = TRUE, sep = "\t")
+junctionseq.results.head = read.table("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/HeadOutput/Aug1.Head.OnlyallGenes.results.txt", header = TRUE, sep = "\t")
+
+# Read in Tajimas D per gene results
+tajimasD.per.gene = read.table("/plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.TajimasD.Per.Gene", header = FALSE, sep = "\t")
+# Rename the Tajima's D column
+colnames(tajimasD.per.gene)[2] = "TajimasD"
+
+# Cleaning up junctionseq file
+# Remove any sites that were not tested
+junctionseq.results = junctionseq.results[!(is.na(junctionseq.results$pvalue)),]
+# Lets remove any rows where the expr in males or females is less than 10
+junctionseq.results.filtered = junctionseq.results[junctionseq.results$expr_male < 10,]
+junctionseq.results.filtered = junctionseq.results.filtered[junctionseq.results.filtered$expr_female < 10,]
+
+# Merge the two data files
+junctionseq.results.merged = merge(junctionseq.results.filtered, tajimasD.per.gene, by.x = "geneID", by.y = "V1", sort = FALSE)
+junctionseq.results.merged = junctionseq.results.merged[, c(1,25,26)]
+junctionseq.results.merged = junctionseq.results.merged[!duplicated(test[1:3]),]
+
+# Assign significant hits
+junctionseq.results.merged$sig.hit = NA
+junctionseq.results.merged$sig.hit[junctionseq.results.merged$geneWisePadj <= 0.01] = 1
+junctionseq.results.merged$sig.hit[!(junctionseq.results.merged$geneWisePadj <= 0.01)] = 0
+
+# Collapse duplicates
+junctionseq.results.merged.unique = unique(junctionseq.results.merged)
+
+## Load in the differential gene expression data
+DGE.data = read.table("/plas1/amardeep.singh/RNA.Seq.Data/GeneExpression/DifferentialGeneExpression.txt", header = TRUE, sep = "\t")
+
+# Merge Junctionseq/TajimasD data with DGE data
+junctionseq.results.merged.unique = merge(junctionseq.results.merged.unique, DGE.data, by.x = "geneID", by.y = "GeneID")
+
+# Subset out the columns of interest (i.e., gene ID, TajimasD, significant differences in exon usage, and log2FC)
+datasub = junctionseq.results.merged.unique[, c(1,3,4,6)]
 
 
 
 
 
 
-
-
-
-
-
-#
-
-
+#####################################################################
+#####################################################################
+#####   D P G P 3     P O P U L A T I O N     P I P E L I N E   #####
+#####################################################################
+#####################################################################
 
 
 
@@ -531,8 +628,8 @@ colnames(tajimasD.per.gene)[2] = "TajimasD"
 # Remove any sites that were not tested
 junctionseq.results = junctionseq.results[!(is.na(junctionseq.results$pvalue)),]
 # Lets remove any rows where the expr in males or females is less than 10
-junctionseq.results.filtered = junctionseq.results[junctionseq.results$expr_male < 10,]
-junctionseq.results.filtered = junctionseq.results.filtered[junctionseq.results.filtered$expr_female < 10,]
+junctionseq.results.filtered = junctionseq.results[junctionseq.results$expr_male > 10,]
+junctionseq.results.filtered = junctionseq.results.filtered[junctionseq.results.filtered$expr_female > 10,]
 
 # Merge the two data files
 junctionseq.results.merged = merge(junctionseq.results.filtered, tajimasD.per.gene, by.x = "geneID", by.y = "V1", sort = FALSE)
@@ -554,9 +651,196 @@ sig.hits = vector(mode = "numeric", length = 10000)
 nonsig.hits = vector(mode = "numeric", length = 10000)
 
 for (i in 1:10000) {
-  sig.hits[i] = mean(sample(junctionseq.results.merged.unique$TajimasD[junctionseq.results.merged.unique$sig.hit == 1], 3035, replace = TRUE))
-  nonsig.hits[i] = mean(sample(junctionseq.results.merged.unique$TajimasD[junctionseq.results.merged.unique$sig.hit == 0], 4046, replace = TRUE))
+  sig.hits[i] = mean(sample(junctionseq.results.merged.unique$TajimasD[junctionseq.results.merged.unique$sig.hit == 1], nrow(junctionseq.results.merged[junctionseq.results.merged$sig.hit == 1,]), replace = TRUE))
+  nonsig.hits[i] = mean(sample(junctionseq.results.merged.unique$TajimasD[junctionseq.results.merged.unique$sig.hit == 0], nrow(junctionseq.results.merged[junctionseq.results.merged$sig.hit == 1,]), replace = TRUE))
 }
+
+mean(sig.hits)
+mean(nonsig.hits)
+quantile(sig.hits, c(0.05,0.95))
+quantile(nonsig.hits, c(0.05,0.95))
+
+###################################################################
+###            Comparing Gene Expression and TajimasD           ###
+###################################################################
+
+# --- R Code ---
+require(dplyr)
+require(doBy)
+require(ggplot2)
+
+### Loading in data files ###
+
+# Read in JunctionSeq results
+junctionseq.results = read.table("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/April23allGenes.results.txt", header = TRUE, sep = "\t")
+# Read in Tajimas D per gene results
+tajimasD.per.gene = read.table("/plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.TajimasD.Per.Gene", header = FALSE, sep = "\t")
+# Rename the Tajima's D column
+colnames(tajimasD.per.gene)[2] = "TajimasD"
+# Read in the Differential Gene Expression (DGE) data  ## Note positive fold change means male expression > female expression
+DGE.data = read.table("/plas1/amardeep.singh/RNA.Seq.Data/GeneExpression/DifferentialGeneExpression.txt", header = TRUE, sep = "\t")
+
+### Cleaning up data files ###
+
+# Remove any sites that were not tested
+junctionseq.results = junctionseq.results[!(is.na(junctionseq.results$pvalue)),]
+# Lets remove any rows where the expr in males or females is less than 10
+junctionseq.results.filtered = junctionseq.results[junctionseq.results$expr_male < 10,]
+junctionseq.results.filtered = junctionseq.results.filtered[junctionseq.results.filtered$expr_female < 10,]
+# Subset out the columns of interest in the DGE data
+DGE.data.sub = DGE.data[,c(1:3)]
+# Remove rows from expression data without log2FC data
+DGE.data.sub = DGE.data[!(is.na(DGE.data.sub$log2FoldChange)),]
+
+
+### Merging data files ###
+# Merge the junctionseq and tajimasD data
+junctionseq.results.merged = merge(junctionseq.results.filtered, tajimasD.per.gene, by.x = "geneID", by.y = "V1", sort = FALSE)
+junctionseq.results.merged = junctionseq.results.merged[, c(1,25,26)]
+junctionseq.results.merged = junctionseq.results.merged[!duplicated(junctionseq.results.merged[1:3]),]
+# Assign significant hits to the dataset
+junctionseq.results.merged$sig.hit = NA
+junctionseq.results.merged$sig.hit[junctionseq.results.merged$geneWisePadj <= 0.01] = 1
+junctionseq.results.merged$sig.hit[!(junctionseq.results.merged$geneWisePadj <= 0.01)] = 0
+# Collapse duplicates
+junctionseq.results.merged.unique = unique(junctionseq.results.merged)
+# Combining junctionseq/TajimasD data with gene expression data
+junctionseq.expression.data = merge(junctionseq.results.merged.unique, DGE.data.sub, by.x = "geneID", by.y = "GeneID", sort = FALSE)
+
+
+### Assign quartile bins for male and female biased gene expression
+male.biased.sub = junctionseq.expression.data[junctionseq.expression.data$log2FoldChange > 0,]
+female.biased.sub = junctionseq.expression.data[junctionseq.expression.data$log2FoldChange < 0,]
+# Remove any rows that have an NA added to them
+male.biased.sub = male.biased.sub[!(is.na(male.biased.sub$log2FoldChange)),]
+female.biased.sub = female.biased.sub[!(is.na(female.biased.sub$log2FoldChange)),]
+# Assign quartiles for both MBG and FBG
+male.biased.sub = male.biased.sub %>% mutate(quartile = ntile(log2FoldChange, 4))
+female.biased.sub = female.biased.sub %>% mutate(quartile = ntile(log2FoldChange, 4))
+# For the male genes, lets add 4 to each quartile
+male.biased.sub$quartile = male.biased.sub$quartile + 4
+# Merge data back
+junctionseq.expression.data = rbind(male.biased.sub,female.biased.sub)
+
+# Lets plot TajimasD for sig hits in quartile bins
+sig.hits = junctionseq.expression.data[junctionseq.expression.data$sig.hit == 1,]
+non.sig.hits = junctionseq.expression.data[junctionseq.expression.data$sig.hit == 0,]
+
+# Determine mean tajimasD in each quartile
+sig.hits.mean = summaryBy(TajimasD ~ quartile, FUN=c(mean), data = sig.hits)
+non.sig.hits.mean = summaryBy(TajimasD ~ quartile, FUN=c(mean), data = non.sig.hits)
+
+# Bootstrap means for each subset
+sig.hits.quantile.1 = vector(mode = "numeric", length = 10000)
+sig.hits.quantile.2 = vector(mode = "numeric", length = 10000)
+sig.hits.quantile.3 = vector(mode = "numeric", length = 10000)
+sig.hits.quantile.4 = vector(mode = "numeric", length = 10000)
+sig.hits.quantile.5 = vector(mode = "numeric", length = 10000)
+sig.hits.quantile.6 = vector(mode = "numeric", length = 10000)
+sig.hits.quantile.7 = vector(mode = "numeric", length = 10000)
+sig.hits.quantile.8 = vector(mode = "numeric", length = 10000)
+non.sig.hits.quantile.1 = vector(mode = "numeric", length = 10000)
+non.sig.hits.quantile.2 = vector(mode = "numeric", length = 10000)
+non.sig.hits.quantile.3 = vector(mode = "numeric", length = 10000)
+non.sig.hits.quantile.4 = vector(mode = "numeric", length = 10000)
+non.sig.hits.quantile.5 = vector(mode = "numeric", length = 10000)
+non.sig.hits.quantile.6 = vector(mode = "numeric", length = 10000)
+non.sig.hits.quantile.7 = vector(mode = "numeric", length = 10000)
+non.sig.hits.quantile.8 = vector(mode = "numeric", length = 10000)
+
+
+for (i in 1:10000){
+  # Resample significant hits
+  sig.hits.quantile.1[i] = mean(sample(sig.hits$TajimasD[sig.hits$quartile == 1], length(sig.hits$TajimasD[sig.hits$quartile == 1]), replace = TRUE))
+  sig.hits.quantile.2[i] = mean(sample(sig.hits$TajimasD[sig.hits$quartile == 2], length(sig.hits$TajimasD[sig.hits$quartile == 2]), replace = TRUE))
+  sig.hits.quantile.3[i] = mean(sample(sig.hits$TajimasD[sig.hits$quartile == 3], length(sig.hits$TajimasD[sig.hits$quartile == 3]), replace = TRUE))
+  sig.hits.quantile.4[i] = mean(sample(sig.hits$TajimasD[sig.hits$quartile == 4], length(sig.hits$TajimasD[sig.hits$quartile == 4]), replace = TRUE))
+  sig.hits.quantile.5[i] = mean(sample(sig.hits$TajimasD[sig.hits$quartile == 5], length(sig.hits$TajimasD[sig.hits$quartile == 5]), replace = TRUE))
+  sig.hits.quantile.6[i] = mean(sample(sig.hits$TajimasD[sig.hits$quartile == 6], length(sig.hits$TajimasD[sig.hits$quartile == 6]), replace = TRUE))
+  sig.hits.quantile.7[i] = mean(sample(sig.hits$TajimasD[sig.hits$quartile == 7], length(sig.hits$TajimasD[sig.hits$quartile == 7]), replace = TRUE))
+  sig.hits.quantile.8[i] = mean(sample(sig.hits$TajimasD[sig.hits$quartile == 8], length(sig.hits$TajimasD[sig.hits$quartile == 8]), replace = TRUE))
+  # Resample non significant hits
+  non.sig.hits.quantile.1[i] = mean(sample(non.sig.hits$TajimasD[non.sig.hits$quartile == 1], length(non.sig.hits$TajimasD[non.sig.hits$quartile == 1]), replace = TRUE))
+  non.sig.hits.quantile.2[i] = mean(sample(non.sig.hits$TajimasD[non.sig.hits$quartile == 2], length(non.sig.hits$TajimasD[non.sig.hits$quartile == 2]), replace = TRUE))
+  non.sig.hits.quantile.3[i] = mean(sample(non.sig.hits$TajimasD[non.sig.hits$quartile == 3], length(non.sig.hits$TajimasD[non.sig.hits$quartile == 3]), replace = TRUE))
+  non.sig.hits.quantile.4[i] = mean(sample(non.sig.hits$TajimasD[non.sig.hits$quartile == 4], length(non.sig.hits$TajimasD[non.sig.hits$quartile == 4]), replace = TRUE))
+  non.sig.hits.quantile.5[i] = mean(sample(non.sig.hits$TajimasD[non.sig.hits$quartile == 5], length(non.sig.hits$TajimasD[non.sig.hits$quartile == 5]), replace = TRUE))
+  non.sig.hits.quantile.6[i] = mean(sample(non.sig.hits$TajimasD[non.sig.hits$quartile == 6], length(non.sig.hits$TajimasD[non.sig.hits$quartile == 6]), replace = TRUE))
+  non.sig.hits.quantile.7[i] = mean(sample(non.sig.hits$TajimasD[non.sig.hits$quartile == 7], length(non.sig.hits$TajimasD[non.sig.hits$quartile == 7]), replace = TRUE))
+  non.sig.hits.quantile.8[i] = mean(sample(non.sig.hits$TajimasD[non.sig.hits$quartile == 8], length(non.sig.hits$TajimasD[non.sig.hits$quartile == 8]), replace = TRUE))
+}
+lower.CI = as.vector( c(  quantile(sig.hits.quantile.1, 0.05)[1],
+                          quantile(sig.hits.quantile.2, 0.05)[1],
+                          quantile(sig.hits.quantile.3, 0.05)[1],
+                          quantile(sig.hits.quantile.4, 0.05)[1],
+                          quantile(sig.hits.quantile.5, 0.05)[1],
+                          quantile(sig.hits.quantile.6, 0.05)[1],
+                          quantile(sig.hits.quantile.7, 0.05)[1],
+                          quantile(sig.hits.quantile.8, 0.05)[1],
+                          quantile(non.sig.hits.quantile.1, 0.05)[1],
+                          quantile(non.sig.hits.quantile.2, 0.05)[1],
+                          quantile(non.sig.hits.quantile.3, 0.05)[1],
+                          quantile(non.sig.hits.quantile.4, 0.05)[1],
+                          quantile(non.sig.hits.quantile.5, 0.05)[1],
+                          quantile(non.sig.hits.quantile.6, 0.05)[1],
+                          quantile(non.sig.hits.quantile.7, 0.05)[1],
+                          quantile(non.sig.hits.quantile.8, 0.05)[1])
+                          )
+
+upper.CI = as.vector( c( quantile(sig.hits.quantile.1, 0.95)[1],
+                         quantile(sig.hits.quantile.2, 0.95)[1],
+                         quantile(sig.hits.quantile.3, 0.95)[1],
+                         quantile(sig.hits.quantile.4, 0.95)[1],
+                         quantile(sig.hits.quantile.5, 0.95)[1],
+                         quantile(sig.hits.quantile.6, 0.95)[1],
+                         quantile(sig.hits.quantile.7, 0.95)[1],
+                         quantile(sig.hits.quantile.8, 0.95)[1],
+                         quantile(non.sig.hits.quantile.1, 0.95)[1],
+                         quantile(non.sig.hits.quantile.2, 0.95)[1],
+                         quantile(non.sig.hits.quantile.3, 0.95)[1],
+                         quantile(non.sig.hits.quantile.4, 0.95)[1],
+                         quantile(non.sig.hits.quantile.5, 0.95)[1],
+                         quantile(non.sig.hits.quantile.6, 0.95)[1],
+                         quantile(non.sig.hits.quantile.7, 0.95)[1],
+                         quantile(non.sig.hits.quantile.8, 0.95)[1])
+                         )
+
+
+# Construct a dataframe to hold all of our data for plotting
+
+hit = rep(c("sig","non.sig"), each=8)
+expression.quartile = rep(seq(1:8),2)
+tajimasD.mean = c(sig.hits.mean$TajimasD.mean, non.sig.hits.mean$TajimasD.mean)
+tajimasD.lowerCI = lower.CI
+tajimasD.upperCI = upper.CI
+tajimasD.df = as.data.frame(cbind(hit,expression.quartile, tajimasD.mean, tajimasD.lowerCI, tajimasD.upperCI))
+
+tajimasD.expression.plot = ggplot(tajimasD.df, aes(y = tajimasD.mean, x = expression.quartile, colour = hit)) +
+                    geom_point(aes(x = expression.quartile, y = tajimasD.mean, colour = hit),size = 1, position = position_dodge(width = 0.5)) +
+                    geom_errorbar(aes(ymin = tajimasD.lowerCI, ymax = tajimasD.upperCI, x = expression.quartile, colour=hit), width = 0, position = position_dodge(width = 0.5))
+
+
+var.plot=ggplot(data.summary, aes(y = adjusted.variance))+
+  geom_point(aes(x=sex, shape=treatment, colour=sex), size = 6.5,  position=position_dodge(width=0.5))+
+  geom_errorbar(aes(ymin=adj.lower.ci, ymax=adj.upper.ci,x=sex, shape=treatment, colour=sex),size = 1.5, width=0.0,position=position_dodge(width=0.5)) +
+  theme_bw() +
+  ylim(0, 10) +
+  theme(panel.grid.minor.x=element_blank(),panel.grid.minor.y=element_blank(),panel.grid.major.x=element_blank(), panel.grid.major.y=element_blank(),
+        text = element_text(size=40, family = "Times"), axis.title.x=element_blank(), axis.text.x=element_blank(), axis.ticks.x=element_blank(),
+        axis.title.y = element_blank(), axis.text.y=element_text(colour = "black"), axis.ticks.y=element_line(colour = "black"),
+        strip.background = element_rect(colour = "black", fill = "light grey"), strip.text = element_text(size = 40), legend.position = "none") +
+  facet_wrap(~population.type, nrow = 1, strip.position="bottom", scale = "free_x") +
+  scale_fill_manual(values=c("#F4A582", "#92C5DE"))
+var.plot
+
+
+
+plot(sig.hits.mean$Tajimas ~ sig.hits.mean$quartile)
+plot(nonsig.hits.mean$Tajimas ~ nonsig.hits.mean$quartile)
+
+
+test = bins.quantiles(male.biased.sub$log2FoldChange, target.bins = 4, max.breaks = 4)
+temp <- male.biased.sub %>% mutate(quartile = ntile(log2FoldChange, 4))
 
 
 ## Plot

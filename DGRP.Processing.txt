@@ -1,0 +1,125 @@
+###################################################################
+###################################################################
+#####   D G R P     P O P U L A T I O N     P I P E L I N E   #####
+###################################################################
+###################################################################
+
+# This script will generate a SNP table from the DGRP that can be used to calculate TajimasD and piN/piS
+# This script is written in bash except where noted
+
+#######################
+###  Obtaining data ###
+#######################
+# Obtain "consensus sequences" for the DGRP genomes from John Pool's website
+wget http://pooldata.genetics.wisc.edu/dgrp_sequences.tar.bz2
+# Obtain the code provided for filtering the sequences from John Pool's website
+wget http://johnpool.net/masking.zip
+
+################################################
+### Prepare a Multi-fasta file for SNP-Sites ###
+################################################
+
+## This code was run on all chromosome arms separately that were in unique directories per chromosome arm
+#After unpacking the sequence files for each chromosome I ran filtering steps
+# Filter for masking sites in highly related individuals (IBD)
+perl ibd_mask_seq.pl
+# Filter for admixture
+perl admixture_mask_seq.pl
+
+### NOTE: After running the filters above:
+# Take filtered .seq files and add unique header to SNP-Sites and change the
+# file extension to .fasta
+for file in *seq; do awk 'BEGIN{print ">'$file'"}1' $file > $file.fasta; done;
+rm *.seq #Clean up intermediate files
+
+# Concatenate all .fasta files and zip the resultant file to save space and then
+# pass this file on to SNP-sites
+
+cat DGRP_ChrX/*.fasta > ChrX.fas &
+cat DGRP_Chr2L/*.fasta > Chr2L.fas &
+cat DGRP_Chr2R/*.fasta > Chr2R.fas &
+cat DGRP_Chr3L/*.fasta > Chr3L.fas &
+cat DGRP_Chr3R/*.fasta > Chr3R.fas &
+
+########################################################################
+### Making VCF files from multi-alignment fasta files with SNP-sites ###
+########################################################################
+
+# Making VCF files from .fas  multi-alignment files
+snp-sites -v -o ChrX.vcf ChrX.fas &
+snp-sites -v -o Chr2L.vcf Chr2L.fas &
+snp-sites -v -o Chr2R.vcf Chr2R.fas &
+snp-sites -v -o Chr3L.vcf Chr3L.fas &
+snp-sites -v -o Chr3R.vcf Chr3R.fas &
+
+# Remove headers from vcf files
+sed -i '/^##/d' *.vcf
+
+############################################
+### Convert SNP-sits VCF to "Normal VCF" ###    ## I forked this code form Ruzicka et al 2019 PLoS Bio
+############################################
+
+#----- R code -----
+require(matrixStats)
+
+## Modify VCF for Tajima's D analysis (r5 coordinates + remove positions where depth<20)
+
+## Import vcf files of interest ## Need to change these two depending on the specific file
+chr.vcf <- read.table("/plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/ChrX.vcf")
+print("Chromosome Loaded!")
+output.name = "chr.X"
+chr.number = "X"
+
+#Sanity check
+#plot(rownames(test.vcf),test.vcf$V2)
+
+#Three possible types of acceptable allele
+#No missing values
+type1 <- c("A","T","G","C")
+part1 <- subset(chr.vcf,V5 %in% type1)
+if (nrow(part1) > 0) {
+part1[part1==1] <- "1/1"
+part1[part1==0] <- "0/0"
+}
+
+#Missing value = 2
+type2 <- c("A,*","T,*","G,*","C,*")
+part2 <- subset(chr.vcf,V5 %in% type2)
+if (nrow(part2) > 0) {
+part2[part2==2] <- "./."
+part2[part2==1] <- "1/1"
+part2[part2==0] <- "0/0" }
+part2$V5 <- ifelse(part2$V5=="A,*","A",ifelse(part2$V5=="T,*","T",ifelse(part2$V5=="C,*","C",ifelse(part2$V5=="G,*","G",NA))))
+
+#Missing value = 1
+type3 <- c("*,A","*,T","*,G","*,C")
+part3 <- subset(chr.vcf,V5 %in% type3)
+if (nrow(part3) > 0) {
+part3[part3==2] <- "1/1"
+part3[part3==1] <- "./."
+part3[part3==0] <- "0/0"
+part3$V5 <- ifelse(part3$V5=="*,A","A",ifelse(part3$V5=="*,T","T",ifelse(part3$V5=="*,C","C",ifelse(part3$V5=="*,G","G",NA))))
+} else {print("Nothing in Part 1!")}
+
+#Rbind parts 1,2,3
+vcf <- rbind(part1,part2,part3)
+#Transform position column to numeric
+vcf$V2 <- as.numeric(vcf$V2)
+#Order by position column
+vcf <- vcf[order(vcf$V2),]
+#Replace chromosome column with 1
+vcf$V1 <- chr.number
+#Filter for depth (DP>19)
+vcf <- subset(vcf,rowCounts(vcf[,10:ncol(vcf)]!="./.")>19)
+vcf$V2 <- format(vcf$V2,scientific=F)
+
+write.table(vcf, file = paste("/plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/", output.name, "_modified.vcf", sep = ""), sep="\t",row.names = F, quote=F, col.names=F)
+
+rm(list=ls())
+
+----- /R code -----
+
+## Concatenate all VCFs and add header ## I had generated this header previously
+cat chr.X_modified.vcf chr.2L_modified.vcf chr.2R_modified.vcf chr.3L_modified.vcf chr.3R_modified.vcf > DGRP.filtered.vcf
+## Add header
+cat vcf.header DGRP.filtered.vcf > tmp && mv tmp DGRP.filtered.vcf

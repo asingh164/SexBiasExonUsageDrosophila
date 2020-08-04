@@ -1,11 +1,19 @@
+#
 ###################################################################
 ###################################################################
 #####   D G R P     P O P U L A T I O N     P I P E L I N E   #####
 ###################################################################
 ###################################################################
 
-# This script will generate a SNP table from the DGRP that can be used to calculate TajimasD and piN/piS
-# This script is written in bash except where noted
+########################################################################################################################
+########################################################################################################################
+### This is a script that will process genomic data from the DGRP to produce a VCF for DGRP genotypes                ###
+### Author: Amardeep Singh -- amardeep.singh[at]utoronto.ca                                                          ###
+### This script makes use of publicly available sequence data for the DGRP population from John Pool's lab           ###
+### This script is written in bash except where noted                                                                ###
+########################################################################################################################
+########################################################################################################################
+
 
 #######################
 ###  Obtaining data ###

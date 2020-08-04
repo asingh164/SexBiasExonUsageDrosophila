@@ -1,4 +1,4 @@
-headhead##########################################
+##########################################
 ######      Tajima's D Analysis     ######
 ##########################################
 
@@ -11,142 +11,18 @@ headhead##########################################
 ########################################################################################################################
 ########################################################################################################################
 
-##   NOTES: Most of this script is written in Bash, except where indicated when I have included R code
-
-###################################################################
-###################################################################
-#####   D G R P     P O P U L A T I O N     P I P E L I N E   #####
-###################################################################
-###################################################################
-
-
-#######################
-###  Obtaining data ###
-#######################
-# Obtain "consensus sequences" for the DGRP genomes from John Pool's website
-wget http://pooldata.genetics.wisc.edu/dgrp_sequences.tar.bz2
-# Obtain the code provided for filtering the sequences from John Pool's website
-wget http://johnpool.net/masking.zip
-
-################################################
-### Prepare a Multi-fasta file for SNP-Sites ###
-################################################
-
-## This code was run on all chromosome arms separately that were in unique directories per chromosome arm
-#After unpacking the sequence files for each chromosome I ran filtering steps
-# Filter for masking sites in highly related individuals (IBD)
-perl ibd_mask_seq.pl
-# Filter for admixture
-perl admixture_mask_seq.pl
-
-### NOTE: After running the filters above:
-# Take filtered .seq files and add unique header to SNP-Sites and change the
-# file extension to .fasta
-for file in *seq; do awk 'BEGIN{print ">'$file'"}1' $file > $file.fasta; done;
-rm *.seq #Clean up intermediate files
-
-# Concatenate all .fasta files and zip the resultant file to save space and then
-# pass this file on to SNP-sites
-
-cat DGRP_ChrX/*.fasta > ChrX.fas &
-cat DGRP_Chr2L/*.fasta > Chr2L.fas &
-cat DGRP_Chr2R/*.fasta > Chr2R.fas &
-cat DGRP_Chr3L/*.fasta > Chr3L.fas &
-cat DGRP_Chr3R/*.fasta > Chr3R.fas &
-
-########################################################################
-### Making VCF files from multi-alignment fasta files with SNP-sites ###
-########################################################################
-
-# Making VCF files from .fas  multi-alignment files
-snp-sites -v -o ChrX.vcf ChrX.fas &
-snp-sites -v -o Chr2L.vcf Chr2L.fas &
-snp-sites -v -o Chr2R.vcf Chr2R.fas &
-snp-sites -v -o Chr3L.vcf Chr3L.fas &
-snp-sites -v -o Chr3R.vcf Chr3R.fas &
-
-# Remove headers from vcf files
-sed -i '/^##/d' *.vcf
-
-############################################
-### Convert SNP-sits VCF to "Normal VCF" ###    ## I forked this code form Ruzicka et al 2019 PLoS Bio
-############################################
-
-#----- R code -----
-require(matrixStats)
-
-## Modify VCF for Tajima's D analysis (r5 coordinates + remove positions where depth<20)
-
-## Import vcf files of interest ## Need to change these two depending on the specific file
-chr.vcf <- read.table("/plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/ChrX.vcf")
-print("Chromosome Loaded!")
-output.name = "chr.X"
-chr.number = "X"
-
-#Sanity check
-#plot(rownames(test.vcf),test.vcf$V2)
-
-#Three possible types of acceptable allele
-#No missing values
-type1 <- c("A","T","G","C")
-part1 <- subset(chr.vcf,V5 %in% type1)
-if (nrow(part1) > 0) {
-part1[part1==1] <- "1/1"
-part1[part1==0] <- "0/0"
-}
-
-#Missing value = 2
-type2 <- c("A,*","T,*","G,*","C,*")
-part2 <- subset(chr.vcf,V5 %in% type2)
-if (nrow(part2) > 0) {
-part2[part2==2] <- "./."
-part2[part2==1] <- "1/1"
-part2[part2==0] <- "0/0" }
-part2$V5 <- ifelse(part2$V5=="A,*","A",ifelse(part2$V5=="T,*","T",ifelse(part2$V5=="C,*","C",ifelse(part2$V5=="G,*","G",NA))))
-
-#Missing value = 1
-type3 <- c("*,A","*,T","*,G","*,C")
-part3 <- subset(chr.vcf,V5 %in% type3)
-if (nrow(part3) > 0) {
-part3[part3==2] <- "1/1"
-part3[part3==1] <- "./."
-part3[part3==0] <- "0/0"
-part3$V5 <- ifelse(part3$V5=="*,A","A",ifelse(part3$V5=="*,T","T",ifelse(part3$V5=="*,C","C",ifelse(part3$V5=="*,G","G",NA))))
-} else {print("Nothing in Part 1!")}
-
-#Rbind parts 1,2,3
-vcf <- rbind(part1,part2,part3)
-#Transform position column to numeric
-vcf$V2 <- as.numeric(vcf$V2)
-#Order by position column
-vcf <- vcf[order(vcf$V2),]
-#Replace chromosome column with 1
-vcf$V1 <- chr.number
-#Filter for depth (DP>19)
-vcf <- subset(vcf,rowCounts(vcf[,10:ncol(vcf)]!="./.")>19)
-vcf$V2 <- format(vcf$V2,scientific=F)
-
-write.table(vcf, file = paste("/plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/", output.name, "_modified.vcf", sep = ""), sep="\t",row.names = F, quote=F, col.names=F)
-
-rm(list=ls())
-
------ /R code -----
-
-## Concatenate all VCFs and add header ## I had generated this header previously
-cat chr.X_modified.vcf chr.2L_modified.vcf chr.2R_modified.vcf chr.3L_modified.vcf chr.3R_modified.vcf > DGRP.filtered.vcf
-## Add header
-cat vcf.header DGRP.filtered.vcf > tmp && mv tmp DGRP.filtered.vcf
-
 ##################################################
 ###     Calculating Tajimas D in the DGRP      ###
 ##################################################
 
+## Original location of DGRP VCF file: "/plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.filtered.vcf"
+
 # This analysis was done with vcftools ## I did two different analysis, one with a window size of 1kb and one with a window size of 1bp (i.e. SNP level)
 ### Calculating Tajimas D in 1000bp Windows
-vcftools --vcf DGRP.filtered.vcf --TajimaD 1000 --out DGRP.1000bp.Window & ## this generates estimates of Tajimas D in windows of 1000bp
+vcftools --vcf /plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.filtered.vcf --TajimaD 1000 --out DGRP.1000bp.Window & ## this generates estimates of Tajimas D in windows of 1000bp
 
 ### Calculating Tajimas D at the SNP level
-vcftools --vcf DGRP.filtered.vcf --TajimaD 1 --out DGRP.SNP.Level &  ## This generates estimates of Tajimas D at the SNP level
+vcftools --vcf /plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.filtered.vcf --TajimaD 1 --out DGRP.SNP.Level &  ## This generates estimates of Tajimas D at the SNP level
 
 # Clean out sites.windows without any SNPs to estimates Tajima's D
 sed -i '/nan/d' DGRP.1000bp.Window.Tajima.D
@@ -413,14 +289,14 @@ male.biased.head = male.biased.head[!(is.na(male.biased.head$log2FoldChange)),]
 female.biased.head = female.biased.head[!(is.na(female.biased.head$log2FoldChange)),]
 
 # Assign quartiles for both MBG and FBG
-male.biased.body = male.biased.body %>% mutate(quartile = ntile(log2FoldChange, 4))
-female.biased.body = female.biased.body %>% mutate(quartile = ntile(log2FoldChange, 4))
-male.biased.head = male.biased.head %>% mutate(quartile = ntile(log2FoldChange, 4))
-female.biased.head = female.biased.head %>% mutate(quartile = ntile(log2FoldChange, 4))
+male.biased.body = male.biased.body %>% mutate(quartile = ntile(log2FoldChange, 3))
+female.biased.body = female.biased.body %>% mutate(quartile = ntile(log2FoldChange, 3))
+male.biased.head = male.biased.head %>% mutate(quartile = ntile(log2FoldChange, 3))
+female.biased.head = female.biased.head %>% mutate(quartile = ntile(log2FoldChange, 3))
 
 # For the male genes, lets add 4 to each quartile
-male.biased.body$quartile = male.biased.body$quartile + 4
-male.biased.head$quartile = male.biased.head$quartile + 4
+male.biased.body$quartile = male.biased.body$quartile + 3
+male.biased.head$quartile = male.biased.head$quartile + 3
 
 # Merge data back
 expression.data.body = rbind(male.biased.body,female.biased.body)
@@ -483,8 +359,8 @@ for (i in 1:10000){
   body.sig.hits.quantile.4[i] = mean(sample(body.sig.hits$TajimasD[body.sig.hits$quartile == 4], length(body.sig.hits$TajimasD[body.sig.hits$quartile == 4]), replace = TRUE))
   body.sig.hits.quantile.5[i] = mean(sample(body.sig.hits$TajimasD[body.sig.hits$quartile == 5], length(body.sig.hits$TajimasD[body.sig.hits$quartile == 5]), replace = TRUE))
   body.sig.hits.quantile.6[i] = mean(sample(body.sig.hits$TajimasD[body.sig.hits$quartile == 6], length(body.sig.hits$TajimasD[body.sig.hits$quartile == 6]), replace = TRUE))
-  body.sig.hits.quantile.7[i] = mean(sample(body.sig.hits$TajimasD[body.sig.hits$quartile == 7], length(body.sig.hits$TajimasD[body.sig.hits$quartile == 7]), replace = TRUE))
-  body.sig.hits.quantile.8[i] = mean(sample(body.sig.hits$TajimasD[body.sig.hits$quartile == 8], length(body.sig.hits$TajimasD[body.sig.hits$quartile == 8]), replace = TRUE))
+  #body.sig.hits.quantile.7[i] = mean(sample(body.sig.hits$TajimasD[body.sig.hits$quartile == 7], length(body.sig.hits$TajimasD[body.sig.hits$quartile == 7]), replace = TRUE))
+  #body.sig.hits.quantile.8[i] = mean(sample(body.sig.hits$TajimasD[body.sig.hits$quartile == 8], length(body.sig.hits$TajimasD[body.sig.hits$quartile == 8]), replace = TRUE))
 
   head.sig.hits.quantile.1[i] = mean(sample(head.sig.hits$TajimasD[head.sig.hits$quartile == 1], length(head.sig.hits$TajimasD[head.sig.hits$quartile == 1]), replace = TRUE))
   head.sig.hits.quantile.2[i] = mean(sample(head.sig.hits$TajimasD[head.sig.hits$quartile == 2], length(head.sig.hits$TajimasD[head.sig.hits$quartile == 2]), replace = TRUE))
@@ -492,8 +368,8 @@ for (i in 1:10000){
   head.sig.hits.quantile.4[i] = mean(sample(head.sig.hits$TajimasD[head.sig.hits$quartile == 4], length(head.sig.hits$TajimasD[head.sig.hits$quartile == 4]), replace = TRUE))
   head.sig.hits.quantile.5[i] = mean(sample(head.sig.hits$TajimasD[head.sig.hits$quartile == 5], length(head.sig.hits$TajimasD[head.sig.hits$quartile == 5]), replace = TRUE))
   head.sig.hits.quantile.6[i] = mean(sample(head.sig.hits$TajimasD[head.sig.hits$quartile == 6], length(head.sig.hits$TajimasD[head.sig.hits$quartile == 6]), replace = TRUE))
-  head.sig.hits.quantile.7[i] = mean(sample(head.sig.hits$TajimasD[head.sig.hits$quartile == 7], length(head.sig.hits$TajimasD[head.sig.hits$quartile == 7]), replace = TRUE))
-  head.sig.hits.quantile.8[i] = mean(sample(head.sig.hits$TajimasD[head.sig.hits$quartile == 8], length(head.sig.hits$TajimasD[head.sig.hits$quartile == 8]), replace = TRUE))
+  #head.sig.hits.quantile.7[i] = mean(sample(head.sig.hits$TajimasD[head.sig.hits$quartile == 7], length(head.sig.hits$TajimasD[head.sig.hits$quartile == 7]), replace = TRUE))
+  #head.sig.hits.quantile.8[i] = mean(sample(head.sig.hits$TajimasD[head.sig.hits$quartile == 8], length(head.sig.hits$TajimasD[head.sig.hits$quartile == 8]), replace = TRUE))
 
   # Resample non significant hits
   body.non.sig.hits.quantile.1[i] = mean(sample(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 1], length(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 1]), replace = TRUE))
@@ -502,8 +378,8 @@ for (i in 1:10000){
   body.non.sig.hits.quantile.4[i] = mean(sample(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 4], length(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 4]), replace = TRUE))
   body.non.sig.hits.quantile.5[i] = mean(sample(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 5], length(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 5]), replace = TRUE))
   body.non.sig.hits.quantile.6[i] = mean(sample(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 6], length(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 6]), replace = TRUE))
-  body.non.sig.hits.quantile.7[i] = mean(sample(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 7], length(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 7]), replace = TRUE))
-  body.non.sig.hits.quantile.8[i] = mean(sample(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 8], length(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 8]), replace = TRUE))
+  #body.non.sig.hits.quantile.7[i] = mean(sample(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 7], length(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 7]), replace = TRUE))
+  #body.non.sig.hits.quantile.8[i] = mean(sample(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 8], length(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 8]), replace = TRUE))
 
   head.non.sig.hits.quantile.1[i] = mean(sample(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 1], length(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 1]), replace = TRUE))
   head.non.sig.hits.quantile.2[i] = mean(sample(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 2], length(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 2]), replace = TRUE))
@@ -511,8 +387,8 @@ for (i in 1:10000){
   head.non.sig.hits.quantile.4[i] = mean(sample(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 4], length(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 4]), replace = TRUE))
   head.non.sig.hits.quantile.5[i] = mean(sample(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 5], length(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 5]), replace = TRUE))
   head.non.sig.hits.quantile.6[i] = mean(sample(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 6], length(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 6]), replace = TRUE))
-  head.non.sig.hits.quantile.7[i] = mean(sample(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 7], length(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 7]), replace = TRUE))
-  head.non.sig.hits.quantile.8[i] = mean(sample(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 8], length(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 8]), replace = TRUE))
+  #head.non.sig.hits.quantile.7[i] = mean(sample(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 7], length(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 7]), replace = TRUE))
+  #head.non.sig.hits.quantile.8[i] = mean(sample(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 8], length(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 8]), replace = TRUE))
 print (i)
 }
 
@@ -522,16 +398,16 @@ body.lower.CI = as.vector( c(  quantile(body.sig.hits.quantile.1, 0.05)[1],
                           quantile(body.sig.hits.quantile.4, 0.05)[1],
                           quantile(body.sig.hits.quantile.5, 0.05)[1],
                           quantile(body.sig.hits.quantile.6, 0.05)[1],
-                          quantile(body.sig.hits.quantile.7, 0.05)[1],
-                          quantile(body.sig.hits.quantile.8, 0.05)[1],
+                          #quantile(body.sig.hits.quantile.7, 0.05)[1],
+                          #quantile(body.sig.hits.quantile.8, 0.05)[1],
                           quantile(body.non.sig.hits.quantile.1, 0.05)[1],
                           quantile(body.non.sig.hits.quantile.2, 0.05)[1],
                           quantile(body.non.sig.hits.quantile.3, 0.05)[1],
                           quantile(body.non.sig.hits.quantile.4, 0.05)[1],
                           quantile(body.non.sig.hits.quantile.5, 0.05)[1],
                           quantile(body.non.sig.hits.quantile.6, 0.05)[1],
-                          quantile(body.non.sig.hits.quantile.7, 0.05)[1],
-                          quantile(body.non.sig.hits.quantile.8, 0.05)[1])
+                          #quantile(body.non.sig.hits.quantile.7, 0.05)[1],
+                          #quantile(body.non.sig.hits.quantile.8, 0.05)[1])
                           )
 
 body.upper.CI = as.vector( c( quantile(body.sig.hits.quantile.1, 0.95)[1],
@@ -540,16 +416,16 @@ body.upper.CI = as.vector( c( quantile(body.sig.hits.quantile.1, 0.95)[1],
                          quantile(body.sig.hits.quantile.4, 0.95)[1],
                          quantile(body.sig.hits.quantile.5, 0.95)[1],
                          quantile(body.sig.hits.quantile.6, 0.95)[1],
-                         quantile(body.sig.hits.quantile.7, 0.95)[1],
-                         quantile(body.sig.hits.quantile.8, 0.95)[1],
+                         #quantile(body.sig.hits.quantile.7, 0.95)[1],
+                         #quantile(body.sig.hits.quantile.8, 0.95)[1],
                          quantile(body.non.sig.hits.quantile.1, 0.95)[1],
                          quantile(body.non.sig.hits.quantile.2, 0.95)[1],
                          quantile(body.non.sig.hits.quantile.3, 0.95)[1],
                          quantile(body.non.sig.hits.quantile.4, 0.95)[1],
                          quantile(body.non.sig.hits.quantile.5, 0.95)[1],
                          quantile(body.non.sig.hits.quantile.6, 0.95)[1],
-                         quantile(body.non.sig.hits.quantile.7, 0.95)[1],
-                         quantile(body.non.sig.hits.quantile.8, 0.95)[1])
+                         #quantile(body.non.sig.hits.quantile.7, 0.95)[1],
+                         #quantile(body.non.sig.hits.quantile.8, 0.95)[1])
                          )
 
 head.lower.CI = as.vector( c(  quantile(head.sig.hits.quantile.1, 0.05)[1],
@@ -558,16 +434,16 @@ head.lower.CI = as.vector( c(  quantile(head.sig.hits.quantile.1, 0.05)[1],
                           quantile(head.sig.hits.quantile.4, 0.05)[1],
                           quantile(head.sig.hits.quantile.5, 0.05)[1],
                           quantile(head.sig.hits.quantile.6, 0.05)[1],
-                          quantile(head.sig.hits.quantile.7, 0.05)[1],
-                          quantile(head.sig.hits.quantile.8, 0.05)[1],
+                          #quantile(head.sig.hits.quantile.7, 0.05)[1],
+                          #quantile(head.sig.hits.quantile.8, 0.05)[1],
                           quantile(head.non.sig.hits.quantile.1, 0.05)[1],
                           quantile(head.non.sig.hits.quantile.2, 0.05)[1],
                           quantile(head.non.sig.hits.quantile.3, 0.05)[1],
                           quantile(head.non.sig.hits.quantile.4, 0.05)[1],
                           quantile(head.non.sig.hits.quantile.5, 0.05)[1],
                           quantile(head.non.sig.hits.quantile.6, 0.05)[1],
-                          quantile(head.non.sig.hits.quantile.7, 0.05)[1],
-                          quantile(head.non.sig.hits.quantile.8, 0.05)[1])
+                          #quantile(head.non.sig.hits.quantile.7, 0.05)[1],
+                          #quantile(head.non.sig.hits.quantile.8, 0.05)[1])
                           )
 
 head.upper.CI = as.vector( c( quantile(head.sig.hits.quantile.1, 0.95)[1],
@@ -576,16 +452,16 @@ head.upper.CI = as.vector( c( quantile(head.sig.hits.quantile.1, 0.95)[1],
                          quantile(head.sig.hits.quantile.4, 0.95)[1],
                          quantile(head.sig.hits.quantile.5, 0.95)[1],
                          quantile(head.sig.hits.quantile.6, 0.95)[1],
-                         quantile(head.sig.hits.quantile.7, 0.95)[1],
-                         quantile(head.sig.hits.quantile.8, 0.95)[1],
+                         #quantile(head.sig.hits.quantile.7, 0.95)[1],
+                         #quantile(head.sig.hits.quantile.8, 0.95)[1],
                          quantile(head.non.sig.hits.quantile.1, 0.95)[1],
                          quantile(head.non.sig.hits.quantile.2, 0.95)[1],
                          quantile(head.non.sig.hits.quantile.3, 0.95)[1],
                          quantile(head.non.sig.hits.quantile.4, 0.95)[1],
                          quantile(head.non.sig.hits.quantile.5, 0.95)[1],
                          quantile(head.non.sig.hits.quantile.6, 0.95)[1],
-                         quantile(head.non.sig.hits.quantile.7, 0.95)[1],
-                         quantile(head.non.sig.hits.quantile.8, 0.95)[1])
+                         #quantile(head.non.sig.hits.quantile.7, 0.95)[1],
+                         #quantile(head.non.sig.hits.quantile.8, 0.95)[1])
                          )
 
 

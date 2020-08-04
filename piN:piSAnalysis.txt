@@ -1,3 +1,109 @@
-##########################################
-######       piN/piS Analysis       ######
-##########################################
+#
+###################################################################
+###################################################################
+#####               p i N   /   p i S   Analysis              #####
+###################################################################
+###################################################################
+
+
+###############################################################
+######    Calculating Nucleotide Diversity in the DGRP   ######
+###############################################################
+
+cat /plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.filtered.vcf | vcftools --vcf - --site-pi --out  nucleotide_diversity
+zcat input_file.vcf.gz | vcftools --vcf - --site-pi --positions SNP_list.txt --out nucleotide_diversity
+
+# I moved the output file to a folder where I kept the rest of the data generated in this script
+mv nucleotide_diversity* ../piNpiS.Analysis/
+
+
+###################################################################################
+######    Using Ensembl VEP to identify Synonymous and Nonsynonymous Sites   ######
+###################################################################################
+
+## Format the DGRP vcf file for VEP
+cat /plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.filtered.vcf | awk 'BEGIN {OFS = FS = "\t"} { print $1 "\t" $2 "\t" $2 "\t" $4 "/" $5 "\t" "+" }' > DGRP.vcf.for.vep.tmp
+# Remove header row
+sed -i '/^#/d' DGRP.vcf.for.vep.tmp && mv DGRP.vcf.for.vep.tmp DGRP.vcf.for.vep
+## I found this file had spaces in columns so I removed all delimeters and replaced them with tab
+sed -i 's/  /:/g' DGRP.vcf.for.vep # Make sure that the the first space is a tab when running this
+sed -i 's/ //g' DGRP.vcf.for.vep
+sed -i 's/:/  /g' DGRP.vcf.for.vep # Make sure that the second space is a tab when running this
+
+vep -i DGRP.vcf.for.vep -o DGRP.vep.output --species drosophila_melanogaster --cache --offline --stats_text --force_overwrite --distance 0 --coding_only &
+
+############################################################################################
+######    Calculating Synonymous and Nonsynonymous Nucleotide Diversity in the DGRP   ######
+############################################################################################
+#---- R CODE -----
+require(doBy)
+require(ggplot2)
+
+## Load in datasets
+
+# Load in VEP output
+vep.output = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/DGRP.vep.output", header = TRUE)
+# Load in pi calculations
+pi.output = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/nucleotide_diversity.sites.pi", header = TRUE)
+# Load in the Junctionseq outputs
+junctionseq.results.body = read.table("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/BodyOutput/Aug1.Body.OnlyallGenes.results.txt", header = TRUE, sep = "\t")
+junctionseq.results.head = read.table("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/HeadOutput/Aug1.Head.OnlyallGenes.results.txt", header = TRUE, sep = "\t")
+
+backup.junctionseq.results.body  = junctionseq.results.body
+backup.junctionseq.results.head  = junctionseq.results.head
+
+## Clean up data files
+# Add column for coordinates for pi file that follows the chr:xxxxx format
+pi.output$site = paste(pi.output$CHROM, pi.output$POS, sep = ":")
+# Remove duplicate sites in vep output
+vep.output = vep.output[!duplicated(vep.output[c(2:4,7)]), ]
+# Remove unnecessary columns from junctionseq file and any rows with no data
+junctionseq.results.body = junctionseq.results.body[!(junctionseq.results.body$testable == FALSE),]
+junctionseq.results.head = junctionseq.results.head[!(junctionseq.results.head$testable == FALSE),]
+junctionseq.results.body = junctionseq.results.body[junctionseq.results.body$expr_male > 10 & junctionseq.results.body$expr_female > 10,]
+junctionseq.results.head = junctionseq.results.head[junctionseq.results.head$expr_male > 10 & junctionseq.results.head$expr_female > 10,]
+junctionseq.results.body = junctionseq.results.body[, c(2,23:25)]
+junctionseq.results.head = junctionseq.results.head[, c(2,23:25)]
+
+## Calculate piN and piS per gene
+# Merge the nucleotide diversity and VEP output files
+pi.vep.merge = merge(pi.output, vep.output, by.x = "site", by.y = "Location")
+# Clean out unnecessary columns
+pi.vep.merge = pi.vep.merge[, c(1,4,7,10)]
+pi.vep.merge.syn.sub = pi.vep.merge[pi.vep.merge$Consequence == "synonymous_variant",]
+pi.vep.merge.non.syn.sub = pi.vep.merge[pi.vep.merge$Consequence != "synonymous_variant",]
+
+pi.syn.per.gene = summaryBy(PI ~ Gene, FUN = c(mean), data = pi.vep.merge.syn.sub)
+pi.non.syn.per.gene = summaryBy(PI ~ Gene, FUN = c(mean), data = pi.vep.merge.non.syn.sub)
+# Rename columns and then merge datafiles
+colnames(pi.syn.per.gene)[2] = "piS"
+colnames(pi.non.syn.per.gene)[2] = "piNS"
+piNpiS.per.gene = merge(pi.syn.per.gene,pi.non.syn.per.gene, by = "Gene")
+
+## Assign significant genes from JunctionSeq output
+# Assign significant hits
+junctionseq.results.body$sig.hit = NA
+junctionseq.results.body$sig.hit[junctionseq.results.body$geneWisePadj <= 0.01] = 1
+junctionseq.results.body$sig.hit[!(junctionseq.results.body$geneWisePadj <= 0.01)] = 0
+
+junctionseq.results.head$sig.hit = NA
+junctionseq.results.head$sig.hit[junctionseq.results.head$geneWisePadj <= 0.01] = 1
+junctionseq.results.head$sig.hit[!(junctionseq.results.head$geneWisePadj <= 0.01)] = 0
+
+# Collapse duplicates in Junctionseq files
+junctionseq.results.body.unique = junctionseq.results.body[!duplicated(junctionseq.results.body[c(1,4:5)]), ]
+junctionseq.results.head.unique = junctionseq.results.head[!duplicated(junctionseq.results.head[c(1,4:5)]), ]
+
+# Merge piN/piS data with junctionseq data
+body.pin.pis = merge(junctionseq.results.body.unique,piNpiS.per.gene, by.x = "geneID", by.y = "Gene", sort = FALSE)
+head.pin.pis = merge(junctionseq.results.head.unique,piNpiS.per.gene, by.x = "geneID", by.y = "Gene", sort = FALSE)
+
+
+
+### Plotting piN and piS
+
+
+
+
+
+#

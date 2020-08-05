@@ -32,29 +32,40 @@ sed -i 's/:/  /g' DGRP.vcf.for.vep # Make sure that the second space is a tab wh
 
 vep -i DGRP.vcf.for.vep -o DGRP.vep.output --species drosophila_melanogaster --cache --offline --stats_text --force_overwrite --distance 0 --coding_only &
 
-############################################################################################
-######    Calculating Synonymous and Nonsynonymous Nucleotide Diversity in the DGRP   ######
-############################################################################################
+## Identifying four-fold degenerate sites
+R CMD BATCH 4FoldDegenerecy.from.VEP.output.R &
+
+
+#######################################################################################################################################
+######    Calculating Synonymous and Nonsynonymous Nucleotide Diversity in the DGRP at DEU Significant and Nonsignificant Genes  ######
+#######################################################################################################################################
+
+###### There are two analyses I did here. First, was ignoring differential gene expression while the second parses piN/piS by sex-bias in gene expression
+
 #---- R CODE -----
+rm(list=ls())
+
+# Required packages
 require(doBy)
 require(ggplot2)
 
 ## Load in datasets
 
-# Load in VEP output
-vep.output = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/DGRP.vep.output", header = TRUE)
+# Load in VEP output with 4-fold degenerate site identified
+vep.output = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/DGRP.vep.output.with.4fold.degeneracy", header = TRUE)
 # Load in pi calculations
 pi.output = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/nucleotide_diversity.sites.pi", header = TRUE)
 # Load in the Junctionseq outputs
 junctionseq.results.body = read.table("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/BodyOutput/Aug1.Body.OnlyallGenes.results.txt", header = TRUE, sep = "\t")
 junctionseq.results.head = read.table("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/HeadOutput/Aug1.Head.OnlyallGenes.results.txt", header = TRUE, sep = "\t")
+# Load in differential gene expression data in the DGRP
+DGE.data.body = read.table("/plas1/amardeep.singh/RNA.Seq.Data/GeneExpression/RAL.DifferentialGeneExpression.body.txt", header = TRUE, sep = "\t")
+DGE.data.head = read.table("/plas1/amardeep.singh/RNA.Seq.Data/GeneExpression/RAL.DifferentialGeneExpression.head.txt", header = TRUE, sep = "\t")
 
-backup.junctionseq.results.body  = junctionseq.results.body
-backup.junctionseq.results.head  = junctionseq.results.head
 
 ## Clean up data files
 # Add column for coordinates for pi file that follows the chr:xxxxx format
-pi.output$site = paste(pi.output$CHROM, pi.output$POS, sep = ":")
+pi.output$Location = paste(pi.output$CHROM, pi.output$POS, sep = ":")
 # Remove duplicate sites in vep output
 vep.output = vep.output[!duplicated(vep.output[c(2:4,7)]), ]
 # Remove unnecessary columns from junctionseq file and any rows with no data
@@ -64,6 +75,88 @@ junctionseq.results.body = junctionseq.results.body[junctionseq.results.body$exp
 junctionseq.results.head = junctionseq.results.head[junctionseq.results.head$expr_male > 10 & junctionseq.results.head$expr_female > 10,]
 junctionseq.results.body = junctionseq.results.body[, c(2,23:25)]
 junctionseq.results.head = junctionseq.results.head[, c(2,23:25)]
+
+## Calculate piN and piS per gene
+# Merge the nucleotide diversity and VEP output files
+pi.vep.merge = merge(pi.output, vep.output, by.x = "Location", by.y = "Location")
+# Clean out unnecessary columns
+pi.vep.merge = pi.vep.merge[, c(1,4,7,10,18)]
+pi.vep.merge.syn.sub = pi.vep.merge[pi.vep.merge$Fourfold_degenerate == 1,]
+pi.vep.merge.non.syn.sub = pi.vep.merge[pi.vep.merge$Fourfold_degenerate != 1,]
+
+pi.syn.per.gene = summaryBy(PI ~ Gene, FUN = c(mean), data = pi.vep.merge.syn.sub)
+pi.non.syn.per.gene = summaryBy(PI ~ Gene, FUN = c(mean), data = pi.vep.merge.non.syn.sub)
+# Rename columns and then merge datafiles
+colnames(pi.syn.per.gene)[2] = "piS"
+colnames(pi.non.syn.per.gene)[2] = "piNS"
+piNpiS.per.gene = merge(pi.syn.per.gene,pi.non.syn.per.gene, by = "Gene")
+
+## Assign significant genes from JunctionSeq output
+# Assign significant hits
+junctionseq.results.body$sig.hit = NA
+junctionseq.results.body$sig.hit[junctionseq.results.body$geneWisePadj <= 0.01] = 1
+junctionseq.results.body$sig.hit[!(junctionseq.results.body$geneWisePadj <= 0.01)] = 0
+
+junctionseq.results.head$sig.hit = NA
+junctionseq.results.head$sig.hit[junctionseq.results.head$geneWisePadj <= 0.01] = 1
+junctionseq.results.head$sig.hit[!(junctionseq.results.head$geneWisePadj <= 0.01)] = 0
+
+# Collapse duplicates in Junctionseq files
+junctionseq.results.body.unique = junctionseq.results.body[!duplicated(junctionseq.results.body[c(1,4:5)]), ]
+junctionseq.results.head.unique = junctionseq.results.head[!duplicated(junctionseq.results.head[c(1,4:5)]), ]
+
+# Merge piN/piS data with junctionseq data and add a column for the ratio of piN/piS
+body.pin.pis = merge(junctionseq.results.body.unique,piNpiS.per.gene, by.x = "geneID", by.y = "Gene", sort = FALSE)
+head.pin.pis = merge(junctionseq.results.head.unique,piNpiS.per.gene, by.x = "geneID", by.y = "Gene", sort = FALSE)
+body.pin.pis$piN_piS = body.pin.pis$piNS / body.pin.pis$piS
+head.pin.pis$piN_piS = head.pin.pis$piNS / head.pin.pis$piS
+
+# Combine head and body data into a single dataframe for plotting
+body.pin.pis$tissue = "body"
+head.pin.pis$tissue = "head"
+pin.pis = rbind(body.pin.pis, head.pin.pis)
+
+# Mean piN/piS per gene ignoring differential gene expression
+
+# Bootstrapping estimates of piN and piS as well as the ratio of piN:piS
+body.piS_sig = vector(length = 10000, mode = "numeric")
+body.piNS_sig = vector(length = 10000, mode = "numeric")
+body.piN_piS_sig = vector(length = 10000, mode = "numeric")
+body.piS_nonsig = vector(length = 10000, mode = "numeric")
+body.piNS_nonsig = vector(length = 10000, mode = "numeric")
+body.piN_piS_nonsig = vector(length = 10000, mode = "numeric")
+
+head.piS_sig = vector(length = 10000, mode = "numeric")
+head.piNS_sig = vector(length = 10000, mode = "numeric")
+head.piN_piS_sig = vector(length = 10000, mode = "numeric")
+head.piS_nonsig = vector(length = 10000, mode = "numeric")
+head.piNS_nonsig = vector(length = 10000, mode = "numeric")
+head.piN_piS_nonsig = vector(length = 10000, mode = "numeric")
+
+for (i in 1:10000){
+  body.piS_sig[i] = mean(sample(x = body.pin.pis[body.pin.pis$sig.hit == 1,]$piS, size = length(body.pin.pis[body.pin.pis$sig.hit == 1,]$piS), replace = TRUE))
+  body.piNS_sig[i] = mean(sample(x = body.pin.pis[body.pin.pis$sig.hit == 1,]$piNS, size = length(body.pin.pis[body.pin.pis$sig.hit == 1,]$piNS), replace = TRUE))
+  body.piN_piS_sig[i] = mean(sample(x = body.pin.pis[body.pin.pis$sig.hit == 1,]$piN_piS, size = length(body.pin.pis[body.pin.pis$sig.hit == 1,]$piN_piS), replace = TRUE))
+  body.piS_nonsig[i] = mean(sample(x = body.pin.pis[body.pin.pis$sig.hit == 1,]$piS, size = length(body.pin.pis[body.pin.pis$sig.hit == 0,]$piS), replace = TRUE))
+  body.piNS_nonsig[i] = mean(sample(x = body.pin.pis[body.pin.pis$sig.hit == 1,]$piNS, size = length(body.pin.pis[body.pin.pis$sig.hit == 0,]$piNS), replace = TRUE))
+  body.piN_piS_nonsig[i] = mean(sample(x = body.pin.pis[body.pin.pis$sig.hit == 1,]$piN_piS, size = length(body.pin.pis[body.pin.pis$sig.hit == 0,]$piN_piS), replace = TRUE))
+
+  head.piS_sig[i] = mean(sample(x = head.pin.pis[head.pin.pis$sig.hit == 1,]$piS, size = length(head.pin.pis[head.pin.pis$sig.hit == 1,]$piS), replace = TRUE))
+  head.piNS_sig[i] = mean(sample(x = head.pin.pis[head.pin.pis$sig.hit == 1,]$piNS, size = length(head.pin.pis[head.pin.pis$sig.hit == 1,]$piNS), replace = TRUE))
+  head.piN_piS_sig[i] = mean(sample(x = head.pin.pis[head.pin.pis$sig.hit == 1,]$piN_piS, size = length(head.pin.pis[head.pin.pis$sig.hit == 1,]$piN_piS), replace = TRUE))
+  head.piS_nonsig[i] = mean(sample(x = head.pin.pis[head.pin.pis$sig.hit == 1,]$piS, size = length(head.pin.pis[head.pin.pis$sig.hit == 0,]$piS), replace = TRUE))
+  head.piNS_nonsig[i] = mean(sample(x = head.pin.pis[head.pin.pis$sig.hit == 1,]$piNS, size = length(head.pin.pis[head.pin.pis$sig.hit == 0,]$piNS), replace = TRUE))
+  head.piN_piS_nonsig[i] = mean(sample(x = head.pin.pis[head.pin.pis$sig.hit == 1,]$piN_piS, size = length(head.pin.pis[head.pin.pis$sig.hit == 0,]$piN_piS), replace = TRUE))
+
+  print(i)
+
+}
+
+# Assessing piN/piS at genes showing DEU parsed by sex bias in gene expression
+
+
+
+###### This deprecated method was done by using synonymous variants as synonymous sites  #####
 
 ## Calculate piN and piS per gene
 # Merge the nucleotide diversity and VEP output files

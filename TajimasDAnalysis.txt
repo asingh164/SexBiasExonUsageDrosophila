@@ -220,22 +220,25 @@ require(ggplot2)
 # Load in Tajimas D data and intersect with JunctionSeq output
 
 # --- R Code ---
-# Loading in data files
+
+## Loading in data files
 # Read in JunctionSeq results
 junctionseq.results.body = read.table("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/BodyOutput/Aug1.Body.OnlyallGenes.results.txt", header = TRUE, sep = "\t")
 junctionseq.results.head = read.table("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/HeadOutput/Aug1.Head.OnlyallGenes.results.txt", header = TRUE, sep = "\t")
-
 # Read in Tajimas D per gene results
 tajimasD.per.gene = read.table("/plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.TajimasD.Per.Gene", header = FALSE, sep = "\t")
+## Load in the differential gene expression data
+DGE.data.body = read.table("/plas1/amardeep.singh/RNA.Seq.Data/GeneExpression/RAL.DifferentialGeneExpression.body.txt", header = TRUE, sep = "\t")
+DGE.data.head = read.table("/plas1/amardeep.singh/RNA.Seq.Data/GeneExpression/RAL.DifferentialGeneExpression.head.txt", header = TRUE, sep = "\t")
+
+## Cleaning up data files
 # Rename the Tajima's D column
 colnames(tajimasD.per.gene)[2] = "TajimasD"
-
 # Cleaning up junctionseq file
 # Remove any sites that were not tested
 junctionseq.results.body = junctionseq.results.body[!(is.na(junctionseq.results.body$pvalue)),]
 junctionseq.results.head = junctionseq.results.head[!(is.na(junctionseq.results.head$pvalue)),]
-
-# Lets remove any rows where the expr in males or females is less than 10
+# Lets remove any rows where the expr in males or females is less than 10 in the junctionseq data
 junctionseq.results.filtered.body = junctionseq.results.body[junctionseq.results.body$expr_male > 10 & junctionseq.results.body$expr_female > 10,]
 junctionseq.results.filtered.head = junctionseq.results.head[junctionseq.results.head$expr_male > 10 & junctionseq.results.head$expr_female > 10,]
 
@@ -263,9 +266,6 @@ junctionseq.results.head.merged$sig.hit[!(junctionseq.results.head.merged$geneWi
 junctionseq.results.body.merged.unique = unique(junctionseq.results.body.merged)
 junctionseq.results.head.merged.unique = unique(junctionseq.results.head.merged)
 
-## Load in the differential gene expression data
-DGE.data.body = read.table("/plas1/amardeep.singh/RNA.Seq.Data/GeneExpression/RAL.DifferentialGeneExpression.body.txt", header = TRUE, sep = "\t")
-DGE.data.head = read.table("/plas1/amardeep.singh/RNA.Seq.Data/GeneExpression/RAL.DifferentialGeneExpression.head.txt", header = TRUE, sep = "\t")
 
 # Merge Junctionseq/TajimasD data with DGE data
 junctionseq.results.body.merged.unique = merge(junctionseq.results.body.merged.unique, DGE.data.body, by.x = "geneID", by.y = "FlyBaseID")
@@ -274,7 +274,6 @@ junctionseq.results.head.merged.unique = merge(junctionseq.results.head.merged.u
 # Subset out the columns of interest (i.e., gene ID, TajimasD, significant differences in exon usage, and log2FC)
 expression.data.body = junctionseq.results.body.merged.unique[, c(1,3,4,7)]
 expression.data.head = junctionseq.results.head.merged.unique[, c(1,3,4,8)]
-
 
 # Assign quartile bins for male and female biased gene expression
 male.biased.body = expression.data.body[expression.data.body$log2FoldChange > 0,]

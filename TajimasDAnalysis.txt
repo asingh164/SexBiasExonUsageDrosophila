@@ -288,14 +288,14 @@ male.biased.head = male.biased.head[!(is.na(male.biased.head$log2FoldChange)),]
 female.biased.head = female.biased.head[!(is.na(female.biased.head$log2FoldChange)),]
 
 # Assign quartiles for both MBG and FBG
-male.biased.body = male.biased.body %>% mutate(quartile = ntile(log2FoldChange, 3))
-female.biased.body = female.biased.body %>% mutate(quartile = ntile(log2FoldChange, 3))
-male.biased.head = male.biased.head %>% mutate(quartile = ntile(log2FoldChange, 3))
-female.biased.head = female.biased.head %>% mutate(quartile = ntile(log2FoldChange, 3))
+male.biased.body = male.biased.body %>% mutate(quartile = ntile(log2FoldChange, 4))
+female.biased.body = female.biased.body %>% mutate(quartile = ntile(log2FoldChange, 4))
+male.biased.head = male.biased.head %>% mutate(quartile = ntile(log2FoldChange, 4))
+female.biased.head = female.biased.head %>% mutate(quartile = ntile(log2FoldChange, 4))
 
 # For the male genes, lets add 4 to each quartile
-male.biased.body$quartile = male.biased.body$quartile + 3
-male.biased.head$quartile = male.biased.head$quartile + 3
+male.biased.body$quartile = male.biased.body$quartile + 4
+male.biased.head$quartile = male.biased.head$quartile + 4
 
 # Merge data back
 expression.data.body = rbind(male.biased.body,female.biased.body)

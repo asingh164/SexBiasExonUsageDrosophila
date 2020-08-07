@@ -1,0 +1,86 @@
+#!/bin/bash
+#pipeline for getting 4fold degenerate sites
+#from gff and fasta, using python, awk, and bedtools
+#Tyler Kent
+#14 March 2017
+
+## Modified by Amardeep Singh Aug 2020
+
+###################################
+# SET UP PATHS
+#
+# This is the only portion of the
+# pipeline that needs to be
+# adjusted. Assume gff is gzipped.
+###################################
+
+gff='/plas1/amardeep.singh/Ensembl.Dmel.Genome.Release/gtf/Drosophila_melanogaster.BDGP6.28.99.chr.gtf.gz'
+fasta='/plas1/amardeep.singh/Ensembl.Dmel.Genome.Release/fasta/Drosophila_melanogaster.BDGP6.28.dna.toplevel.fa.gz'
+#CDSbedout='test.bed'
+CDSbedout='/plas1/amardeep.singh/Ensembl.Dmel.Genome.Release/Os_CDS.bed'
+fastaCDSout='/plas1/amardeep.singh/Ensembl.Dmel.Genome.Release/Os_CDS.tab'
+fourfoldbedout='/plas1/amardeep.singh/Ensembl.Dmel.Genome.Release/Os_degenerate'
+
+###################################
+# STEP 1: GET BED FILE OF CDS AND
+# SHIFT TO MATCH PHASE
+#
+# CDS sequence in GFF format
+# contains sections of translated
+# sequence, with phase info, which
+# indicates the start of the first
+# codon.
+###################################
+
+#bash gff2bed.sh <(zcat ${gff}) CDS | awk -f gffphaseshift.awk - > ${CDSbedout}
+bash gff2bed.sh <(cat Drosophila_melanogaster.BDGP6.28.99.chr.gtf) CDS | awk -f gffphaseshift.awk - > DGRP.CDS.out
+## I didn't spend the effort to figure out what the issue is, but this code seems to have some mistake. Specifically,
+## two rows had the start site coordinates > end site coordinates. I changed these manually, but otherwise the getFasta
+## command below will fail
+###################################
+# STEP 2: USE BED FILE AND FASTA
+# TO GET FILE OF POS AND SEQUENCE
+#
+# Use bedtools to get relevant
+# fasta sequence into useable
+# format.
+###################################
+
+#bedtools getfasta -s -tab -name -fi ${fasta} -bed ${CDSbedout} > ${fastaCDSout}
+#bedtools getfasta -s -tab -name -fi ${fasta} -bed ${CDSbedout} > ${fastaCDSout}
+
+bedtools2 getfasta -s -tab -name -fi /plas1/amardeep.singh/Ensembl.Dmel.Genome.Release/fasta/Drosophila_melanogaster.BDGP6.28.dna.toplevel.fa -bed DGRP.CDSbedout -fo DGRP.fastaCDSout
+
+###################################
+# STEP 3: KEEP ONLY LONGEST
+# ISOFORM
+#
+# Drop all alternate isoforms but
+# the longest.
+###################################
+
+# DEPRECATED--DONT DO THIS STEP
+###python keep_longest_isoform.py -i ${fastaCDSout} -o ${longestonly}
+
+###################################
+# STEP 4: CONVERT FASTA DNA
+# SEQUENCE INTO CODONS, FLIP FOR
+# PHASE, AND REPORT 4FOLD SITES
+#
+# Using python and a codon table
+###################################
+
+#python degeneracy.py -i ${fastaCDSout} -o ${fourfoldbedout}
+python3 degeneracy.py -i DGRP.fastaCDSout -o DGRPfourfoldbedout
+
+
+###################################
+# STEP 5: SORT OUTPUT
+#
+# Just need to sort the python
+# output like you would a normal
+# bed file, and drop mistake dups.
+###################################
+
+# DEPRECATED--DONT DO THIS STEP
+#cat ${fourfoldbedout}.bed | sort -k1,1 -k2,2n | uniq > ${fourfoldbedout}.sorted.bed

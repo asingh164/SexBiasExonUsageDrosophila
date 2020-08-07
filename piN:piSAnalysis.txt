@@ -48,6 +48,7 @@ rm(list=ls())
 # Required packages
 require(doBy)
 require(ggplot2)
+require(dplyr)
 
 ## Load in datasets
 
@@ -59,8 +60,8 @@ pi.output = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/nucle
 junctionseq.results.body = read.table("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/BodyOutput/Aug1.Body.OnlyallGenes.results.txt", header = TRUE, sep = "\t")
 junctionseq.results.head = read.table("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/HeadOutput/Aug1.Head.OnlyallGenes.results.txt", header = TRUE, sep = "\t")
 # Load in differential gene expression data in the DGRP
-DGE.data.body = read.table("/plas1/amardeep.singh/RNA.Seq.Data/GeneExpression/RAL.DifferentialGeneExpression.body.txt", header = TRUE, sep = "\t")
-DGE.data.head = read.table("/plas1/amardeep.singh/RNA.Seq.Data/GeneExpression/RAL.DifferentialGeneExpression.head.txt", header = TRUE, sep = "\t")
+expression.data.body = read.table("/plas1/amardeep.singh/RNA.Seq.Data/GeneExpression/RAL.DifferentialGeneExpression.body.txt", header = TRUE, sep = "\t")
+expression.data.head = read.table("/plas1/amardeep.singh/RNA.Seq.Data/GeneExpression/RAL.DifferentialGeneExpression.head.txt", header = TRUE, sep = "\t")
 
 
 ## Clean up data files
@@ -75,6 +76,9 @@ junctionseq.results.body = junctionseq.results.body[junctionseq.results.body$exp
 junctionseq.results.head = junctionseq.results.head[junctionseq.results.head$expr_male > 10 & junctionseq.results.head$expr_female > 10,]
 junctionseq.results.body = junctionseq.results.body[, c(2,23:25)]
 junctionseq.results.head = junctionseq.results.head[, c(2,23:25)]
+# Clean out unnecessary columns in gene expression data
+expression.data.body = expression.data.body[,c(2,4)]
+expression.data.head = expression.data.head[,c(3,5)]
 
 ## Calculate piN and piS per gene
 # Merge the nucleotide diversity and VEP output files
@@ -111,12 +115,60 @@ head.pin.pis = merge(junctionseq.results.head.unique,piNpiS.per.gene, by.x = "ge
 body.pin.pis$piN_piS = body.pin.pis$piNS / body.pin.pis$piS
 head.pin.pis$piN_piS = head.pin.pis$piNS / head.pin.pis$piS
 
+## Processing gene expression data
+# Assign quartile bins for male and female biased gene expression
+male.biased.body = expression.data.body[expression.data.body$log2FoldChange > 0,]
+female.biased.body = expression.data.body[expression.data.body$log2FoldChange < 0,]
+male.biased.head = expression.data.head[expression.data.head$log2FoldChange > 0,]
+female.biased.head = expression.data.head[expression.data.head$log2FoldChange < 0,]
+
+# Remove any rows that have an NA added to them
+male.biased.body = male.biased.body[!(is.na(male.biased.body$log2FoldChange)),]
+female.biased.body = female.biased.body[!(is.na(female.biased.body$log2FoldChange)),]
+male.biased.head = male.biased.head[!(is.na(male.biased.head$log2FoldChange)),]
+female.biased.head = female.biased.head[!(is.na(female.biased.head$log2FoldChange)),]
+
+# Assign quartiles for both MBG and FBG
+male.biased.body = male.biased.body %>% mutate(quartile = ntile(log2FoldChange, 4))
+female.biased.body = female.biased.body %>% mutate(quartile = ntile(log2FoldChange, 4))
+male.biased.head = male.biased.head %>% mutate(quartile = ntile(log2FoldChange, 4))
+female.biased.head = female.biased.head %>% mutate(quartile = ntile(log2FoldChange, 4))
+
+# For the male genes, lets add 4 to each quartile
+male.biased.body$quartile = male.biased.body$quartile + 4
+male.biased.head$quartile = male.biased.head$quartile + 4
+
+# Merge data back
+expression.data.body = rbind(male.biased.body,female.biased.body)
+expression.data.head = rbind(male.biased.head,female.biased.head)
+
+# Combining junctionseq/piNpiS data with gene expression data
+body.pin.pis = merge(body.pin.pis, expression.data.body, by.x = "geneID" , by.y = "FlyBaseID", sort = FALSE)
+head.pin.pis = merge(head.pin.pis, expression.data.head, by.x = "geneID" , by.y = "FlyBaseID", sort = FALSE)
+
+## Summarizing data in expression quartiles
+# Lets plot piNpiS for sig hits in quartile bins
+body.sig.hits = body.pin.pis[body.pin.pis$sig.hit == 1,]
+body.non.sig.hits = body.pin.pis[body.pin.pis$sig.hit == 0,]
+head.sig.hits = head.pin.pis[head.pin.pis$sig.hit == 1,]
+head.non.sig.hits = head.pin.pis[head.pin.pis$sig.hit == 0,]
+
+# Determine mean tajimasD in each quartile
+body.sig.hits.mean = summaryBy(piN_piS ~ quartile, FUN=c(mean), data = body.sig.hits)
+body.non.sig.hits.mean = summaryBy(piN_piS ~ quartile, FUN=c(mean), data = body.non.sig.hits)
+head.sig.hits.mean = summaryBy(piN_piS ~ quartile, FUN=c(mean), data = head.sig.hits)
+head.non.sig.hits.mean = summaryBy(piN_piS ~ quartile, FUN=c(mean), data = head.non.sig.hits)
+
+##################
+##    Ploting   ##
+##################
+
+### First plot is without parsing out by sex-bias in gene expression
+
 # Combine head and body data into a single dataframe for plotting
 body.pin.pis$tissue = "body"
 head.pin.pis$tissue = "head"
 pin.pis = rbind(body.pin.pis, head.pin.pis)
-
-# Mean piN/piS per gene ignoring differential gene expression
 
 # Bootstrapping estimates of piN and piS as well as the ratio of piN:piS
 body.piS_sig = vector(length = 10000, mode = "numeric")
@@ -152,7 +204,226 @@ for (i in 1:10000){
 
 }
 
-# Assessing piN/piS at genes showing DEU parsed by sex bias in gene expression
+#### Plotting by assessing piN/piS at genes showing DEU parsed by sex bias in gene expression
+
+
+# Bootstrap means for each subset
+# Body
+body.sig.hits.quantile.1 = vector(mode = "numeric", length = 10000)
+body.sig.hits.quantile.2 = vector(mode = "numeric", length = 10000)
+body.sig.hits.quantile.3 = vector(mode = "numeric", length = 10000)
+body.sig.hits.quantile.4 = vector(mode = "numeric", length = 10000)
+body.sig.hits.quantile.5 = vector(mode = "numeric", length = 10000)
+body.sig.hits.quantile.6 = vector(mode = "numeric", length = 10000)
+body.sig.hits.quantile.7 = vector(mode = "numeric", length = 10000)
+body.sig.hits.quantile.8 = vector(mode = "numeric", length = 10000)
+body.non.sig.hits.quantile.1 = vector(mode = "numeric", length = 10000)
+body.non.sig.hits.quantile.2 = vector(mode = "numeric", length = 10000)
+body.non.sig.hits.quantile.3 = vector(mode = "numeric", length = 10000)
+body.non.sig.hits.quantile.4 = vector(mode = "numeric", length = 10000)
+body.non.sig.hits.quantile.5 = vector(mode = "numeric", length = 10000)
+body.non.sig.hits.quantile.6 = vector(mode = "numeric", length = 10000)
+body.non.sig.hits.quantile.7 = vector(mode = "numeric", length = 10000)
+body.non.sig.hits.quantile.8 = vector(mode = "numeric", length = 10000)
+
+# Head
+head.sig.hits.quantile.1 = vector(mode = "numeric", length = 10000)
+head.sig.hits.quantile.2 = vector(mode = "numeric", length = 10000)
+head.sig.hits.quantile.3 = vector(mode = "numeric", length = 10000)
+head.sig.hits.quantile.4 = vector(mode = "numeric", length = 10000)
+head.sig.hits.quantile.5 = vector(mode = "numeric", length = 10000)
+head.sig.hits.quantile.6 = vector(mode = "numeric", length = 10000)
+head.sig.hits.quantile.7 = vector(mode = "numeric", length = 10000)
+head.sig.hits.quantile.8 = vector(mode = "numeric", length = 10000)
+head.non.sig.hits.quantile.1 = vector(mode = "numeric", length = 10000)
+head.non.sig.hits.quantile.2 = vector(mode = "numeric", length = 10000)
+head.non.sig.hits.quantile.3 = vector(mode = "numeric", length = 10000)
+head.non.sig.hits.quantile.4 = vector(mode = "numeric", length = 10000)
+head.non.sig.hits.quantile.5 = vector(mode = "numeric", length = 10000)
+head.non.sig.hits.quantile.6 = vector(mode = "numeric", length = 10000)
+head.non.sig.hits.quantile.7 = vector(mode = "numeric", length = 10000)
+head.non.sig.hits.quantile.8 = vector(mode = "numeric", length = 10000)
+
+for (i in 1:10000){
+  # Resample significant hits
+  body.sig.hits.quantile.1[i] = mean(sample(body.sig.hits$piN_piS[body.sig.hits$quartile == 1], length(body.sig.hits$piN_piS[body.sig.hits$quartile == 1]), replace = TRUE))
+  body.sig.hits.quantile.2[i] = mean(sample(body.sig.hits$piN_piS[body.sig.hits$quartile == 2], length(body.sig.hits$piN_piS[body.sig.hits$quartile == 2]), replace = TRUE))
+  body.sig.hits.quantile.3[i] = mean(sample(body.sig.hits$piN_piS[body.sig.hits$quartile == 3], length(body.sig.hits$piN_piS[body.sig.hits$quartile == 3]), replace = TRUE))
+  body.sig.hits.quantile.4[i] = mean(sample(body.sig.hits$piN_piS[body.sig.hits$quartile == 4], length(body.sig.hits$piN_piS[body.sig.hits$quartile == 4]), replace = TRUE))
+  body.sig.hits.quantile.5[i] = mean(sample(body.sig.hits$piN_piS[body.sig.hits$quartile == 5], length(body.sig.hits$piN_piS[body.sig.hits$quartile == 5]), replace = TRUE))
+  body.sig.hits.quantile.6[i] = mean(sample(body.sig.hits$piN_piS[body.sig.hits$quartile == 6], length(body.sig.hits$piN_piS[body.sig.hits$quartile == 6]), replace = TRUE))
+  body.sig.hits.quantile.7[i] = mean(sample(body.sig.hits$piN_piS[body.sig.hits$quartile == 7], length(body.sig.hits$piN_piS[body.sig.hits$quartile == 7]), replace = TRUE))
+  body.sig.hits.quantile.8[i] = mean(sample(body.sig.hits$piN_piS[body.sig.hits$quartile == 8], length(body.sig.hits$piN_piS[body.sig.hits$quartile == 8]), replace = TRUE))
+
+  head.sig.hits.quantile.1[i] = mean(sample(head.sig.hits$piN_piS[head.sig.hits$quartile == 1], length(head.sig.hits$piN_piS[head.sig.hits$quartile == 1]), replace = TRUE))
+  head.sig.hits.quantile.2[i] = mean(sample(head.sig.hits$piN_piS[head.sig.hits$quartile == 2], length(head.sig.hits$piN_piS[head.sig.hits$quartile == 2]), replace = TRUE))
+  head.sig.hits.quantile.3[i] = mean(sample(head.sig.hits$piN_piS[head.sig.hits$quartile == 3], length(head.sig.hits$piN_piS[head.sig.hits$quartile == 3]), replace = TRUE))
+  head.sig.hits.quantile.4[i] = mean(sample(head.sig.hits$piN_piS[head.sig.hits$quartile == 4], length(head.sig.hits$piN_piS[head.sig.hits$quartile == 4]), replace = TRUE))
+  head.sig.hits.quantile.5[i] = mean(sample(head.sig.hits$piN_piS[head.sig.hits$quartile == 5], length(head.sig.hits$piN_piS[head.sig.hits$quartile == 5]), replace = TRUE))
+  head.sig.hits.quantile.6[i] = mean(sample(head.sig.hits$piN_piS[head.sig.hits$quartile == 6], length(head.sig.hits$piN_piS[head.sig.hits$quartile == 6]), replace = TRUE))
+  head.sig.hits.quantile.7[i] = mean(sample(head.sig.hits$piN_piS[head.sig.hits$quartile == 7], length(head.sig.hits$piN_piS[head.sig.hits$quartile == 7]), replace = TRUE))
+  head.sig.hits.quantile.8[i] = mean(sample(head.sig.hits$piN_piS[head.sig.hits$quartile == 8], length(head.sig.hits$piN_piS[head.sig.hits$quartile == 8]), replace = TRUE))
+
+  # Resample non significant hits
+  body.non.sig.hits.quantile.1[i] = mean(sample(body.non.sig.hits$piN_piS[body.non.sig.hits$quartile == 1], length(body.non.sig.hits$piN_piS[body.non.sig.hits$quartile == 1]), replace = TRUE))
+  body.non.sig.hits.quantile.2[i] = mean(sample(body.non.sig.hits$piN_piS[body.non.sig.hits$quartile == 2], length(body.non.sig.hits$piN_piS[body.non.sig.hits$quartile == 2]), replace = TRUE))
+  body.non.sig.hits.quantile.3[i] = mean(sample(body.non.sig.hits$piN_piS[body.non.sig.hits$quartile == 3], length(body.non.sig.hits$piN_piS[body.non.sig.hits$quartile == 3]), replace = TRUE))
+  body.non.sig.hits.quantile.4[i] = mean(sample(body.non.sig.hits$piN_piS[body.non.sig.hits$quartile == 4], length(body.non.sig.hits$piN_piS[body.non.sig.hits$quartile == 4]), replace = TRUE))
+  body.non.sig.hits.quantile.5[i] = mean(sample(body.non.sig.hits$piN_piS[body.non.sig.hits$quartile == 5], length(body.non.sig.hits$piN_piS[body.non.sig.hits$quartile == 5]), replace = TRUE))
+  body.non.sig.hits.quantile.6[i] = mean(sample(body.non.sig.hits$piN_piS[body.non.sig.hits$quartile == 6], length(body.non.sig.hits$piN_piS[body.non.sig.hits$quartile == 6]), replace = TRUE))
+  body.non.sig.hits.quantile.7[i] = mean(sample(body.non.sig.hits$piN_piS[body.non.sig.hits$quartile == 7], length(body.non.sig.hits$piN_piS[body.non.sig.hits$quartile == 7]), replace = TRUE))
+  body.non.sig.hits.quantile.8[i] = mean(sample(body.non.sig.hits$piN_piS[body.non.sig.hits$quartile == 8], length(body.non.sig.hits$piN_piS[body.non.sig.hits$quartile == 8]), replace = TRUE))
+
+  head.non.sig.hits.quantile.1[i] = mean(sample(head.non.sig.hits$piN_piS[head.non.sig.hits$quartile == 1], length(head.non.sig.hits$piN_piS[head.non.sig.hits$quartile == 1]), replace = TRUE))
+  head.non.sig.hits.quantile.2[i] = mean(sample(head.non.sig.hits$piN_piS[head.non.sig.hits$quartile == 2], length(head.non.sig.hits$piN_piS[head.non.sig.hits$quartile == 2]), replace = TRUE))
+  head.non.sig.hits.quantile.3[i] = mean(sample(head.non.sig.hits$piN_piS[head.non.sig.hits$quartile == 3], length(head.non.sig.hits$piN_piS[head.non.sig.hits$quartile == 3]), replace = TRUE))
+  head.non.sig.hits.quantile.4[i] = mean(sample(head.non.sig.hits$piN_piS[head.non.sig.hits$quartile == 4], length(head.non.sig.hits$piN_piS[head.non.sig.hits$quartile == 4]), replace = TRUE))
+  head.non.sig.hits.quantile.5[i] = mean(sample(head.non.sig.hits$piN_piS[head.non.sig.hits$quartile == 5], length(head.non.sig.hits$piN_piS[head.non.sig.hits$quartile == 5]), replace = TRUE))
+  head.non.sig.hits.quantile.6[i] = mean(sample(head.non.sig.hits$piN_piS[head.non.sig.hits$quartile == 6], length(head.non.sig.hits$piN_piS[head.non.sig.hits$quartile == 6]), replace = TRUE))
+  head.non.sig.hits.quantile.7[i] = mean(sample(head.non.sig.hits$piN_piS[head.non.sig.hits$quartile == 7], length(head.non.sig.hits$piN_piS[head.non.sig.hits$quartile == 7]), replace = TRUE))
+  head.non.sig.hits.quantile.8[i] = mean(sample(head.non.sig.hits$piN_piS[head.non.sig.hits$quartile == 8], length(head.non.sig.hits$piN_piS[head.non.sig.hits$quartile == 8]), replace = TRUE))
+print (i)
+}
+
+body.lower.CI = as.vector( c(  quantile(body.sig.hits.quantile.1, 0.05)[1],
+                          quantile(body.sig.hits.quantile.2, 0.05)[1],
+                          quantile(body.sig.hits.quantile.3, 0.05)[1],
+                          quantile(body.sig.hits.quantile.4, 0.05)[1],
+                          quantile(body.sig.hits.quantile.5, 0.05)[1],
+                          quantile(body.sig.hits.quantile.6, 0.05)[1],
+                          quantile(body.sig.hits.quantile.7, 0.05)[1],
+                          quantile(body.sig.hits.quantile.8, 0.05)[1],
+                          quantile(body.non.sig.hits.quantile.1, 0.05)[1],
+                          quantile(body.non.sig.hits.quantile.2, 0.05)[1],
+                          quantile(body.non.sig.hits.quantile.3, 0.05)[1],
+                          quantile(body.non.sig.hits.quantile.4, 0.05)[1],
+                          quantile(body.non.sig.hits.quantile.5, 0.05)[1],
+                          quantile(body.non.sig.hits.quantile.6, 0.05)[1],
+                          quantile(body.non.sig.hits.quantile.7, 0.05)[1],
+                          quantile(body.non.sig.hits.quantile.8, 0.05)[1]))
+
+body.upper.CI = as.vector( c( quantile(body.sig.hits.quantile.1, 0.95)[1],
+                         quantile(body.sig.hits.quantile.2, 0.95)[1],
+                         quantile(body.sig.hits.quantile.3, 0.95)[1],
+                         quantile(body.sig.hits.quantile.4, 0.95)[1],
+                         quantile(body.sig.hits.quantile.5, 0.95)[1],
+                         quantile(body.sig.hits.quantile.6, 0.95)[1],
+                         quantile(body.sig.hits.quantile.7, 0.95)[1],
+                         quantile(body.sig.hits.quantile.8, 0.95)[1],
+                         quantile(body.non.sig.hits.quantile.1, 0.95)[1],
+                         quantile(body.non.sig.hits.quantile.2, 0.95)[1],
+                         quantile(body.non.sig.hits.quantile.3, 0.95)[1],
+                         quantile(body.non.sig.hits.quantile.4, 0.95)[1],
+                         quantile(body.non.sig.hits.quantile.5, 0.95)[1],
+                         quantile(body.non.sig.hits.quantile.6, 0.95)[1],
+                         quantile(body.non.sig.hits.quantile.7, 0.95)[1],
+                         quantile(body.non.sig.hits.quantile.8, 0.95)[1]))
+
+head.lower.CI = as.vector( c(  quantile(head.sig.hits.quantile.1, 0.05)[1],
+                          quantile(head.sig.hits.quantile.2, 0.05)[1],
+                          quantile(head.sig.hits.quantile.3, 0.05)[1],
+                          quantile(head.sig.hits.quantile.4, 0.05)[1],
+                          quantile(head.sig.hits.quantile.5, 0.05)[1],
+                          quantile(head.sig.hits.quantile.6, 0.05)[1],
+                          quantile(head.sig.hits.quantile.7, 0.05)[1],
+                          quantile(head.sig.hits.quantile.8, 0.05)[1],
+                          quantile(head.non.sig.hits.quantile.1, 0.05)[1],
+                          quantile(head.non.sig.hits.quantile.2, 0.05)[1],
+                          quantile(head.non.sig.hits.quantile.3, 0.05)[1],
+                          quantile(head.non.sig.hits.quantile.4, 0.05)[1],
+                          quantile(head.non.sig.hits.quantile.5, 0.05)[1],
+                          quantile(head.non.sig.hits.quantile.6, 0.05)[1],
+                          quantile(head.non.sig.hits.quantile.7, 0.05)[1],
+                          quantile(head.non.sig.hits.quantile.8, 0.05)[1]))
+
+head.upper.CI = as.vector( c( quantile(head.sig.hits.quantile.1, 0.95)[1],
+                         quantile(head.sig.hits.quantile.2, 0.95)[1],
+                         quantile(head.sig.hits.quantile.3, 0.95)[1],
+                         quantile(head.sig.hits.quantile.4, 0.95)[1],
+                         quantile(head.sig.hits.quantile.5, 0.95)[1],
+                         quantile(head.sig.hits.quantile.6, 0.95)[1],
+                         quantile(head.sig.hits.quantile.7, 0.95)[1],
+                         quantile(head.sig.hits.quantile.8, 0.95)[1],
+                         quantile(head.non.sig.hits.quantile.1, 0.95)[1],
+                         quantile(head.non.sig.hits.quantile.2, 0.95)[1],
+                         quantile(head.non.sig.hits.quantile.3, 0.95)[1],
+                         quantile(head.non.sig.hits.quantile.4, 0.95)[1],
+                         quantile(head.non.sig.hits.quantile.5, 0.95)[1],
+                         quantile(head.non.sig.hits.quantile.6, 0.95)[1],
+                         quantile(head.non.sig.hits.quantile.7, 0.95)[1],
+                         quantile(head.non.sig.hits.quantile.8, 0.95)[1]))
+
+
+# Construct dataframes to hold all of our data for plotting
+# Body
+hit = rep(c("sig","non.sig"), each=8)
+expression.quartile = rep(seq(1:8),2)
+body.piN_piS.mean = c(body.sig.hits.mean$piN_piS.mean, body.non.sig.hits.mean$piN_piS.mean)
+body.piN_piS.lowerCI = body.lower.CI
+body.piN_piS.upperCI = body.upper.CI
+body.piN_piS.df = as.data.frame(cbind(as.factor(hit),as.factor(expression.quartile), as.numeric(body.piN_piS.mean), as.numeric(body.piN_piS.lowerCI), as.numeric(body.piN_piS.upperCI)))
+body.piN_piS.df$tissue = as.factor("body")
+colnames(body.piN_piS.df) = c("hit", "expression.quartile", "piN_piS.mean", "piN_piS.lowerCI", "piN_piS.upperCI", "tissue")
+
+# head
+hit = rep(c("sig","non.sig"), each=8)
+expression.quartile = rep(seq(1:8),2)
+head.piN_piS.mean = c(head.sig.hits.mean$piN_piS.mean, head.non.sig.hits.mean$piN_piS.mean)
+head.piN_piS.lowerCI = head.lower.CI
+head.piN_piS.upperCI = head.upper.CI
+head.piN_piS.df = as.data.frame(cbind(as.factor(hit),as.factor(expression.quartile), as.numeric(head.piN_piS.mean), as.numeric(head.piN_piS.lowerCI), as.numeric(head.piN_piS.upperCI)))
+head.piN_piS.df$tissue = as.factor("head")
+colnames(head.piN_piS.df) = c("hit", "expression.quartile", "piN_piS.mean", "piN_piS.lowerCI", "piN_piS.upperCI", "tissue")
+
+## Combined plots
+piN_piS.df = rbind(body.piN_piS.df, head.piN_piS.df)
+
+## Body piN/piS plot
+body.piN_piS.expression.plot = ggplot(body.piN_piS.df, aes(y = piN_piS.mean, x = as.factor(expression.quartile), colour = as.factor(hit))) +
+                                      geom_point(aes(x = as.factor(expression.quartile), y = piN_piS.mean, colour = as.factor(hit)),size = 10,
+                                      position = position_dodge(width = 0.5)) + scale_y_continuous(limits = c(0, 3)) +
+                                      geom_errorbar(aes(ymin = piN_piS.lowerCI, ymax = piN_piS.upperCI, x = as.factor(expression.quartile), colour=as.factor(hit)),
+                                      width = 0, position = position_dodge(width = 0.5)) + geom_hline(yintercept = 1) +
+                                      theme_bw() + scale_colour_manual(values = c("#7294D4", "#5B1A18")) +
+                                      theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
+                                            panel.border = element_rect(colour = "black", fill=NA, size=1),
+                                            axis.text = element_text(face="bold", color="black",size=40, family = "Helvetica"),
+                                            axis.title=element_blank(), legend.position = "none")
+body.piN_piS.expression.plot
+
+## Head piN/piS plot
+head.piN_piS.expression.plot = ggplot(head.piN_piS.df, aes(y = piN_piS.mean, x = as.factor(expression.quartile), colour = as.factor(hit))) +
+                                      geom_point(aes(x = as.factor(expression.quartile), y = piN_piS.mean, colour = as.factor(hit)),size = 10,
+                                      position = position_dodge(width = 0.5)) + #scale_y_continuous(limits = c(0, 10)) +
+                                      geom_errorbar(aes(ymin = piN_piS.lowerCI, ymax = piN_piS.upperCI, x = as.factor(expression.quartile), colour=as.factor(hit)),
+                                      width = 0, position = position_dodge(width = 0.5)) + geom_hline(yintercept = 1) +
+                                      theme_bw() + scale_colour_manual(values = c("#7294D4", "#5B1A18")) +
+                                      theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
+                                            panel.border = element_rect(colour = "black", fill=NA, size=1),
+                                            axis.text = element_text(face="bold", color="black",size=40, family = "Helvetica"),
+                                            axis.title=element_blank(), legend.position = "none")
+head.piN_piS.expression.plot
+
+## Body/head piN/piS plot
+piN_piS.expression.plot = ggplot(piN_piS.df, aes(y = piN_piS.mean, x = as.factor(expression.quartile), colour = as.factor(hit))) +
+                                      geom_point(aes(x = as.factor(expression.quartile), y = piN_piS.mean, colour = as.factor(hit)),size = 10,
+                                      position = position_dodge(width = 0.5)) + #scale_y_continuous(limits = c(-0.1, 0.1)) +
+                                      geom_errorbar(aes(ymin = piN_piS.lowerCI, ymax = piN_piS.upperCI, x = expression.quartile, colour=hit),
+                                      width = 0.25, position = position_dodge(width = 0.5)) + geom_hline(yintercept = 0) +
+                                      #scale_colour_manual(values = c("#7294D4", "#5B1A18")) +
+                                      theme_bw()  +
+                                      theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
+                                            panel.border = element_rect(colour = "black", fill=NA, size=1),
+                                            axis.text = element_text(face="bold", color="black",size=20, family = "Helvetica"),
+                                            axis.title=element_blank(), legend.position = "none") +
+                                      facet_grid(tissue ~ .)
+piN_piS.expression.plot
+
+
+
+
+
+
 
 
 

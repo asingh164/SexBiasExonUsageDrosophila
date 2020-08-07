@@ -10,8 +10,8 @@
 ######    Calculating Nucleotide Diversity in the DGRP   ######
 ###############################################################
 
-cat /plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.filtered.vcf | vcftools --vcf - --site-pi --out  nucleotide_diversity
-zcat input_file.vcf.gz | vcftools --vcf - --site-pi --positions SNP_list.txt --out nucleotide_diversity
+cat /plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.filtered.vcf | vcftools --vcf --site-pi --out  nucleotide_diversity
+#zcat input_file.vcf.gz | vcftools --vcf - --site-pi --positions SNP_list.txt --out nucleotide_diversity
 
 # I moved the output file to a folder where I kept the rest of the data generated in this script
 mv nucleotide_diversity* ../piNpiS.Analysis/
@@ -53,7 +53,7 @@ require(dplyr)
 ## Load in datasets
 
 # Load in VEP output with 4-fold degenerate site identified
-vep.output = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/DGRP.vep.output.with.4fold.degeneracy", header = TRUE)
+vep.output = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/DGRP.vep.output.with.degeneracy", header = TRUE)
 # Load in pi calculations
 pi.output = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/nucleotide_diversity.sites.pi", header = TRUE)
 # Load in the Junctionseq outputs
@@ -85,8 +85,11 @@ expression.data.head = expression.data.head[,c(3,5)]
 pi.vep.merge = merge(pi.output, vep.output, by.x = "Location", by.y = "Location")
 # Clean out unnecessary columns
 pi.vep.merge = pi.vep.merge[, c(1,4,7,10,18)]
-pi.vep.merge.syn.sub = pi.vep.merge[pi.vep.merge$Fourfold_degenerate == 1,]
-pi.vep.merge.non.syn.sub = pi.vep.merge[pi.vep.merge$Fourfold_degenerate != 1,]
+pi.vep.merge.syn.sub = pi.vep.merge[pi.vep.merge$Degeneracy == 4,]
+pi.vep.merge.non.syn.sub = pi.vep.merge[pi.vep.merge$Degeneracy == 0,]
+# Clean out any rows with "NA"
+pi.vep.merge.syn.sub = pi.vep.merge.syn.sub[!(is.na(pi.vep.merge.syn.sub$Degeneracy)),]
+pi.vep.merge.non.syn.sub = pi.vep.merge.non.syn.sub[!(is.na(pi.vep.merge.non.syn.sub$Degeneracy)),]
 
 pi.syn.per.gene = summaryBy(PI ~ Gene, FUN = c(mean), data = pi.vep.merge.syn.sub)
 pi.non.syn.per.gene = summaryBy(PI ~ Gene, FUN = c(mean), data = pi.vep.merge.non.syn.sub)
@@ -408,15 +411,15 @@ head.piN_piS.expression.plot
 piN_piS.expression.plot = ggplot(piN_piS.df, aes(y = piN_piS.mean, x = as.factor(expression.quartile), colour = as.factor(hit))) +
                                       geom_point(aes(x = as.factor(expression.quartile), y = piN_piS.mean, colour = as.factor(hit)),size = 10,
                                       position = position_dodge(width = 0.5)) + #scale_y_continuous(limits = c(-0.1, 0.1)) +
-                                      geom_errorbar(aes(ymin = piN_piS.lowerCI, ymax = piN_piS.upperCI, x = expression.quartile, colour=hit),
-                                      width = 0.25, position = position_dodge(width = 0.5)) + geom_hline(yintercept = 0) +
-                                      #scale_colour_manual(values = c("#7294D4", "#5B1A18")) +
+                                      geom_errorbar(aes(ymin = piN_piS.lowerCI, ymax = piN_piS.upperCI, x = as.factor(expression.quartile), colour=as.factor(hit)),
+                                      width = 0.25, position = position_dodge(width = 0.5)) + geom_hline(yintercept = 1) +
+                                      scale_colour_manual(values = c("#7294D4", "#5B1A18")) +
                                       theme_bw()  +
                                       theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
                                             panel.border = element_rect(colour = "black", fill=NA, size=1),
                                             axis.text = element_text(face="bold", color="black",size=20, family = "Helvetica"),
                                             axis.title=element_blank(), legend.position = "none") +
-                                      facet_grid(tissue ~ .)
+                                      facet_grid(tissue ~ .,  scales = "free")
 piN_piS.expression.plot
 
 

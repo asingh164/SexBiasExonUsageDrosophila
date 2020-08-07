@@ -54,11 +54,11 @@ cat DGRP_Chr3R/*.fasta > Chr3R.fas &
 ########################################################################
 
 # Making VCF files from .fas  multi-alignment files
-snp-sites -v -o ChrX.vcf ChrX.fas &
-snp-sites -v -o Chr2L.vcf Chr2L.fas &
-snp-sites -v -o Chr2R.vcf Chr2R.fas &
-snp-sites -v -o Chr3L.vcf Chr3L.fas &
-snp-sites -v -o Chr3R.vcf Chr3R.fas &
+snp-sites -v -b -o ChrX.variant.and.invariant.vcf ChrX.fas &
+snp-sites -v -b -o Chr2L.variant.and.invariant.vcf Chr2L.fas &
+snp-sites -v -b -o Chr2R.variant.and.invariant.vcf Chr2R.fas &
+snp-sites -v -b -o Chr3L.variant.and.invariant.vcf Chr3L.fas &
+snp-sites -v -b -o Chr3R.variant.and.invariant.vcf Chr3R.fas &
 
 # Remove headers from vcf files
 sed -i '/^##/d' *.vcf

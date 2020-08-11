@@ -1,20 +1,214 @@
-#
+Assigning#
 ###################################################################
 ###################################################################
 #####               p i N   /   p i S   Analysis              #####
 ###################################################################
 ###################################################################
 
-
 ###############################################################
-######    Calculating Nucleotide Diversity in the DGRP   ######
+######    Generating VCFs from Multifasta (.fas) files   ######
 ###############################################################
 
-cat /plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.filtered.vcf | vcftools --vcf --site-pi --out  nucleotide_diversity
-#zcat input_file.vcf.gz | vcftools --vcf - --site-pi --positions SNP_list.txt --out nucleotide_diversity
+# This code assumes you have generated the multifasta files for each chromosome arm (see 'DGRP.Processing.txt')
+
+# Making VCF files that contain both variant and invariant sites from .fas  multi-alignment files
+~/apps/snp-sites/bin/snp-sites -v -b -o ChrX.variant.and.invariant.vcf ChrX.fas &
+~/apps/snp-sites/bin/snp-sites -v -b -o Chr2L.variant.and.invariant.vcf Chr2L.fas &
+~/apps/snp-sites/bin/snp-sites -v -b -o Chr2R.variant.and.invariant.vcf Chr2R.fas &
+~/apps/snp-sites/bin/snp-sites -v -b -o Chr3L.variant.and.invariant.vcf Chr3L.fas &
+~/apps/snp-sites/bin/snp-sites -v -b -o Chr3R.variant.and.invariant.vcf Chr3R.fas &
+
+
+#######################################################################
+######    Generating lists of 0fold and 4fold degenerate sites   ######
+#######################################################################
+
+# Run the 'DegeneracyScript' provided by Tyler Kent
+# The code can be run as a bash script but I just ran each step separately so make sure to modify the input/output files
+#   and make sure all your files are where they need to be
+
+# Extract coordinates for each site (these bed files are 0-based and need to be updated to 1-based to match the vcf files - just take the third field as the starting site)
+cat DGRP.2L.bedout_0fold.bed | awk '{OFS = FS = "\t"} {print $1 ":" $2+1}' > DGRP.2L.bedout_0fold.coordinates &
+cat DGRP.2L.bedout_4fold.bed | awk '{OFS = FS = "\t"} {print $1 ":" $2+1}' > DGRP.2L.bedout_4fold.coordinates &
+cat DGRP.2R.bedout_0fold.bed | awk '{OFS = FS = "\t"} {print $1 ":" $2+1}' > DGRP.2R.bedout_0fold.coordinates &
+cat DGRP.2R.bedout_4fold.bed | awk '{OFS = FS = "\t"} {print $1 ":" $2+1}' > DGRP.2R.bedout_4fold.coordinates &
+
+cat DGRP.3L.bedout_0fold.bed | awk '{OFS = FS = "\t"} {print $1 ":" $2+1}' > DGRP.3L.bedout_0fold.coordinates &
+cat DGRP.3L.bedout_4fold.bed | awk '{OFS = FS = "\t"} {print $1 ":" $2+1}' > DGRP.3L.bedout_4fold.coordinates &
+cat DGRP.3R.bedout_0fold.bed | awk '{OFS = FS = "\t"} {print $1 ":" $2+1}' > DGRP.3R.bedout_0fold.coordinates &
+cat DGRP.3R.bedout_4fold.bed | awk '{OFS = FS = "\t"} {print $1 ":" $2+1}' > DGRP.3R.bedout_4fold.coordinates &
+
+cat DGRP.X.bedout_0fold.bed | awk '{OFS = FS = "\t"} {print $1 ":" $2+1}' > DGRP.X.bedout_0fold.coordinates &
+cat DGRP.X.bedout_4fold.bed | awk '{OFS = FS = "\t"} {print $1 ":" $2+1}' > DGRP.X.bedout_4fold.coordinates &
+
+
+##################################################################################################################
+######   Parse out vcf files into one containing only 0fold sites and another containing only 4fold sites   ######
+##################################################################################################################
+
+## Clean up vcf files
+# Redirect header to attach to VCF later
+cat Chr2L.variant.and.invariant.vcf | grep '#' > vcf.header
+# Remove headers from vcf files
+sed -i '/^#/d' *variant.and.invariant.vcf
+# Replace Chromosome column with proper ID
+cat Chr2L.variant.and.invariant.vcf | awk -F"\t" '{OFS=FS}{ $1="2L" ; print   }' > Chr2L.tmp && mv Chr2L.tmp Chr2L.variant.and.invariant.vcf &
+cat Chr2R.variant.and.invariant.vcf | awk -F"\t" '{OFS=FS}{ $1="2R" ; print   }' > Chr2R.tmp && mv Chr2R.tmp Chr2R.variant.and.invariant.vcf &
+cat Chr3L.variant.and.invariant.vcf | awk -F"\t" '{OFS=FS}{ $1="3L" ; print   }' > Chr3L.tmp && mv Chr3L.tmp Chr3L.variant.and.invariant.vcf &
+cat Chr2R.variant.and.invariant.vcf | awk -F"\t" '{OFS=FS}{ $1="3R" ; print   }' > Chr3R.tmp && mv Chr3R.tmp Chr3R.variant.and.invariant.vcf &
+cat ChrX.variant.and.invariant.vcf | awk -F"\t" '{OFS=FS}{ $1="X" ; print   }' > ChrX.tmp && mv ChrX.tmp ChrX.variant.and.invariant.vcf &
+
+# Adding a unique ID column that will be used to clean out sites that don't match the 4fold and 0fold degenerate sites list
+cat Chr2L.variant.and.invariant.vcf | awk '{print $1 ":" $2}' | paste - Chr2L.variant.and.invariant.vcf > Chr2L.variant.and.invariant.vcf.tmp &
+cat Chr2R.variant.and.invariant.vcf | awk '{print $1 ":" $2}' | paste - Chr2R.variant.and.invariant.vcf > Chr2R.variant.and.invariant.vcf.tmp &
+cat Chr3L.variant.and.invariant.vcf | awk '{print $1 ":" $2}' | paste - Chr3L.variant.and.invariant.vcf > Chr3L.variant.and.invariant.vcf.tmp &
+cat Chr3R.variant.and.invariant.vcf | awk '{print $1 ":" $2}' | paste - Chr3R.variant.and.invariant.vcf > Chr3R.variant.and.invariant.vcf.tmp &
+cat ChrX.variant.and.invariant.vcf | awk '{print $1 ":" $2}' | paste - ChrX.variant.and.invariant.vcf > ChrX.variant.and.invariant.vcf.tmp &
+
+# Remove sites with no genotypic information
+sed -i '/N/d' Chr2L.variant.and.invariant.vcf.tmp &
+sed -i '/N/d' Chr2R.variant.and.invariant.vcf.tmp &
+sed -i '/N/d' Chr3L.variant.and.invariant.vcf.tmp &
+sed -i '/N/d' Chr3R.variant.and.invariant.vcf.tmp &
+sed -i '/N/d' ChrX.variant.and.invariant.vcf.tmp &
+
+# Compare to 4fold and 0fold coordinate sites to generate parsed VCFs for each type of variant 
+grep -w -F -f /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/TylersCode/bedOut/DGRP.2L.bedout_0fold.coordinates Chr2L.variant.and.invariant.vcf.tmp > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/Chr2L.0fold.vcf &
+grep -w -F -f /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/TylersCode/bedOut/DGRP.2L.bedout_4fold.coordinates Chr2L.variant.and.invariant.vcf.tmp > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/Chr2L.4fold.vcf &
+grep -w -F -f /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/TylersCode/bedOut/DGRP.2R.bedout_0fold.coordinates Chr2R.variant.and.invariant.vcf.tmp > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/Chr2R.0fold.vcf &
+grep -w -F -f /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/TylersCode/bedOut/DGRP.2R.bedout_4fold.coordinates Chr2R.variant.and.invariant.vcf.tmp > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/Chr2R.4fold.vcf &
+
+grep -w -F -f /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/TylersCode/bedOut/DGRP.3L.bedout_0fold.coordinates Chr3L.variant.and.invariant.vcf.tmp > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/Chr3L.0fold.vcf &
+grep -w -F -f /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/TylersCode/bedOut/DGRP.3L.bedout_4fold.coordinates Chr3L.variant.and.invariant.vcf.tmp > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/Chr3L.4fold.vcf &
+grep -w -F -f /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/TylersCode/bedOut/DGRP.3R.bedout_0fold.coordinates Chr3R.variant.and.invariant.vcf.tmp > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/Chr3R.0fold.vcf &
+grep -w -F -f /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/TylersCode/bedOut/DGRP.3R.bedout_4fold.coordinates Chr3R.variant.and.invariant.vcf.tmp > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/Chr3R.4fold.vcf &
+
+grep -w -F -f /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/TylersCode/bedOut/DGRP.X.bedout_0fold.coordinates ChrX.variant.and.invariant.vcf.tmp > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/ChrX.0fold.vcf &
+grep -w -F -f /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/TylersCode/bedOut/DGRP.X.bedout_4fold.coordinates ChrX.variant.and.invariant.vcf.tmp > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/ChrX.4fold.vcf &
+
+## Remove ID column before processing VCF
+cat Chr2L.0fold.vcf | cut -f 2-$NF > Chr2L.0fold.vcf.tmp && mv Chr2L.0fold.vcf.tmp Chr2L.0fold.vcf &
+cat Chr2L.4fold.vcf | cut -f 2-$NF > Chr2L.4fold.vcf.tmp && mv Chr2L.4fold.vcf.tmp Chr2L.4fold.vcf &
+cat Chr2R.0fold.vcf | cut -f 2-$NF > Chr2R.0fold.vcf.tmp && mv Chr2R.0fold.vcf.tmp Chr2R.0fold.vcf &
+cat Chr2R.4fold.vcf | cut -f 2-$NF > Chr2R.4fold.vcf.tmp && mv Chr2R.4fold.vcf.tmp Chr2R.4fold.vcf &
+cat Chr3L.0fold.vcf | cut -f 2-$NF > Chr3L.0fold.vcf.tmp && mv Chr3L.0fold.vcf.tmp Chr3L.0fold.vcf &
+cat Chr3L.4fold.vcf | cut -f 2-$NF > Chr3L.4fold.vcf.tmp && mv Chr3L.4fold.vcf.tmp Chr3L.4fold.vcf &
+cat Chr3R.0fold.vcf | cut -f 2-$NF > Chr3R.0fold.vcf.tmp && mv Chr3R.0fold.vcf.tmp Chr3R.0fold.vcf &
+cat Chr3R.4fold.vcf | cut -f 2-$NF > Chr3R.4fold.vcf.tmp && mv Chr3R.4fold.vcf.tmp Chr3R.4fold.vcf &
+cat ChrX.0fold.vcf | cut -f 2-$NF > ChrX.0fold.vcf.tmp && mv ChrX.0fold.vcf.tmp ChrX.0fold.vcf &
+cat ChrX.4fold.vcf | cut -f 2-$NF > ChrX.4fold.vcf.tmp && mv ChrX.4fold.vcf.tmp ChrX.4fold.vcf &
+
+##########################################################
+### Convert SNP-sits VCF format to "Normal VCF" format ###    ## I forked this code form Ruzicka et al 2019 PLoS Bio
+##########################################################
+
+## Modify this code before running it! - Tell R which VCF to work with
+
+#----- R code -----
+rm(list=ls())
+require(matrixStats)
+
+## Modify VCF for Tajima's D analysis (r5 coordinates + remove positions where depth<20)
+
+## Import vcf files of interest ## Need to change these two depending on the specific file
+chr.vcf <- read.table("/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/ChrX.4fold.vcf")
+print("Chromosome Loaded!")
+output.name = "chr.X.4fold"
+chr.number = "X"
+
+#Sanity check
+#plot(rownames(test.vcf),test.vcf$V2)
+
+#Three possible types of acceptable allele
+#No missing values
+type1 <- c("A","T","G","C")
+part1 <- subset(chr.vcf,V5 %in% type1)
+if (nrow(part1) > 0) {
+part1[part1==1] <- "1/1"
+part1[part1==0] <- "0/0"
+}
+
+#Missing value = 2
+type2 <- c("A,*","T,*","G,*","C,*")
+part2 <- subset(chr.vcf,V5 %in% type2)
+if (nrow(part2) > 0) {
+part2[part2==2] <- "N/N"
+part2[part2==1] <- "1/1"
+part2[part2==0] <- "0/0" }
+part2$V5 <- ifelse(part2$V5=="A,*","A",ifelse(part2$V5=="T,*","T",ifelse(part2$V5=="C,*","C",ifelse(part2$V5=="G,*","G",NA))))
+
+#Missing value = 1
+type3 <- c("*,A","*,T","*,G","*,C")
+part3 <- subset(chr.vcf,V5 %in% type3)
+if (nrow(part3) > 0) {
+part3[part3==2] <- "1/1"
+part3[part3==1] <- "N/N"
+part3[part3==0] <- "0/0"
+part3$V5 <- ifelse(part3$V5=="*,A","A",ifelse(part3$V5=="*,T","T",ifelse(part3$V5=="*,C","C",ifelse(part3$V5=="*,G","G",NA))))
+}
+
+#Missing value = none, i.e., this site is monomorphic
+type4 <- c("*")
+part4 <- subset(chr.vcf,V5 %in% type4)
+if (nrow(part4) > 0) {
+part4[part4==0] <- "1/1"
+part4[part4==1] <- "N/N"
+part4$V5 <- "."
+}
+
+#Rbind parts 1,2,3,4
+vcf <- rbind(part1,part2,part3,part4)
+#Transform position column to numeric
+vcf$V2 <- as.numeric(vcf$V2)
+#Order by position column
+vcf <- vcf[order(vcf$V2),]
+#Replace chromosome column with 1
+vcf$V1 <- chr.number
+#Filter for depth (DP>19)
+vcf <- subset(vcf,rowCounts(vcf[,10:ncol(vcf)]!="./.")>41) # This now removes any sites that have more than 20% missing data
+vcf$V2 <- format(vcf$V2,scientific=F)
+
+write.table(vcf, file = paste("/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/", output.name, "_modified.vcf", sep = ""), sep="\t",row.names = F, quote=F, col.names=F)
+
+rm(list=ls())
+
+# ---- /R Code ----
+
+# Add header back to vcf files
+cat vcf.header chr.2L.0fold_modified.vcf > chr.2L.0fold_modified.vcf.tmp && mv chr.2L.0fold_modified.vcf.tmp chr.2L.0fold_modified.vcf &
+cat vcf.header chr.2L.4fold_modified.vcf > chr.2L.4fold_modified.vcf.tmp && mv chr.2L.4fold_modified.vcf.tmp chr.2L.4fold_modified.vcf &
+cat vcf.header chr.2R.0fold_modified.vcf > chr.2R.0fold_modified.vcf.tmp && mv chr.2R.0fold_modified.vcf.tmp chr.2R.0fold_modified.vcf &
+cat vcf.header chr.2R.4fold_modified.vcf > chr.2R.4fold_modified.vcf.tmp && mv chr.2R.4fold_modified.vcf.tmp chr.2R.4fold_modified.vcf &
+cat vcf.header chr.3L.0fold_modified.vcf > chr.3L.0fold_modified.vcf.tmp && mv chr.3L.0fold_modified.vcf.tmp chr.3L.0fold_modified.vcf &
+cat vcf.header chr.3L.4fold_modified.vcf > chr.3L.4fold_modified.vcf.tmp && mv chr.3L.4fold_modified.vcf.tmp chr.3L.4fold_modified.vcf &
+cat vcf.header chr.3R.0fold_modified.vcf > chr.3R.0fold_modified.vcf.tmp && mv chr.3R.0fold_modified.vcf.tmp chr.3R.0fold_modified.vcf &
+cat vcf.header chr.3R.4fold_modified.vcf > chr.3R.4fold_modified.vcf.tmp && mv chr.3R.4fold_modified.vcf.tmp chr.3R.4fold_modified.vcf &
+cat vcf.header chr.X.0fold_modified.vcf > chr.X.0fold_modified.vcf.tmp && mv chr.X.0fold_modified.vcf.tmp chr.X.0fold_modified.vcf &
+cat vcf.header chr.X.4fold_modified.vcf > chr.X.4fold_modified.vcf.tmp && mv chr.X.4fold_modified.vcf.tmp chr.X.4fold_modified.vcf &
+
+
+
+#############################################################################################
+######    Calculating Nucleotide Diversity in the DGRP and Assigning Sites to genes    ######
+#############################################################################################
+
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.2L.4fold_modified.vcf | vcftools --vcf - --site-pi --out  Chr2L.4fold &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.2L.0fold_modified.vcf | vcftools --vcf - --site-pi --out  Chr2L.0fold &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.2R.4fold_modified.vcf | vcftools --vcf - --site-pi --out  Chr2R.4fold &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.2R.0fold_modified.vcf | vcftools --vcf - --site-pi --out  Chr2R.0fold &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.3L.4fold_modified.vcf | vcftools --vcf - --site-pi --out  Chr3L.4fold &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.3L.0fold_modified.vcf | vcftools --vcf - --site-pi --out  Chr3L.0fold &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.3R.4fold_modified.vcf | vcftools --vcf - --site-pi --out  Chr3R.4fold &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.3R.0fold_modified.vcf | vcftools --vcf - --site-pi --out  Chr3R.0fold &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.X.4fold_modified.vcf | vcftools --vcf - --site-pi --out  ChrX.4fold &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.X.0fold_modified.vcf | vcftools --vcf - --site-pi --out  ChrX.0fold &
 
 # I moved the output file to a folder where I kept the rest of the data generated in this script
-mv nucleotide_diversity* ../piNpiS.Analysis/
+mv *.pi NucelotideDiversityFiles/
+
+###############################################################
+######    Intersect    ######
+###############################################################
 
 
 ###################################################################################

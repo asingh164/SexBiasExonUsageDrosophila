@@ -5,6 +5,7 @@
 
 ## Author: Amardeep Singh -- amardeep.singh[at]utoronto.ca
 ## This program makes use of SAM files that I created separately see: STAR.Alignment.Pipeline.sh
+## Originally obtained from Julia Kriener and modified
 
 ### Script Details ###
 # This script is written primarily in R, Bash commands are denoted by #---- BASH ---- and end with # ---- ----

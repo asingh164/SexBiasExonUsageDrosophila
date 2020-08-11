@@ -414,7 +414,7 @@ def define_sites():
 			"GCT","GCC","GCA","GCG","GGT","GGC","GGA","GGG"
 		},
 
-		"0fold_1":{"TGA","TAG","TAA"
+		"0fold_1":{"TGA","TAG","TAA","TCA"
 		},
 
 		"0fold_2":{"AGG","AGA","CGA","CGG","CGC","CGT","CTG","CTC","CTA","CTT","TTG","TTA"
@@ -423,7 +423,8 @@ def define_sites():
 		"0fold_12":{"GGA","GGC","GGG","GGT","GAG","GAA","GAT","GAC","GCA","GCC","GCA",
 			"GCT","GTA","GTG","GTC","GTT","AAG","AAA","AAC","AAT","ACG","ACC","ACT",
 			"ACA","ATA","ATC","ATT","CAG","CAA","CAT","CAC","CCG","CCC","CCA","CCT",
-			"TGC","TGT","TAC","TAT","TTC","TTT"
+			"TGC","TGT","TAC","TAT","TTC","TTT","TCT","TCC","TCG","AGC","AGT","GCG"
+
 		},
 
 		"0fold_all":{"ATG","TGG"

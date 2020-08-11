@@ -72,7 +72,7 @@ sed -i '/N/d' Chr3L.variant.and.invariant.vcf.tmp &
 sed -i '/N/d' Chr3R.variant.and.invariant.vcf.tmp &
 sed -i '/N/d' ChrX.variant.and.invariant.vcf.tmp &
 
-# Compare to 4fold and 0fold coordinate sites to generate parsed VCFs for each type of variant 
+# Compare to 4fold and 0fold coordinate sites to generate parsed VCFs for each type of variant
 grep -w -F -f /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/TylersCode/bedOut/DGRP.2L.bedout_0fold.coordinates Chr2L.variant.and.invariant.vcf.tmp > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/Chr2L.0fold.vcf &
 grep -w -F -f /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/TylersCode/bedOut/DGRP.2L.bedout_4fold.coordinates Chr2L.variant.and.invariant.vcf.tmp > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/Chr2L.4fold.vcf &
 grep -w -F -f /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/TylersCode/bedOut/DGRP.2R.bedout_0fold.coordinates Chr2R.variant.and.invariant.vcf.tmp > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/Chr2R.0fold.vcf &
@@ -206,10 +206,99 @@ cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr
 # I moved the output file to a folder where I kept the rest of the data generated in this script
 mv *.pi NucelotideDiversityFiles/
 
-###############################################################
-######    Intersect    ######
-###############################################################
+## Intersect with GFF to identify genes that each site falls into
+# This is probably a roundabout way to do this, but whatever
+# Make separate GFF files for each chromosome arm, correctly formatted to intersect with a BED file that is 0based
+grep '2L' Drosophila_melanogaster.BDGP6.28.99.chr.gtf | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2, $3, $4-1, $5,$6,$7,$8,$9}' > Chr2L.gff &
+grep '2R' Drosophila_melanogaster.BDGP6.28.99.chr.gtf | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2, $3, $4-1, $5,$6,$7,$8,$9}' > Chr2R.gff &
+grep '3L' Drosophila_melanogaster.BDGP6.28.99.chr.gtf | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2, $3, $4-1, $5,$6,$7,$8,$9}' > Chr3L.gff &
+grep '3R' Drosophila_melanogaster.BDGP6.28.99.chr.gtf | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2, $3, $4-1, $5,$6,$7,$8,$9}' > Chr3R.gff &
+grep 'X' Drosophila_melanogaster.BDGP6.28.99.chr.gtf | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2, $3, $4-1, $5,$6,$7,$8,$9}' > ChrX.gff &
 
+# Format the nucleotide diversity files
+grep '2L' Chr2L.0fold.sites.pi | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2-1, $2, $3}' > Chr2L.0fold.sites.pi.for.bedtools &
+grep '2L' Chr2L.4fold.sites.pi | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2-1, $2, $3}' > Chr2L.4fold.sites.pi.for.bedtools &
+grep '2R' Chr2R.0fold.sites.pi | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2-1, $2, $3}' > Chr2R.0fold.sites.pi.for.bedtools &
+grep '2R' Chr2R.4fold.sites.pi | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2-1, $2, $3}' > Chr2R.4fold.sites.pi.for.bedtools &
+grep '3L' Chr3L.0fold.sites.pi | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2-1, $2, $3}' > Chr3L.0fold.sites.pi.for.bedtools &
+grep '3L' Chr3L.4fold.sites.pi | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2-1, $2, $3}' > Chr3L.4fold.sites.pi.for.bedtools &
+grep '3R' Chr3R.0fold.sites.pi | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2-1, $2, $3}' > Chr3R.0fold.sites.pi.for.bedtools &
+grep '3R' Chr3R.4fold.sites.pi | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2-1, $2, $3}' > Chr3R.4fold.sites.pi.for.bedtools &
+grep 'X' ChrX.0fold.sites.pi | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2-1, $2, $3}' > ChrX.0fold.sites.pi.for.bedtools &
+grep 'X' ChrX.4fold.sites.pi | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2-1, $2, $3}' > ChrX.4fold.sites.pi.for.bedtools &
+
+## Intersect files with bedtools
+bedtools intersect  -a Chr2L.0fold.sites.pi.for.bedtools -b Chr2L.gff -wa -wb > Chr2L.0Fold.bedtools.out &
+bedtools intersect  -a Chr2L.4fold.sites.pi.for.bedtools -b Chr2L.gff -wa -wb > Chr2L.4Fold.bedtools.out &
+bedtools intersect  -a Chr2R.0fold.sites.pi.for.bedtools -b Chr2R.gff -wa -wb > Chr2R.0Fold.bedtools.out &
+bedtools intersect  -a Chr2R.4fold.sites.pi.for.bedtools -b Chr2R.gff -wa -wb > Chr2R.4Fold.bedtools.out &
+bedtools intersect  -a Chr3L.0fold.sites.pi.for.bedtools -b Chr3L.gff -wa -wb > Chr3L.0Fold.bedtools.out &
+bedtools intersect  -a Chr3L.4fold.sites.pi.for.bedtools -b Chr3L.gff -wa -wb > Chr3L.4Fold.bedtools.out &
+bedtools intersect  -a Chr3R.0fold.sites.pi.for.bedtools -b Chr3R.gff -wa -wb > Chr3R.0Fold.bedtools.out &
+bedtools intersect  -a Chr3R.4fold.sites.pi.for.bedtools -b Chr3R.gff -wa -wb > Chr3R.4Fold.bedtools.out &
+bedtools intersect  -a ChrX.0fold.sites.pi.for.bedtools -b ChrX.gff -wa -wb > ChrX.0Fold.bedtools.out &
+bedtools intersect  -a ChrX.4fold.sites.pi.for.bedtools -b ChrX.gff -wa -wb > ChrX.4Fold.bedtools.out &
+
+## Clean up output files so that they can be read into R
+cat Chr2L.0Fold.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $2, $3, $4, $7, $8, $9, $13}' > Chr2L.0fold.final &
+cat Chr2L.4Fold.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $2, $3, $4, $7, $8, $9, $13}' > Chr2L.4fold.final &
+cat Chr2R.0Fold.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $2, $3, $4, $7, $8, $9, $13}' > Chr2R.0fold.final &
+cat Chr2R.4Fold.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $2, $3, $4, $7, $8, $9, $13}' > Chr2R.4fold.final &
+cat Chr3L.0Fold.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $2, $3, $4, $7, $8, $9, $13}' > Chr3L.0fold.final &
+cat Chr3L.4Fold.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $2, $3, $4, $7, $8, $9, $13}' > Chr3L.4fold.final &
+cat Chr3R.0Fold.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $2, $3, $4, $7, $8, $9, $13}' > Chr3R.0fold.final &
+cat Chr3R.4Fold.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $2, $3, $4, $7, $8, $9, $13}' > Chr3R.4fold.final &
+cat ChrX.0Fold.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $2, $3, $4, $7, $8, $9, $13}' > ChrX.0fold.final &
+cat ChrX.4Fold.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $2, $3, $4, $7, $8, $9, $13}' > ChrX.4fold.final &
+
+## Merge 4fold and 0fold files together
+cat Chr2L.0fold.final Chr2R.0fold.final Chr3L.0fold.final Chr3R.0fold.final ChrX.0fold.final > diversity.0fold.sites &
+cat Chr2L.4fold.final Chr2R.4fold.final Chr3L.4fold.final Chr3R.4fold.final ChrX.4fold.final > diversity.4fold.sites &
+
+# Remove intermediate files
+rm Chr*.*Fold.bedtools.out
+rm *.for.bedtools
+rm Chr*.gff
+
+# ---- R CODE ----
+require(doBy)
+
+# Read in nucleotide diversity data
+diversity.0fold = read.delim("diversity.0fold.sites", header = FALSE)
+diversity.4fold = read.delim("diversity.4fold.sites", header = FALSE)
+
+# Filter out duplicate sites
+diversity.4fold.unique = unique(diversity.4fold[,c("V1","V3","V4","V8")])
+diversity.0fold.unique = unique(diversity.0fold[,c("V1","V3","V4","V8")])
+
+# Replace NA with 0
+diversity.4fold.unique$V4[diversity.4fold.unique$V4 == "NaN"] = 0
+diversity.0fold.unique$V4[diversity.0fold.unique$V4 == "NaN"] = 0
+
+# Summarize mean nucleotide diversity per gene
+diversity.4fold.per.gene = summaryBy(V4 ~ V8, FUN = mean, data = diversity.4fold.unique)
+diversity.0fold.per.gene = summaryBy(V4 ~ V8, FUN = mean, data = diversity.0fold.unique)
+
+# Clean up files and save outputs
+colnames(diversity.4fold.per.gene) = c("geneID", "mean.pi.4fold.sites")
+colnames(diversity.0fold.per.gene) = c("geneID", "mean.pi.0fold.sites")
+# Fix geneID column
+diversity.4fold.per.gene$geneID = substr(diversity.4fold.per.gene$geneID, 8,18)
+diversity.0fold.per.gene$geneID = substr(diversity.0fold.per.gene$geneID, 8,18)
+# Merge datasets
+nucleotide.diversity.per.gene = merge(diversity.4fold.per.gene,diversity.0fold.per.gene, by = "geneID")
+# Calculate piN/piS
+nucleotide.diversity.per.gene$piN.piS = nucleotide.diversity.per.gene$mean.pi.0fold.sites / nucleotide.diversity.per.gene$mean.pi.4fold.sites
+
+write.table(nucleotide.diversity.per.gene, file = "/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/nucleotide.diversity.per.gene.Aug10.txt", quote = F, sep = "\t", colname = T, row.name = F)
+
+# ---- R CODE ----
+
+
+
+
+
+############ O L D    C O D E     D O      N O T       U S E!! ########################
 
 ###################################################################################
 ######    Using Ensembl VEP to identify Synonymous and Nonsynonymous Sites   ######

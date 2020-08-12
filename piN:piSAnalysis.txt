@@ -98,6 +98,8 @@ cat Chr3R.4fold.vcf | cut -f 2-$NF > Chr3R.4fold.vcf.tmp && mv Chr3R.4fold.vcf.t
 cat ChrX.0fold.vcf | cut -f 2-$NF > ChrX.0fold.vcf.tmp && mv ChrX.0fold.vcf.tmp ChrX.0fold.vcf &
 cat ChrX.4fold.vcf | cut -f 2-$NF > ChrX.4fold.vcf.tmp && mv ChrX.4fold.vcf.tmp ChrX.4fold.vcf &
 
+
+
 ##########################################################
 ### Convert SNP-sits VCF format to "Normal VCF" format ###    ## I forked this code form Ruzicka et al 2019 PLoS Bio
 ##########################################################
@@ -151,7 +153,7 @@ part3$V5 <- ifelse(part3$V5=="*,A","A",ifelse(part3$V5=="*,T","T",ifelse(part3$V
 type4 <- c("*")
 part4 <- subset(chr.vcf,V5 %in% type4)
 if (nrow(part4) > 0) {
-part4[part4==0] <- "1/1"
+part4[part4==0] <- "0/0"
 part4[part4==1] <- "N/N"
 part4$V5 <- "."
 }
@@ -186,22 +188,44 @@ cat vcf.header chr.3R.4fold_modified.vcf > chr.3R.4fold_modified.vcf.tmp && mv c
 cat vcf.header chr.X.0fold_modified.vcf > chr.X.0fold_modified.vcf.tmp && mv chr.X.0fold_modified.vcf.tmp chr.X.0fold_modified.vcf &
 cat vcf.header chr.X.4fold_modified.vcf > chr.X.4fold_modified.vcf.tmp && mv chr.X.4fold_modified.vcf.tmp chr.X.4fold_modified.vcf &
 
+## Parse VCF to convert into a format for Simon Martin's geno.file
+python3 parseVCF.py -i chr.2L.0fold_modified.vcf --skipIndels > chr.2L.0fold_genofile.vcf &
+python3 parseVCF.py -i chr.2L.4fold_modified.vcf --skipIndels > chr.2L.4fold_genofile.vcf &
+python3 parseVCF.py -i chr.2R.0fold_modified.vcf --skipIndels > chr.2R.0fold_genofile.vcf &
+python3 parseVCF.py -i chr.2R.4fold_modified.vcf --skipIndels > chr.2R.4fold_genofile.vcf &
+python3 parseVCF.py -i chr.3L.0fold_modified.vcf --skipIndels > chr.3L.0fold_genofile.vcf &
+python3 parseVCF.py -i chr.3L.4fold_modified.vcf --skipIndels > chr.3L.4fold_genofile.vcf &
+python3 parseVCF.py -i chr.3R.0fold_modified.vcf --skipIndels > chr.3R.0fold_genofile.vcf &
+python3 parseVCF.py -i chr.3R.4fold_modified.vcf --skipIndels > chr.3R.4fold_genofile.vcf &
+python3 parseVCF.py -i chr.X.0fold_modified.vcf --skipIndels > chr.X.0fold_genofile.vcf &
+python3 parseVCF.py -i chr.X.4fold_modified.vcf --skipIndels > chr.X.4fold_genofile.vcf &
 
+python3 popgenWindows.py -w 1 -m 1 -g chr.2L.0fold_genofile.vcf -o chr.2L.0fold.output.csv.gz -f phased -T 20 &
+python3 popgenWindows.py -w 1 -m 1 -g chr.2L.4fold_genofile.vcf -o chr.2L.4fold.output.csv.gz -f phased -T 20 &
+python3 popgenWindows.py -w 1 -m 1 -g chr.2R.0fold_genofile.vcf -o chr.2R.0fold.output.csv.gz -f phased -T 20 &
+python3 popgenWindows.py -w 1 -m 1 -g chr.2R.4fold_genofile.vcf -o chr.2R.4fold.output.csv.gz -f phased -T 10 &
+
+python3 popgenWindows.py -w 1 -m 1 -g chr.3L.0fold_genofile.vcf -o chr.3L.0fold.output.csv.gz -f phased -T 20 &
+python3 popgenWindows.py -w 1 -m 1 -g chr.3L.4fold_genofile.vcf -o chr.3L.4fold.output.csv.gz -f phased -T 20 &
+python3 popgenWindows.py -w 1 -m 1 -g chr.3R.0fold_genofile.vcf -o chr.3R.0fold.output.csv.gz -f phased -T 20 &
+python3 popgenWindows.py -w 1 -m 1 -g chr.3R.4fold_genofile.vcf -o chr.3R.4fold.output.csv.gz -f phased -T 20 &
+python3 popgenWindows.py -w 1 -m 1 -g chr.X.0fold_genofile.vcf -o chr.X.0fold.output.csv.gz -f phased -T 20 &
+python3 popgenWindows.py -w 1 -m 1 -g chr.X.4fold_genofile.vcf -o chr.X.4fold.output.csv.gz -f phased -T 20 &
 
 #############################################################################################
 ######    Calculating Nucleotide Diversity in the DGRP and Assigning Sites to genes    ######
 #############################################################################################
 
-cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.2L.4fold_modified.vcf | vcftools --vcf - --site-pi --out  Chr2L.4fold &
-cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.2L.0fold_modified.vcf | vcftools --vcf - --site-pi --out  Chr2L.0fold &
-cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.2R.4fold_modified.vcf | vcftools --vcf - --site-pi --out  Chr2R.4fold &
-cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.2R.0fold_modified.vcf | vcftools --vcf - --site-pi --out  Chr2R.0fold &
-cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.3L.4fold_modified.vcf | vcftools --vcf - --site-pi --out  Chr3L.4fold &
-cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.3L.0fold_modified.vcf | vcftools --vcf - --site-pi --out  Chr3L.0fold &
-cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.3R.4fold_modified.vcf | vcftools --vcf - --site-pi --out  Chr3R.4fold &
-cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.3R.0fold_modified.vcf | vcftools --vcf - --site-pi --out  Chr3R.0fold &
-cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.X.4fold_modified.vcf | vcftools --vcf - --site-pi --out  ChrX.4fold &
-cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.X.0fold_modified.vcf | vcftools --vcf - --site-pi --out  ChrX.0fold &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.2L.4fold_modified.vcf | vcftools --vcf - --site-pi --out  /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/Chr2L.4fold &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.2L.0fold_modified.vcf | vcftools --vcf - --site-pi --out  /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/Chr2L.0fold &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.2R.4fold_modified.vcf | vcftools --vcf - --site-pi --out  /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/Chr2R.4fold &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.2R.0fold_modified.vcf | vcftools --vcf - --site-pi --out  /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/Chr2R.0fold &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.3L.4fold_modified.vcf | vcftools --vcf - --site-pi --out  /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/Chr3L.4fold &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.3L.0fold_modified.vcf | vcftools --vcf - --site-pi --out  /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/Chr3L.0fold &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.3R.4fold_modified.vcf | vcftools --vcf - --site-pi --out  /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/Chr3R.4fold &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.3R.0fold_modified.vcf | vcftools --vcf - --site-pi --out  /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/Chr3R.0fold &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.X.4fold_modified.vcf | vcftools --vcf - --site-pi --out  /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/ChrX.4fold &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.X.0fold_modified.vcf | vcftools --vcf - --site-pi --out  /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/ChrX.0fold &
 
 # I moved the output file to a folder where I kept the rest of the data generated in this script
 mv *.pi NucelotideDiversityFiles/
@@ -240,16 +264,16 @@ bedtools intersect  -a ChrX.0fold.sites.pi.for.bedtools -b ChrX.gff -wa -wb > Ch
 bedtools intersect  -a ChrX.4fold.sites.pi.for.bedtools -b ChrX.gff -wa -wb > ChrX.4Fold.bedtools.out &
 
 ## Clean up output files so that they can be read into R
-cat Chr2L.0Fold.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $2, $3, $4, $7, $8, $9, $13}' > Chr2L.0fold.final &
-cat Chr2L.4Fold.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $2, $3, $4, $7, $8, $9, $13}' > Chr2L.4fold.final &
-cat Chr2R.0Fold.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $2, $3, $4, $7, $8, $9, $13}' > Chr2R.0fold.final &
-cat Chr2R.4Fold.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $2, $3, $4, $7, $8, $9, $13}' > Chr2R.4fold.final &
-cat Chr3L.0Fold.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $2, $3, $4, $7, $8, $9, $13}' > Chr3L.0fold.final &
-cat Chr3L.4Fold.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $2, $3, $4, $7, $8, $9, $13}' > Chr3L.4fold.final &
-cat Chr3R.0Fold.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $2, $3, $4, $7, $8, $9, $13}' > Chr3R.0fold.final &
-cat Chr3R.4Fold.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $2, $3, $4, $7, $8, $9, $13}' > Chr3R.4fold.final &
-cat ChrX.0Fold.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $2, $3, $4, $7, $8, $9, $13}' > ChrX.0fold.final &
-cat ChrX.4Fold.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $2, $3, $4, $7, $8, $9, $13}' > ChrX.4fold.final &
+cat Chr2L.0Fold.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $3, $4, $13}' > Chr2L.0fold.final &
+cat Chr2L.4Fold.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $3, $4, $13}' > Chr2L.4fold.final &
+cat Chr2R.0Fold.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $3, $4, $13}' > Chr2R.0fold.final &
+cat Chr2R.4Fold.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $3, $4, $13}' > Chr2R.4fold.final &
+cat Chr3L.0Fold.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $3, $4, $13}' > Chr3L.0fold.final &
+cat Chr3L.4Fold.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $3, $4, $13}' > Chr3L.4fold.final &
+cat Chr3R.0Fold.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $3, $4, $13}' > Chr3R.0fold.final &
+cat Chr3R.4Fold.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $3, $4, $13}' > Chr3R.4fold.final &
+cat ChrX.0Fold.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $3, $4, $13}' > ChrX.0fold.final &
+cat ChrX.4Fold.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $3, $4, $13}' > ChrX.4fold.final &
 
 ## Merge 4fold and 0fold files together
 cat Chr2L.0fold.final Chr2R.0fold.final Chr3L.0fold.final Chr3R.0fold.final ChrX.0fold.final > diversity.0fold.sites &
@@ -261,62 +285,41 @@ rm *.for.bedtools
 rm Chr*.gff
 
 # ---- R CODE ----
+rm(list=ls())
 require(doBy)
 
 # Read in nucleotide diversity data
-diversity.0fold = read.delim("diversity.0fold.sites", header = FALSE)
-diversity.4fold = read.delim("diversity.4fold.sites", header = FALSE)
+diversity.0fold = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/diversity.0fold.sites", header = FALSE)
+diversity.4fold = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/diversity.4fold.sites", header = FALSE)
 
 # Filter out duplicate sites
-diversity.4fold.unique = unique(diversity.4fold[,c("V1","V3","V4","V8")])
-diversity.0fold.unique = unique(diversity.0fold[,c("V1","V3","V4","V8")])
+diversity.4fold.unique = unique(diversity.4fold[,c("V1","V2","V3","V4")])
+diversity.0fold.unique = unique(diversity.0fold[,c("V1","V2","V3","V4")])
 
 # Replace NA with 0
-diversity.4fold.unique$V4[diversity.4fold.unique$V4 == "NaN"] = 0
-diversity.0fold.unique$V4[diversity.0fold.unique$V4 == "NaN"] = 0
+#diversity.4fold.unique$V4[diversity.4fold.unique$V4 == "NaN"] = 0
+#diversity.0fold.unique$V4[diversity.0fold.unique$V4 == "NaN"] = 0
+
+# Fix geneID column
+diversity.4fold.unique$V4 = substr(diversity.4fold.unique$V4, 8,18)
+diversity.0fold.unique$V4 = substr(diversity.0fold.unique$V4, 8,18)
+
+colnames(diversity.4fold.unique) = c("Chrom", "Site", "pi", "geneID")
+colnames(diversity.0fold.unique) = c("Chrom", "Site", "pi", "geneID")
 
 # Summarize mean nucleotide diversity per gene
-diversity.4fold.per.gene = summaryBy(V4 ~ V8, FUN = mean, data = diversity.4fold.unique)
-diversity.0fold.per.gene = summaryBy(V4 ~ V8, FUN = mean, data = diversity.0fold.unique)
+diversity.4fold.per.gene = summaryBy(pi ~ geneID, FUN = c(length, mean), data = diversity.4fold.unique)
+diversity.0fold.per.gene = summaryBy(pi ~ geneID, FUN = c(length,mean), data = diversity.0fold.unique)
 
-# Clean up files and save outputs
-colnames(diversity.4fold.per.gene) = c("geneID", "mean.pi.4fold.sites")
-colnames(diversity.0fold.per.gene) = c("geneID", "mean.pi.0fold.sites")
-# Fix geneID column
-diversity.4fold.per.gene$geneID = substr(diversity.4fold.per.gene$geneID, 8,18)
-diversity.0fold.per.gene$geneID = substr(diversity.0fold.per.gene$geneID, 8,18)
 # Merge datasets
 nucleotide.diversity.per.gene = merge(diversity.4fold.per.gene,diversity.0fold.per.gene, by = "geneID")
+colnames(nucleotide.diversity.per.gene) = c("geneID", "piS.sites","piS","piN.sites","piN")
 # Calculate piN/piS
-nucleotide.diversity.per.gene$piN.piS = nucleotide.diversity.per.gene$mean.pi.0fold.sites / nucleotide.diversity.per.gene$mean.pi.4fold.sites
+nucleotide.diversity.per.gene$piN.piS = nucleotide.diversity.per.gene$piN / nucleotide.diversity.per.gene$piS
 
-write.table(nucleotide.diversity.per.gene, file = "/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/nucleotide.diversity.per.gene.Aug10.txt", quote = F, sep = "\t", colname = T, row.name = F)
+write.table(nucleotide.diversity.per.gene, file = "/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/nucleotide.diversity.per.gene.Aug10.txt", quote = F, sep = "\t", col.name = T, row.name = F)
 
 # ---- R CODE ----
-
-
-
-
-
-############ O L D    C O D E     D O      N O T       U S E!! ########################
-
-###################################################################################
-######    Using Ensembl VEP to identify Synonymous and Nonsynonymous Sites   ######
-###################################################################################
-
-## Format the DGRP vcf file for VEP
-cat /plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.filtered.vcf | awk 'BEGIN {OFS = FS = "\t"} { print $1 "\t" $2 "\t" $2 "\t" $4 "/" $5 "\t" "+" }' > DGRP.vcf.for.vep.tmp
-# Remove header row
-sed -i '/^#/d' DGRP.vcf.for.vep.tmp && mv DGRP.vcf.for.vep.tmp DGRP.vcf.for.vep
-## I found this file had spaces in columns so I removed all delimeters and replaced them with tab
-sed -i 's/  /:/g' DGRP.vcf.for.vep # Make sure that the the first space is a tab when running this
-sed -i 's/ //g' DGRP.vcf.for.vep
-sed -i 's/:/  /g' DGRP.vcf.for.vep # Make sure that the second space is a tab when running this
-
-vep -i DGRP.vcf.for.vep -o DGRP.vep.output --species drosophila_melanogaster --cache --offline --stats_text --force_overwrite --distance 0 --coding_only &
-
-## Identifying four-fold degenerate sites
-R CMD BATCH 4FoldDegenerecy.from.VEP.output.R &
 
 
 #######################################################################################################################################
@@ -336,9 +339,9 @@ require(dplyr)
 ## Load in datasets
 
 # Load in VEP output with 4-fold degenerate site identified
-vep.output = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/DGRP.vep.output.with.degeneracy", header = TRUE)
+# vep.output = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/DGRP.vep.output.with.degeneracy", header = TRUE)
 # Load in pi calculations
-pi.output = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/nucleotide_diversity.sites.pi", header = TRUE)
+pi.output = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/nucleotide.diversity.per.gene.Aug10.txt", header = TRUE)
 # Load in the Junctionseq outputs
 junctionseq.results.body = read.table("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/BodyOutput/Aug1.Body.OnlyallGenes.results.txt", header = TRUE, sep = "\t")
 junctionseq.results.head = read.table("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/HeadOutput/Aug1.Head.OnlyallGenes.results.txt", header = TRUE, sep = "\t")
@@ -348,10 +351,9 @@ expression.data.head = read.table("/plas1/amardeep.singh/RNA.Seq.Data/GeneExpres
 
 
 ## Clean up data files
-# Add column for coordinates for pi file that follows the chr:xxxxx format
-pi.output$Location = paste(pi.output$CHROM, pi.output$POS, sep = ":")
-# Remove duplicate sites in vep output
-vep.output = vep.output[!duplicated(vep.output[c(2:4,7)]), ]
+# Remove sites where piS is 0
+piNpiS.per.gene = pi.output[!(pi.output$piN.piS == "Inf"),]
+
 # Remove unnecessary columns from junctionseq file and any rows with no data
 junctionseq.results.body = junctionseq.results.body[!(junctionseq.results.body$testable == FALSE),]
 junctionseq.results.head = junctionseq.results.head[!(junctionseq.results.head$testable == FALSE),]
@@ -365,21 +367,21 @@ expression.data.head = expression.data.head[,c(3,5)]
 
 ## Calculate piN and piS per gene
 # Merge the nucleotide diversity and VEP output files
-pi.vep.merge = merge(pi.output, vep.output, by.x = "Location", by.y = "Location")
+#pi.vep.merge = merge(pi.output, vep.output, by.x = "Location", by.y = "Location")
 # Clean out unnecessary columns
-pi.vep.merge = pi.vep.merge[, c(1,4,7,10,18)]
-pi.vep.merge.syn.sub = pi.vep.merge[pi.vep.merge$Degeneracy == 4,]
-pi.vep.merge.non.syn.sub = pi.vep.merge[pi.vep.merge$Degeneracy == 0,]
-# Clean out any rows with "NA"
-pi.vep.merge.syn.sub = pi.vep.merge.syn.sub[!(is.na(pi.vep.merge.syn.sub$Degeneracy)),]
-pi.vep.merge.non.syn.sub = pi.vep.merge.non.syn.sub[!(is.na(pi.vep.merge.non.syn.sub$Degeneracy)),]
+#pi.vep.merge = pi.vep.merge[, c(1,4,7,10,18)]
+#pi.vep.merge.syn.sub = pi.vep.merge[pi.vep.merge$Degeneracy == 4,]
+#pi.vep.merge.non.syn.sub = pi.vep.merge[pi.vep.merge$Degeneracy == 0,]
+## Clean out any rows with "NA"
+#pi.vep.merge.syn.sub = pi.vep.merge.syn.sub[!(is.na(pi.vep.merge.syn.sub$Degeneracy)),]
+#pi.vep.merge.non.syn.sub = pi.vep.merge.non.syn.sub[!(is.na(pi.vep.merge.non.syn.sub$Degeneracy)),]
 
-pi.syn.per.gene = summaryBy(PI ~ Gene, FUN = c(mean), data = pi.vep.merge.syn.sub)
-pi.non.syn.per.gene = summaryBy(PI ~ Gene, FUN = c(mean), data = pi.vep.merge.non.syn.sub)
+#pi.syn.per.gene = summaryBy(PI ~ Gene, FUN = c(mean), data = pi.vep.merge.syn.sub)
+#pi.non.syn.per.gene = summaryBy(PI ~ Gene, FUN = c(mean), data = pi.vep.merge.non.syn.sub)
 # Rename columns and then merge datafiles
-colnames(pi.syn.per.gene)[2] = "piS"
-colnames(pi.non.syn.per.gene)[2] = "piNS"
-piNpiS.per.gene = merge(pi.syn.per.gene,pi.non.syn.per.gene, by = "Gene")
+#colnames(pi.syn.per.gene)[2] = "piS"
+#colnames(pi.non.syn.per.gene)[2] = "piNS"
+#piNpiS.per.gene = merge(pi.syn.per.gene,pi.non.syn.per.gene, by = "Gene")
 
 ## Assign significant genes from JunctionSeq output
 # Assign significant hits
@@ -396,13 +398,11 @@ junctionseq.results.body.unique = junctionseq.results.body[!duplicated(junctions
 junctionseq.results.head.unique = junctionseq.results.head[!duplicated(junctionseq.results.head[c(1,4:5)]), ]
 
 # Merge piN/piS data with junctionseq data and add a column for the ratio of piN/piS
-body.pin.pis = merge(junctionseq.results.body.unique,piNpiS.per.gene, by.x = "geneID", by.y = "Gene", sort = FALSE)
-head.pin.pis = merge(junctionseq.results.head.unique,piNpiS.per.gene, by.x = "geneID", by.y = "Gene", sort = FALSE)
-body.pin.pis$piN_piS = body.pin.pis$piNS / body.pin.pis$piS
-head.pin.pis$piN_piS = head.pin.pis$piNS / head.pin.pis$piS
+body.pin.pis = merge(junctionseq.results.body.unique,piNpiS.per.gene, by.x = "geneID", by.y = "geneID", sort = FALSE)
+head.pin.pis = merge(junctionseq.results.head.unique,piNpiS.per.gene, by.x = "geneID", by.y = "geneID", sort = FALSE)
 
 ## Processing gene expression data
-# Assign quartile bins for male and female biased gene expression
+# Assign quantiles bins for male and female biased gene expression
 male.biased.body = expression.data.body[expression.data.body$log2FoldChange > 0,]
 female.biased.body = expression.data.body[expression.data.body$log2FoldChange < 0,]
 male.biased.head = expression.data.head[expression.data.head$log2FoldChange > 0,]
@@ -414,15 +414,15 @@ female.biased.body = female.biased.body[!(is.na(female.biased.body$log2FoldChang
 male.biased.head = male.biased.head[!(is.na(male.biased.head$log2FoldChange)),]
 female.biased.head = female.biased.head[!(is.na(female.biased.head$log2FoldChange)),]
 
-# Assign quartiles for both MBG and FBG
-male.biased.body = male.biased.body %>% mutate(quartile = ntile(log2FoldChange, 4))
-female.biased.body = female.biased.body %>% mutate(quartile = ntile(log2FoldChange, 4))
-male.biased.head = male.biased.head %>% mutate(quartile = ntile(log2FoldChange, 4))
-female.biased.head = female.biased.head %>% mutate(quartile = ntile(log2FoldChange, 4))
+# Assign quantile for both MBG and FBG
+male.biased.body = male.biased.body %>% mutate(quantile = ntile(log2FoldChange, 4))
+female.biased.body = female.biased.body %>% mutate(quantile = ntile(log2FoldChange, 4))
+male.biased.head = male.biased.head %>% mutate(quantile = ntile(log2FoldChange, 4))
+female.biased.head = female.biased.head %>% mutate(quantile = ntile(log2FoldChange, 4))
 
-# For the male genes, lets add 4 to each quartile
-male.biased.body$quartile = male.biased.body$quartile + 4
-male.biased.head$quartile = male.biased.head$quartile + 4
+# For the male genes, lets add 4 to each quantile
+male.biased.body$quantile = male.biased.body$quantile + 4
+male.biased.head$quantile = male.biased.head$quantile + 4
 
 # Merge data back
 expression.data.body = rbind(male.biased.body,female.biased.body)
@@ -432,18 +432,18 @@ expression.data.head = rbind(male.biased.head,female.biased.head)
 body.pin.pis = merge(body.pin.pis, expression.data.body, by.x = "geneID" , by.y = "FlyBaseID", sort = FALSE)
 head.pin.pis = merge(head.pin.pis, expression.data.head, by.x = "geneID" , by.y = "FlyBaseID", sort = FALSE)
 
-## Summarizing data in expression quartiles
-# Lets plot piNpiS for sig hits in quartile bins
+## Summarizing data in expression quantiles
+# Lets plot piNpiS for sig hits in quantile bins
 body.sig.hits = body.pin.pis[body.pin.pis$sig.hit == 1,]
 body.non.sig.hits = body.pin.pis[body.pin.pis$sig.hit == 0,]
 head.sig.hits = head.pin.pis[head.pin.pis$sig.hit == 1,]
 head.non.sig.hits = head.pin.pis[head.pin.pis$sig.hit == 0,]
 
-# Determine mean tajimasD in each quartile
-body.sig.hits.mean = summaryBy(piN_piS ~ quartile, FUN=c(mean), data = body.sig.hits)
-body.non.sig.hits.mean = summaryBy(piN_piS ~ quartile, FUN=c(mean), data = body.non.sig.hits)
-head.sig.hits.mean = summaryBy(piN_piS ~ quartile, FUN=c(mean), data = head.sig.hits)
-head.non.sig.hits.mean = summaryBy(piN_piS ~ quartile, FUN=c(mean), data = head.non.sig.hits)
+# Determine mean nucleotide diversity in each quantile
+body.sig.hits.mean = summaryBy(piN.piS ~ quantile, FUN=c(mean), data = body.sig.hits)
+body.non.sig.hits.mean = summaryBy(piN.piS ~ quantile, FUN=c(mean), data = body.non.sig.hits)
+head.sig.hits.mean = summaryBy(piN.piS ~ quantile, FUN=c(mean), data = head.sig.hits)
+head.non.sig.hits.mean = summaryBy(piN.piS ~ quantile, FUN=c(mean), data = head.non.sig.hits)
 
 ##################
 ##    Ploting   ##
@@ -472,23 +472,28 @@ head.piNS_nonsig = vector(length = 10000, mode = "numeric")
 head.piN_piS_nonsig = vector(length = 10000, mode = "numeric")
 
 for (i in 1:10000){
-  body.piS_sig[i] = mean(sample(x = body.pin.pis[body.pin.pis$sig.hit == 1,]$piS, size = length(body.pin.pis[body.pin.pis$sig.hit == 1,]$piS), replace = TRUE))
-  body.piNS_sig[i] = mean(sample(x = body.pin.pis[body.pin.pis$sig.hit == 1,]$piNS, size = length(body.pin.pis[body.pin.pis$sig.hit == 1,]$piNS), replace = TRUE))
-  body.piN_piS_sig[i] = mean(sample(x = body.pin.pis[body.pin.pis$sig.hit == 1,]$piN_piS, size = length(body.pin.pis[body.pin.pis$sig.hit == 1,]$piN_piS), replace = TRUE))
-  body.piS_nonsig[i] = mean(sample(x = body.pin.pis[body.pin.pis$sig.hit == 1,]$piS, size = length(body.pin.pis[body.pin.pis$sig.hit == 0,]$piS), replace = TRUE))
-  body.piNS_nonsig[i] = mean(sample(x = body.pin.pis[body.pin.pis$sig.hit == 1,]$piNS, size = length(body.pin.pis[body.pin.pis$sig.hit == 0,]$piNS), replace = TRUE))
-  body.piN_piS_nonsig[i] = mean(sample(x = body.pin.pis[body.pin.pis$sig.hit == 1,]$piN_piS, size = length(body.pin.pis[body.pin.pis$sig.hit == 0,]$piN_piS), replace = TRUE))
+  body.piS_sig[i] = mean(sample(x = body.pin.pis[body.pin.pis$sig.hit == 1,]$mean.pi.4fold.sites, size = length(body.pin.pis[body.pin.pis$sig.hit == 1,]$mean.pi.4fold.sites), replace = TRUE))
+  body.piNS_sig[i] = mean(sample(x = body.pin.pis[body.pin.pis$sig.hit == 1,]$mean.pi.0fold.sites, size = length(body.pin.pis[body.pin.pis$sig.hit == 1,]$mean.pi.0fold.sites), replace = TRUE))
+  body.piN_piS_sig[i] = mean(sample(x = body.pin.pis[body.pin.pis$sig.hit == 1,]$piN.piS, size = length(body.pin.pis[body.pin.pis$sig.hit == 1,]$piN.piS), replace = TRUE))
+  body.piS_nonsig[i] = mean(sample(x = body.pin.pis[body.pin.pis$sig.hit == 1,]$mean.pi.4fold.sites, size = length(body.pin.pis[body.pin.pis$sig.hit == 0,]$mean.pi.4fold.sites), replace = TRUE))
+  body.piNS_nonsig[i] = mean(sample(x = body.pin.pis[body.pin.pis$sig.hit == 1,]$mean.pi.0fold.sites, size = length(body.pin.pis[body.pin.pis$sig.hit == 0,]$mean.pi.0fold.sites), replace = TRUE))
+  body.piN_piS_nonsig[i] = mean(sample(x = body.pin.pis[body.pin.pis$sig.hit == 1,]$piN.piS, size = length(body.pin.pis[body.pin.pis$sig.hit == 0,]$piN.piS), replace = TRUE))
 
-  head.piS_sig[i] = mean(sample(x = head.pin.pis[head.pin.pis$sig.hit == 1,]$piS, size = length(head.pin.pis[head.pin.pis$sig.hit == 1,]$piS), replace = TRUE))
-  head.piNS_sig[i] = mean(sample(x = head.pin.pis[head.pin.pis$sig.hit == 1,]$piNS, size = length(head.pin.pis[head.pin.pis$sig.hit == 1,]$piNS), replace = TRUE))
-  head.piN_piS_sig[i] = mean(sample(x = head.pin.pis[head.pin.pis$sig.hit == 1,]$piN_piS, size = length(head.pin.pis[head.pin.pis$sig.hit == 1,]$piN_piS), replace = TRUE))
-  head.piS_nonsig[i] = mean(sample(x = head.pin.pis[head.pin.pis$sig.hit == 1,]$piS, size = length(head.pin.pis[head.pin.pis$sig.hit == 0,]$piS), replace = TRUE))
-  head.piNS_nonsig[i] = mean(sample(x = head.pin.pis[head.pin.pis$sig.hit == 1,]$piNS, size = length(head.pin.pis[head.pin.pis$sig.hit == 0,]$piNS), replace = TRUE))
-  head.piN_piS_nonsig[i] = mean(sample(x = head.pin.pis[head.pin.pis$sig.hit == 1,]$piN_piS, size = length(head.pin.pis[head.pin.pis$sig.hit == 0,]$piN_piS), replace = TRUE))
+  head.piS_sig[i] = mean(sample(x = head.pin.pis[head.pin.pis$sig.hit == 1,]$mean.pi.4fold.sites, size = length(head.pin.pis[head.pin.pis$sig.hit == 1,]$mean.pi.4fold.sites), replace = TRUE))
+  head.piNS_sig[i] = mean(sample(x = head.pin.pis[head.pin.pis$sig.hit == 1,]$mean.pi.0fold.sites, size = length(head.pin.pis[head.pin.pis$sig.hit == 1,]$mean.pi.0fold.sites), replace = TRUE))
+  head.piN_piS_sig[i] = mean(sample(x = head.pin.pis[head.pin.pis$sig.hit == 1,]$piN.piS, size = length(head.pin.pis[head.pin.pis$sig.hit == 1,]$piN.piS), replace = TRUE))
+  head.piS_nonsig[i] = mean(sample(x = head.pin.pis[head.pin.pis$sig.hit == 1,]$mean.pi.4fold.sites, size = length(head.pin.pis[head.pin.pis$sig.hit == 0,]$mean.pi.4fold.sites), replace = TRUE))
+  head.piNS_nonsig[i] = mean(sample(x = head.pin.pis[head.pin.pis$sig.hit == 1,]$mean.pi.0fold.sites, size = length(head.pin.pis[head.pin.pis$sig.hit == 0,]$mean.pi.0fold.sites), replace = TRUE))
+  head.piN_piS_nonsig[i] = mean(sample(x = head.pin.pis[head.pin.pis$sig.hit == 1,]$piN.piS, size = length(head.pin.pis[head.pin.pis$sig.hit == 0,]$piN.piS), replace = TRUE))
 
   print(i)
 
 }
+
+
+## <<< PLOTTING CODE HERE >>>>
+
+
 
 #### Plotting by assessing piN/piS at genes showing DEU parsed by sex bias in gene expression
 
@@ -530,44 +535,45 @@ head.non.sig.hits.quantile.6 = vector(mode = "numeric", length = 10000)
 head.non.sig.hits.quantile.7 = vector(mode = "numeric", length = 10000)
 head.non.sig.hits.quantile.8 = vector(mode = "numeric", length = 10000)
 
+
 for (i in 1:10000){
   # Resample significant hits
-  body.sig.hits.quantile.1[i] = mean(sample(body.sig.hits$piN_piS[body.sig.hits$quartile == 1], length(body.sig.hits$piN_piS[body.sig.hits$quartile == 1]), replace = TRUE))
-  body.sig.hits.quantile.2[i] = mean(sample(body.sig.hits$piN_piS[body.sig.hits$quartile == 2], length(body.sig.hits$piN_piS[body.sig.hits$quartile == 2]), replace = TRUE))
-  body.sig.hits.quantile.3[i] = mean(sample(body.sig.hits$piN_piS[body.sig.hits$quartile == 3], length(body.sig.hits$piN_piS[body.sig.hits$quartile == 3]), replace = TRUE))
-  body.sig.hits.quantile.4[i] = mean(sample(body.sig.hits$piN_piS[body.sig.hits$quartile == 4], length(body.sig.hits$piN_piS[body.sig.hits$quartile == 4]), replace = TRUE))
-  body.sig.hits.quantile.5[i] = mean(sample(body.sig.hits$piN_piS[body.sig.hits$quartile == 5], length(body.sig.hits$piN_piS[body.sig.hits$quartile == 5]), replace = TRUE))
-  body.sig.hits.quantile.6[i] = mean(sample(body.sig.hits$piN_piS[body.sig.hits$quartile == 6], length(body.sig.hits$piN_piS[body.sig.hits$quartile == 6]), replace = TRUE))
-  body.sig.hits.quantile.7[i] = mean(sample(body.sig.hits$piN_piS[body.sig.hits$quartile == 7], length(body.sig.hits$piN_piS[body.sig.hits$quartile == 7]), replace = TRUE))
-  body.sig.hits.quantile.8[i] = mean(sample(body.sig.hits$piN_piS[body.sig.hits$quartile == 8], length(body.sig.hits$piN_piS[body.sig.hits$quartile == 8]), replace = TRUE))
+  body.sig.hits.quantile.1[i] = mean(sample(body.sig.hits$piN.piS[body.sig.hits$quantile == 1], length(body.sig.hits$piN.piS[body.sig.hits$quantile == 1]), replace = TRUE))
+  body.sig.hits.quantile.2[i] = mean(sample(body.sig.hits$piN.piS[body.sig.hits$quantile == 2], length(body.sig.hits$piN.piS[body.sig.hits$quantile == 2]), replace = TRUE))
+  body.sig.hits.quantile.3[i] = mean(sample(body.sig.hits$piN.piS[body.sig.hits$quantile == 3], length(body.sig.hits$piN.piS[body.sig.hits$quantile == 3]), replace = TRUE))
+  body.sig.hits.quantile.4[i] = mean(sample(body.sig.hits$piN.piS[body.sig.hits$quantile == 4], length(body.sig.hits$piN.piS[body.sig.hits$quantile == 4]), replace = TRUE))
+  body.sig.hits.quantile.5[i] = mean(sample(body.sig.hits$piN.piS[body.sig.hits$quantile == 5], length(body.sig.hits$piN.piS[body.sig.hits$quantile == 5]), replace = TRUE))
+  body.sig.hits.quantile.6[i] = mean(sample(body.sig.hits$piN.piS[body.sig.hits$quantile == 6], length(body.sig.hits$piN.piS[body.sig.hits$quantile == 6]), replace = TRUE))
+  body.sig.hits.quantile.7[i] = mean(sample(body.sig.hits$piN.piS[body.sig.hits$quantile == 7], length(body.sig.hits$piN.piS[body.sig.hits$quantile == 7]), replace = TRUE))
+  body.sig.hits.quantile.8[i] = mean(sample(body.sig.hits$piN.piS[body.sig.hits$quantile == 8], length(body.sig.hits$piN.piS[body.sig.hits$quantile == 8]), replace = TRUE))
 
-  head.sig.hits.quantile.1[i] = mean(sample(head.sig.hits$piN_piS[head.sig.hits$quartile == 1], length(head.sig.hits$piN_piS[head.sig.hits$quartile == 1]), replace = TRUE))
-  head.sig.hits.quantile.2[i] = mean(sample(head.sig.hits$piN_piS[head.sig.hits$quartile == 2], length(head.sig.hits$piN_piS[head.sig.hits$quartile == 2]), replace = TRUE))
-  head.sig.hits.quantile.3[i] = mean(sample(head.sig.hits$piN_piS[head.sig.hits$quartile == 3], length(head.sig.hits$piN_piS[head.sig.hits$quartile == 3]), replace = TRUE))
-  head.sig.hits.quantile.4[i] = mean(sample(head.sig.hits$piN_piS[head.sig.hits$quartile == 4], length(head.sig.hits$piN_piS[head.sig.hits$quartile == 4]), replace = TRUE))
-  head.sig.hits.quantile.5[i] = mean(sample(head.sig.hits$piN_piS[head.sig.hits$quartile == 5], length(head.sig.hits$piN_piS[head.sig.hits$quartile == 5]), replace = TRUE))
-  head.sig.hits.quantile.6[i] = mean(sample(head.sig.hits$piN_piS[head.sig.hits$quartile == 6], length(head.sig.hits$piN_piS[head.sig.hits$quartile == 6]), replace = TRUE))
-  head.sig.hits.quantile.7[i] = mean(sample(head.sig.hits$piN_piS[head.sig.hits$quartile == 7], length(head.sig.hits$piN_piS[head.sig.hits$quartile == 7]), replace = TRUE))
-  head.sig.hits.quantile.8[i] = mean(sample(head.sig.hits$piN_piS[head.sig.hits$quartile == 8], length(head.sig.hits$piN_piS[head.sig.hits$quartile == 8]), replace = TRUE))
+  head.sig.hits.quantile.1[i] = mean(sample(head.sig.hits$piN.piS[head.sig.hits$quantile == 1], length(head.sig.hits$piN.piS[head.sig.hits$quantile == 1]), replace = TRUE))
+  head.sig.hits.quantile.2[i] = mean(sample(head.sig.hits$piN.piS[head.sig.hits$quantile == 2], length(head.sig.hits$piN.piS[head.sig.hits$quantile == 2]), replace = TRUE))
+  head.sig.hits.quantile.3[i] = mean(sample(head.sig.hits$piN.piS[head.sig.hits$quantile == 3], length(head.sig.hits$piN.piS[head.sig.hits$quantile == 3]), replace = TRUE))
+  head.sig.hits.quantile.4[i] = mean(sample(head.sig.hits$piN.piS[head.sig.hits$quantile == 4], length(head.sig.hits$piN.piS[head.sig.hits$quantile == 4]), replace = TRUE))
+  head.sig.hits.quantile.5[i] = mean(sample(head.sig.hits$piN.piS[head.sig.hits$quantile == 5], length(head.sig.hits$piN.piS[head.sig.hits$quantile == 5]), replace = TRUE))
+  head.sig.hits.quantile.6[i] = mean(sample(head.sig.hits$piN.piS[head.sig.hits$quantile == 6], length(head.sig.hits$piN.piS[head.sig.hits$quantile == 6]), replace = TRUE))
+  head.sig.hits.quantile.7[i] = mean(sample(head.sig.hits$piN.piS[head.sig.hits$quantile == 7], length(head.sig.hits$piN.piS[head.sig.hits$quantile == 7]), replace = TRUE))
+  head.sig.hits.quantile.8[i] = mean(sample(head.sig.hits$piN.piS[head.sig.hits$quantile == 8], length(head.sig.hits$piN.piS[head.sig.hits$quantile == 8]), replace = TRUE))
 
   # Resample non significant hits
-  body.non.sig.hits.quantile.1[i] = mean(sample(body.non.sig.hits$piN_piS[body.non.sig.hits$quartile == 1], length(body.non.sig.hits$piN_piS[body.non.sig.hits$quartile == 1]), replace = TRUE))
-  body.non.sig.hits.quantile.2[i] = mean(sample(body.non.sig.hits$piN_piS[body.non.sig.hits$quartile == 2], length(body.non.sig.hits$piN_piS[body.non.sig.hits$quartile == 2]), replace = TRUE))
-  body.non.sig.hits.quantile.3[i] = mean(sample(body.non.sig.hits$piN_piS[body.non.sig.hits$quartile == 3], length(body.non.sig.hits$piN_piS[body.non.sig.hits$quartile == 3]), replace = TRUE))
-  body.non.sig.hits.quantile.4[i] = mean(sample(body.non.sig.hits$piN_piS[body.non.sig.hits$quartile == 4], length(body.non.sig.hits$piN_piS[body.non.sig.hits$quartile == 4]), replace = TRUE))
-  body.non.sig.hits.quantile.5[i] = mean(sample(body.non.sig.hits$piN_piS[body.non.sig.hits$quartile == 5], length(body.non.sig.hits$piN_piS[body.non.sig.hits$quartile == 5]), replace = TRUE))
-  body.non.sig.hits.quantile.6[i] = mean(sample(body.non.sig.hits$piN_piS[body.non.sig.hits$quartile == 6], length(body.non.sig.hits$piN_piS[body.non.sig.hits$quartile == 6]), replace = TRUE))
-  body.non.sig.hits.quantile.7[i] = mean(sample(body.non.sig.hits$piN_piS[body.non.sig.hits$quartile == 7], length(body.non.sig.hits$piN_piS[body.non.sig.hits$quartile == 7]), replace = TRUE))
-  body.non.sig.hits.quantile.8[i] = mean(sample(body.non.sig.hits$piN_piS[body.non.sig.hits$quartile == 8], length(body.non.sig.hits$piN_piS[body.non.sig.hits$quartile == 8]), replace = TRUE))
+  body.non.sig.hits.quantile.1[i] = mean(sample(body.non.sig.hits$piN.piS[body.non.sig.hits$quantile == 1], length(body.non.sig.hits$piN.piS[body.non.sig.hits$quantile == 1]), replace = TRUE))
+  body.non.sig.hits.quantile.2[i] = mean(sample(body.non.sig.hits$piN.piS[body.non.sig.hits$quantile == 2], length(body.non.sig.hits$piN.piS[body.non.sig.hits$quantile == 2]), replace = TRUE))
+  body.non.sig.hits.quantile.3[i] = mean(sample(body.non.sig.hits$piN.piS[body.non.sig.hits$quantile == 3], length(body.non.sig.hits$piN.piS[body.non.sig.hits$quantile == 3]), replace = TRUE))
+  body.non.sig.hits.quantile.4[i] = mean(sample(body.non.sig.hits$piN.piS[body.non.sig.hits$quantile == 4], length(body.non.sig.hits$piN.piS[body.non.sig.hits$quantile == 4]), replace = TRUE))
+  body.non.sig.hits.quantile.5[i] = mean(sample(body.non.sig.hits$piN.piS[body.non.sig.hits$quantile == 5], length(body.non.sig.hits$piN.piS[body.non.sig.hits$quantile == 5]), replace = TRUE))
+  body.non.sig.hits.quantile.6[i] = mean(sample(body.non.sig.hits$piN.piS[body.non.sig.hits$quantile == 6], length(body.non.sig.hits$piN.piS[body.non.sig.hits$quantile == 6]), replace = TRUE))
+  body.non.sig.hits.quantile.7[i] = mean(sample(body.non.sig.hits$piN.piS[body.non.sig.hits$quantile == 7], length(body.non.sig.hits$piN.piS[body.non.sig.hits$quantile == 7]), replace = TRUE))
+  body.non.sig.hits.quantile.8[i] = mean(sample(body.non.sig.hits$piN.piS[body.non.sig.hits$quantile == 8], length(body.non.sig.hits$piN.piS[body.non.sig.hits$quantile == 8]), replace = TRUE))
 
-  head.non.sig.hits.quantile.1[i] = mean(sample(head.non.sig.hits$piN_piS[head.non.sig.hits$quartile == 1], length(head.non.sig.hits$piN_piS[head.non.sig.hits$quartile == 1]), replace = TRUE))
-  head.non.sig.hits.quantile.2[i] = mean(sample(head.non.sig.hits$piN_piS[head.non.sig.hits$quartile == 2], length(head.non.sig.hits$piN_piS[head.non.sig.hits$quartile == 2]), replace = TRUE))
-  head.non.sig.hits.quantile.3[i] = mean(sample(head.non.sig.hits$piN_piS[head.non.sig.hits$quartile == 3], length(head.non.sig.hits$piN_piS[head.non.sig.hits$quartile == 3]), replace = TRUE))
-  head.non.sig.hits.quantile.4[i] = mean(sample(head.non.sig.hits$piN_piS[head.non.sig.hits$quartile == 4], length(head.non.sig.hits$piN_piS[head.non.sig.hits$quartile == 4]), replace = TRUE))
-  head.non.sig.hits.quantile.5[i] = mean(sample(head.non.sig.hits$piN_piS[head.non.sig.hits$quartile == 5], length(head.non.sig.hits$piN_piS[head.non.sig.hits$quartile == 5]), replace = TRUE))
-  head.non.sig.hits.quantile.6[i] = mean(sample(head.non.sig.hits$piN_piS[head.non.sig.hits$quartile == 6], length(head.non.sig.hits$piN_piS[head.non.sig.hits$quartile == 6]), replace = TRUE))
-  head.non.sig.hits.quantile.7[i] = mean(sample(head.non.sig.hits$piN_piS[head.non.sig.hits$quartile == 7], length(head.non.sig.hits$piN_piS[head.non.sig.hits$quartile == 7]), replace = TRUE))
-  head.non.sig.hits.quantile.8[i] = mean(sample(head.non.sig.hits$piN_piS[head.non.sig.hits$quartile == 8], length(head.non.sig.hits$piN_piS[head.non.sig.hits$quartile == 8]), replace = TRUE))
+  head.non.sig.hits.quantile.1[i] = mean(sample(head.non.sig.hits$piN.piS[head.non.sig.hits$quantile == 1], length(head.non.sig.hits$piN.piS[head.non.sig.hits$quantile == 1]), replace = TRUE))
+  head.non.sig.hits.quantile.2[i] = mean(sample(head.non.sig.hits$piN.piS[head.non.sig.hits$quantile == 2], length(head.non.sig.hits$piN.piS[head.non.sig.hits$quantile == 2]), replace = TRUE))
+  head.non.sig.hits.quantile.3[i] = mean(sample(head.non.sig.hits$piN.piS[head.non.sig.hits$quantile == 3], length(head.non.sig.hits$piN.piS[head.non.sig.hits$quantile == 3]), replace = TRUE))
+  head.non.sig.hits.quantile.4[i] = mean(sample(head.non.sig.hits$piN.piS[head.non.sig.hits$quantile == 4], length(head.non.sig.hits$piN.piS[head.non.sig.hits$quantile == 4]), replace = TRUE))
+  head.non.sig.hits.quantile.5[i] = mean(sample(head.non.sig.hits$piN.piS[head.non.sig.hits$quantile == 5], length(head.non.sig.hits$piN.piS[head.non.sig.hits$quantile == 5]), replace = TRUE))
+  head.non.sig.hits.quantile.6[i] = mean(sample(head.non.sig.hits$piN.piS[head.non.sig.hits$quantile == 6], length(head.non.sig.hits$piN.piS[head.non.sig.hits$quantile == 6]), replace = TRUE))
+  head.non.sig.hits.quantile.7[i] = mean(sample(head.non.sig.hits$piN.piS[head.non.sig.hits$quantile == 7], length(head.non.sig.hits$piN.piS[head.non.sig.hits$quantile == 7]), replace = TRUE))
+  head.non.sig.hits.quantile.8[i] = mean(sample(head.non.sig.hits$piN.piS[head.non.sig.hits$quantile == 8], length(head.non.sig.hits$piN.piS[head.non.sig.hits$quantile == 8]), replace = TRUE))
 print (i)
 }
 
@@ -642,33 +648,34 @@ head.upper.CI = as.vector( c( quantile(head.sig.hits.quantile.1, 0.95)[1],
 
 # Construct dataframes to hold all of our data for plotting
 # Body
-hit = rep(c("sig","non.sig"), each=8)
-expression.quartile = rep(seq(1:8),2)
-body.piN_piS.mean = c(body.sig.hits.mean$piN_piS.mean, body.non.sig.hits.mean$piN_piS.mean)
+expression.quantile = rep(seq(1:8),2)
+body.piN_piS.mean = c(body.sig.hits.mean$piN.piS.mean, body.non.sig.hits.mean$piN.piS.mean)
 body.piN_piS.lowerCI = body.lower.CI
 body.piN_piS.upperCI = body.upper.CI
-body.piN_piS.df = as.data.frame(cbind(as.factor(hit),as.factor(expression.quartile), as.numeric(body.piN_piS.mean), as.numeric(body.piN_piS.lowerCI), as.numeric(body.piN_piS.upperCI)))
+body.piN_piS.df = as.data.frame(cbind(as.factor(expression.quantile), as.numeric(body.piN_piS.mean), as.numeric(body.piN_piS.lowerCI), as.numeric(body.piN_piS.upperCI)))
+body.piN_piS.df$hit = as.factor(rep(c("sig","non.sig"), each=8))
 body.piN_piS.df$tissue = as.factor("body")
-colnames(body.piN_piS.df) = c("hit", "expression.quartile", "piN_piS.mean", "piN_piS.lowerCI", "piN_piS.upperCI", "tissue")
+colnames(body.piN_piS.df) = c("expression.quantile", "piN_piS.mean", "piN_piS.lowerCI", "piN_piS.upperCI", "hit", "tissue")
 
 # head
-hit = rep(c("sig","non.sig"), each=8)
-expression.quartile = rep(seq(1:8),2)
-head.piN_piS.mean = c(head.sig.hits.mean$piN_piS.mean, head.non.sig.hits.mean$piN_piS.mean)
+expression.quantile = rep(seq(1:8),2)
+head.piN_piS.mean = as.numeric(c(head.sig.hits.mean$piN_piS.mean, head.non.sig.hits.mean$piN.piS.mean))
 head.piN_piS.lowerCI = head.lower.CI
 head.piN_piS.upperCI = head.upper.CI
-head.piN_piS.df = as.data.frame(cbind(as.factor(hit),as.factor(expression.quartile), as.numeric(head.piN_piS.mean), as.numeric(head.piN_piS.lowerCI), as.numeric(head.piN_piS.upperCI)))
+head.piN_piS.df = as.data.frame(cbind(as.factor(expression.quantile), as.numeric(head.piN_piS.mean), as.numeric(head.piN_piS.lowerCI), as.numeric(head.piN_piS.upperCI)))
+head.piN_piS.df$hit = as.factor(rep(c("sig","non.sig"), each=8))
 head.piN_piS.df$tissue = as.factor("head")
-colnames(head.piN_piS.df) = c("hit", "expression.quartile", "piN_piS.mean", "piN_piS.lowerCI", "piN_piS.upperCI", "tissue")
+colnames(head.piN_piS.df) = c("expression.quantile", "piN_piS.mean", "piN_piS.lowerCI", "piN_piS.upperCI","hit","tissue")
 
 ## Combined plots
 piN_piS.df = rbind(body.piN_piS.df, head.piN_piS.df)
 
 ## Body piN/piS plot
-body.piN_piS.expression.plot = ggplot(body.piN_piS.df, aes(y = piN_piS.mean, x = as.factor(expression.quartile), colour = as.factor(hit))) +
-                                      geom_point(aes(x = as.factor(expression.quartile), y = piN_piS.mean, colour = as.factor(hit)),size = 10,
-                                      position = position_dodge(width = 0.5)) + scale_y_continuous(limits = c(0, 3)) +
-                                      geom_errorbar(aes(ymin = piN_piS.lowerCI, ymax = piN_piS.upperCI, x = as.factor(expression.quartile), colour=as.factor(hit)),
+
+body.piN_piS.expression.plot = ggplot(body.piN_piS.df, aes(y = piN_piS.mean, x = as.factor(expression.quantile), colour = as.factor(hit))) +
+                                      geom_point(aes(x = as.factor(expression.quantile), y = piN_piS.mean, colour = as.factor(hit)),size = 10,
+                                      position = position_dodge(width = 0.5)) +
+                                      geom_errorbar(aes(ymin = piN_piS.lowerCI, ymax = piN_piS.upperCI, x = as.factor(expression.quantile), colour=as.factor(hit)),
                                       width = 0, position = position_dodge(width = 0.5)) + geom_hline(yintercept = 1) +
                                       theme_bw() + scale_colour_manual(values = c("#7294D4", "#5B1A18")) +
                                       theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
@@ -678,10 +685,25 @@ body.piN_piS.expression.plot = ggplot(body.piN_piS.df, aes(y = piN_piS.mean, x =
 body.piN_piS.expression.plot
 
 ## Head piN/piS plot
-head.piN_piS.expression.plot = ggplot(head.piN_piS.df, aes(y = piN_piS.mean, x = as.factor(expression.quartile), colour = as.factor(hit))) +
-                                      geom_point(aes(x = as.factor(expression.quartile), y = piN_piS.mean, colour = as.factor(hit)),size = 10,
+
+head.piN_piS.expression.plot = ggplot(head.piN_piS.df, aes(y = piN_piS.mean, x = as.factor(expression.quantile), colour = as.factor(hit))) +
+                                      geom_point(aes(x = as.factor(expression.quantile), y = piN_piS.mean, colour = as.factor(hit)),size = 10,
+                                      position = position_dodge(width = 0.5)) +
+                                      geom_errorbar(aes(ymin = piN_piS.lowerCI, ymax = piN_piS.upperCI, x = as.factor(expression.quantile), colour=as.factor(hit)),
+                                      width = 0, position = position_dodge(width = 0.5)) + geom_hline(yintercept = 1) +
+                                      theme_bw() + scale_colour_manual(values = c("#7294D4", "#5B1A18")) +
+                                      theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
+                                            panel.border = element_rect(colour = "black", fill=NA, size=1),
+                                            axis.text = element_text(face="bold", color="black",size=40, family = "Helvetica"),
+                                            axis.title=element_blank(), legend.position = "none")
+head.piN_piS.expression.plot
+
+
+## Head piN/piS plot
+head.piN_piS.expression.plot = ggplot(head.piN_piS.df, aes(y = piN_piS.mean, x = as.factor(expression.quantile), colour = as.factor(hit))) +
+                                      geom_point(aes(x = as.factor(expression.quantile), y = piN_piS.mean, colour = as.factor(hit)),size = 10,
                                       position = position_dodge(width = 0.5)) + #scale_y_continuous(limits = c(0, 10)) +
-                                      geom_errorbar(aes(ymin = piN_piS.lowerCI, ymax = piN_piS.upperCI, x = as.factor(expression.quartile), colour=as.factor(hit)),
+                                      geom_errorbar(aes(ymin = piN_piS.lowerCI, ymax = piN_piS.upperCI, x = as.factor(expression.quantile), colour=as.factor(hit)),
                                       width = 0, position = position_dodge(width = 0.5)) + geom_hline(yintercept = 1) +
                                       theme_bw() + scale_colour_manual(values = c("#7294D4", "#5B1A18")) +
                                       theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
@@ -691,10 +713,10 @@ head.piN_piS.expression.plot = ggplot(head.piN_piS.df, aes(y = piN_piS.mean, x =
 head.piN_piS.expression.plot
 
 ## Body/head piN/piS plot
-piN_piS.expression.plot = ggplot(piN_piS.df, aes(y = piN_piS.mean, x = as.factor(expression.quartile), colour = as.factor(hit))) +
-                                      geom_point(aes(x = as.factor(expression.quartile), y = piN_piS.mean, colour = as.factor(hit)),size = 10,
+piN_piS.expression.plot = ggplot(piN_piS.df, aes(y = piN_piS.mean, x = as.factor(expression.quantile), colour = as.factor(hit))) +
+                                      geom_point(aes(x = as.factor(expression.quantile), y = piN_piS.mean, colour = as.factor(hit)),size = 10,
                                       position = position_dodge(width = 0.5)) + #scale_y_continuous(limits = c(-0.1, 0.1)) +
-                                      geom_errorbar(aes(ymin = piN_piS.lowerCI, ymax = piN_piS.upperCI, x = as.factor(expression.quartile), colour=as.factor(hit)),
+                                      geom_errorbar(aes(ymin = piN_piS.lowerCI, ymax = piN_piS.upperCI, x = as.factor(expression.quantile), colour=as.factor(hit)),
                                       width = 0.25, position = position_dodge(width = 0.5)) + geom_hline(yintercept = 1) +
                                       scale_colour_manual(values = c("#7294D4", "#5B1A18")) +
                                       theme_bw()  +
@@ -704,6 +726,30 @@ piN_piS.expression.plot = ggplot(piN_piS.df, aes(y = piN_piS.mean, x = as.factor
                                             axis.title=element_blank(), legend.position = "none") +
                                       facet_grid(tissue ~ .,  scales = "free")
 piN_piS.expression.plot
+
+
+
+
+############ O L D    C O D E     D O      N O T       U S E!! ########################
+
+###################################################################################
+######    Using Ensembl VEP to identify Synonymous and Nonsynonymous Sites   ######
+###################################################################################
+
+## Format the DGRP vcf file for VEP
+cat /plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.filtered.vcf | awk 'BEGIN {OFS = FS = "\t"} { print $1 "\t" $2 "\t" $2 "\t" $4 "/" $5 "\t" "+" }' > DGRP.vcf.for.vep.tmp
+# Remove header row
+sed -i '/^#/d' DGRP.vcf.for.vep.tmp && mv DGRP.vcf.for.vep.tmp DGRP.vcf.for.vep
+## I found this file had spaces in columns so I removed all delimeters and replaced them with tab
+sed -i 's/  /:/g' DGRP.vcf.for.vep # Make sure that the the first space is a tab when running this
+sed -i 's/ //g' DGRP.vcf.for.vep
+sed -i 's/:/  /g' DGRP.vcf.for.vep # Make sure that the second space is a tab when running this
+
+vep -i DGRP.vcf.for.vep -o DGRP.vep.output --species drosophila_melanogaster --cache --offline --stats_text --force_overwrite --distance 0 --coding_only &
+
+## Identifying four-fold degenerate sites
+R CMD BATCH 4FoldDegenerecy.from.VEP.output.R &
+
 
 
 

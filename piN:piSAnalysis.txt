@@ -1,4 +1,3 @@
-Assigning#
 ###################################################################
 ###################################################################
 #####               p i N   /   p i S   Analysis              #####
@@ -12,11 +11,74 @@ Assigning#
 # This code assumes you have generated the multifasta files for each chromosome arm (see 'DGRP.Processing.txt')
 
 # Making VCF files that contain both variant and invariant sites from .fas  multi-alignment files
-~/apps/snp-sites/bin/snp-sites -v -b -o ChrX.variant.and.invariant.vcf ChrX.fas &
+~/apps/snp-sites/bin/snp-sites -v -b -o ChrX.variant.and.invariant.test.vcf ChrX.fas &
 ~/apps/snp-sites/bin/snp-sites -v -b -o Chr2L.variant.and.invariant.vcf Chr2L.fas &
 ~/apps/snp-sites/bin/snp-sites -v -b -o Chr2R.variant.and.invariant.vcf Chr2R.fas &
 ~/apps/snp-sites/bin/snp-sites -v -b -o Chr3L.variant.and.invariant.vcf Chr3L.fas &
 ~/apps/snp-sites/bin/snp-sites -v -b -o Chr3R.variant.and.invariant.vcf Chr3R.fas &
+
+## Prepare VCF files for liftOver to convert coordinates from release 5 (dm3) -> release 6 (dm6)
+# Redirect header to attach to VCF later
+cat Chr2L.variant.and.invariant.vcf | grep '#' > vcf.header
+
+Remove sites with no genotypic information
+sed -i '/N/d' Chr2L.variant.and.invariant.vcf &
+sed -i '/N/d' Chr2R.variant.and.invariant.vcf &
+sed -i '/N/d' Chr3L.variant.and.invariant.vcf &
+sed -i '/N/d' Chr3R.variant.and.invariant.vcf &
+sed -i '/N/d' ChrX.variant.and.invariant.vcf &
+
+# Remove headers from vcf files
+sed -i '/^#/d' Chr2L.variant.and.invariant.vcf &
+sed -i '/^#/d' Chr2R.variant.and.invariant.vcf &
+sed -i '/^#/d' Chr3L.variant.and.invariant.vcf &
+sed -i '/^#/d' Chr3R.variant.and.invariant.vcf &
+sed -i '/^#/d' ChrX.variant.and.invariant.vcf &
+
+# Replace Chromosome column with proper ID
+cat Chr2L.variant.and.invariant.vcf | awk -F"\t" '{OFS=FS}{ $1="2L" ; print   }' > Chr2L.tmp && mv Chr2L.tmp Chr2L.variant.and.invariant.vcf &
+cat Chr2R.variant.and.invariant.vcf | awk -F"\t" '{OFS=FS}{ $1="2R" ; print   }' > Chr2R.tmp && mv Chr2R.tmp Chr2R.variant.and.invariant.vcf &
+cat Chr3L.variant.and.invariant.vcf | awk -F"\t" '{OFS=FS}{ $1="3L" ; print   }' > Chr3L.tmp && mv Chr3L.tmp Chr3L.variant.and.invariant.vcf &
+cat Chr3R.variant.and.invariant.vcf | awk -F"\t" '{OFS=FS}{ $1="3R" ; print   }' > Chr3R.tmp && mv Chr3R.tmp Chr3R.variant.and.invariant.vcf &
+cat ChrX.variant.and.invariant.vcf | awk -F"\t" '{OFS=FS}{ $1="X" ; print   }' > ChrX.tmp && mv ChrX.tmp ChrX.variant.and.invariant.vcf &
+rm Chr*.tmp
+
+# Add a unique ID column that can be used to reattach to lifted over coordinates
+cat Chr2L.variant.and.invariant.vcf | awk 'BEGIN {OFS=FS="\t"}{print $1 ":" $2}' | paste - Chr2L.variant.and.invariant.vcf | cut -f 1,4-$NF > Chr2L.variant.and.invariant.vcf.tmp &
+cat Chr2R.variant.and.invariant.vcf | awk 'BEGIN {OFS=FS="\t"}{print $1 ":" $2}' | paste - Chr2R.variant.and.invariant.vcf | cut -f 1,4-$NF > Chr2R.variant.and.invariant.vcf.tmp &
+cat Chr3L.variant.and.invariant.vcf | awk 'BEGIN {OFS=FS="\t"}{print $1 ":" $2}' | paste - Chr3L.variant.and.invariant.vcf | cut -f 1,4-$NF > Chr3L.variant.and.invariant.vcf.tmp &
+cat Chr3R.variant.and.invariant.vcf | awk 'BEGIN {OFS=FS="\t"}{print $1 ":" $2}' | paste - Chr3R.variant.and.invariant.vcf | cut -f 1,4-$NF > Chr3R.variant.and.invariant.vcf.tmp &
+cat ChrX.variant.and.invariant.vcf | awk 'BEGIN {OFS=FS="\t"}{print $1 ":" $2}' | paste - ChrX.variant.and.invariant.vcf | cut -f 1,4-$NF > ChrX.variant.and.invariant.vcf.tmp &
+
+# Make columns with coordinates in BED format for liftOver
+cat Chr2L.variant.and.invariant.vcf | awk 'BEGIN { OFS=FS="\t" }{print "chr" $1, $2-1, $2 }' | paste - Chr2L.variant.and.invariant.vcf > Chr2L.variant.and.invariant.vcf.for.liftover &
+cat Chr2R.variant.and.invariant.vcf | awk 'BEGIN { OFS=FS="\t" }{print "chr" $1, $2-1, $2 }' | paste - Chr2R.variant.and.invariant.vcf > Chr2R.variant.and.invariant.vcf.for.liftover &
+cat Chr3L.variant.and.invariant.vcf | awk 'BEGIN { OFS=FS="\t" }{print "chr" $1, $2-1, $2 }' | paste - Chr3L.variant.and.invariant.vcf > Chr3L.variant.and.invariant.vcf.for.liftover &
+cat Chr3R.variant.and.invariant.vcf | awk 'BEGIN { OFS=FS="\t" }{print "chr" $1, $2-1, $2 }' | paste - Chr3R.variant.and.invariant.vcf > Chr3R.variant.and.invariant.vcf.for.liftover &
+cat ChrX.variant.and.invariant.vcf | awk 'BEGIN { OFS=FS="\t" }{print "chr" $1, $2-1, $2 }' | paste - ChrX.variant.and.invariant.vcf > ChrX.variant.and.invariant.vcf.for.liftover &
+
+# Liftover from assembly dm3 to dm6
+liftOver -bedPlus=3 -tab /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DGRP.Genomic.Data/Chr2L.variant.and.invariant.vcf.for.liftover /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/dm3ToDm6.over.chain /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DGRP.Genomic.Data/Chr2L.liftedover.vcf Chr2L.unlifted.bed &
+liftOver -bedPlus=3 -tab /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DGRP.Genomic.Data/Chr2R.variant.and.invariant.vcf.for.liftover /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/dm3ToDm6.over.chain /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DGRP.Genomic.Data/Chr2R.liftedover.vcf Chr2R.unlifted.bed &
+liftOver -bedPlus=3 -tab /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DGRP.Genomic.Data/Chr3L.variant.and.invariant.vcf.for.liftover /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/dm3ToDm6.over.chain /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DGRP.Genomic.Data/Chr3L.liftedover.vcf Chr3L.unlifted.bed &
+liftOver -bedPlus=3 -tab /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DGRP.Genomic.Data/Chr3R.variant.and.invariant.vcf.for.liftover /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/dm3ToDm6.over.chain /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DGRP.Genomic.Data/Chr3R.liftedover.vcf Chr3R.unlifted.bed &
+liftOver -bedPlus=3 -tab /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DGRP.Genomic.Data/ChrX.variant.and.invariant.vcf.for.liftover /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/dm3ToDm6.over.chain /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DGRP.Genomic.Data/ChrX.liftedover.vcf ChrX.unlifted.bed &
+
+## Add a unique ID column with the old coordinates so that I can intersect the old and new vcfs to recover all individual genotypes
+## NOTE: THESE OUTPUT FILES ARE NOW 1 BASED!
+cat Chr2L.liftedover.vcf | awk 'BEGIN {OFS=FS="\t"}{print $4 ":" $5, $4, $3}' > Chr2L.liftedOver.Coordinates &
+cat Chr2R.liftedover.vcf | awk 'BEGIN {OFS=FS="\t"}{print $4 ":" $5, $4, $3}' > Chr2R.liftedOver.Coordinates &
+cat Chr3L.liftedover.vcf | awk 'BEGIN {OFS=FS="\t"}{print $4 ":" $5, $4, $3}' > Chr3L.liftedOver.Coordinates &
+cat Chr3R.liftedover.vcf | awk 'BEGIN {OFS=FS="\t"}{print $4 ":" $5, $4, $3}' > Chr3R.liftedOver.Coordinates &
+cat ChrX.liftedover.vcf | awk 'BEGIN {OFS=FS="\t"}{print $4 ":" $5, $4, $3}' > ChrX.liftedOver.Coordinates &
+
+# Now file with new coordinates to file with genotypic info on all individuals to make VCF with release 6 coordinates
+join -j 1 -t $'\t' Chr2L.liftedOver.Coordinates Chr2L.variant.and.invariant.vcf.tmp | cut -f 2-$NF > Chr2L.variant.invariant.release6.vcf &
+join -j 1 -t $'\t' Chr2R.liftedOver.Coordinates Chr2R.variant.and.invariant.vcf.tmp | cut -f 2-$NF > Chr2R.variant.invariant.release6.vcf &
+join -j 1 -t $'\t' Chr3L.liftedOver.Coordinates Chr3L.variant.and.invariant.vcf.tmp | cut -f 2-$NF > Chr3L.variant.invariant.release6.vcf &
+join -j 1 -t $'\t' Chr3R.liftedOver.Coordinates Chr3R.variant.and.invariant.vcf.tmp | cut -f 2-$NF > Chr3R.variant.invariant.release6.vcf &
+join -j 1 -t $'\t' ChrX.liftedOver.Coordinates ChrX.variant.and.invariant.vcf.tmp | cut -f 2-$NF > ChrX.variant.invariant.release6.vcf &
+
 
 
 #######################################################################
@@ -46,17 +108,6 @@ cat DGRP.X.bedout_4fold.bed | awk '{OFS = FS = "\t"} {print $1 ":" $2+1}' > DGRP
 ######   Parse out vcf files into one containing only 0fold sites and another containing only 4fold sites   ######
 ##################################################################################################################
 
-## Clean up vcf files
-# Redirect header to attach to VCF later
-cat Chr2L.variant.and.invariant.vcf | grep '#' > vcf.header
-# Remove headers from vcf files
-sed -i '/^#/d' *variant.and.invariant.vcf
-# Replace Chromosome column with proper ID
-cat Chr2L.variant.and.invariant.vcf | awk -F"\t" '{OFS=FS}{ $1="2L" ; print   }' > Chr2L.tmp && mv Chr2L.tmp Chr2L.variant.and.invariant.vcf &
-cat Chr2R.variant.and.invariant.vcf | awk -F"\t" '{OFS=FS}{ $1="2R" ; print   }' > Chr2R.tmp && mv Chr2R.tmp Chr2R.variant.and.invariant.vcf &
-cat Chr3L.variant.and.invariant.vcf | awk -F"\t" '{OFS=FS}{ $1="3L" ; print   }' > Chr3L.tmp && mv Chr3L.tmp Chr3L.variant.and.invariant.vcf &
-cat Chr2R.variant.and.invariant.vcf | awk -F"\t" '{OFS=FS}{ $1="3R" ; print   }' > Chr3R.tmp && mv Chr3R.tmp Chr3R.variant.and.invariant.vcf &
-cat ChrX.variant.and.invariant.vcf | awk -F"\t" '{OFS=FS}{ $1="X" ; print   }' > ChrX.tmp && mv ChrX.tmp ChrX.variant.and.invariant.vcf &
 
 # Adding a unique ID column that will be used to clean out sites that don't match the 4fold and 0fold degenerate sites list
 cat Chr2L.variant.and.invariant.vcf | awk '{print $1 ":" $2}' | paste - Chr2L.variant.and.invariant.vcf > Chr2L.variant.and.invariant.vcf.tmp &
@@ -65,12 +116,6 @@ cat Chr3L.variant.and.invariant.vcf | awk '{print $1 ":" $2}' | paste - Chr3L.va
 cat Chr3R.variant.and.invariant.vcf | awk '{print $1 ":" $2}' | paste - Chr3R.variant.and.invariant.vcf > Chr3R.variant.and.invariant.vcf.tmp &
 cat ChrX.variant.and.invariant.vcf | awk '{print $1 ":" $2}' | paste - ChrX.variant.and.invariant.vcf > ChrX.variant.and.invariant.vcf.tmp &
 
-# Remove sites with no genotypic information
-sed -i '/N/d' Chr2L.variant.and.invariant.vcf.tmp &
-sed -i '/N/d' Chr2R.variant.and.invariant.vcf.tmp &
-sed -i '/N/d' Chr3L.variant.and.invariant.vcf.tmp &
-sed -i '/N/d' Chr3R.variant.and.invariant.vcf.tmp &
-sed -i '/N/d' ChrX.variant.and.invariant.vcf.tmp &
 
 # Compare to 4fold and 0fold coordinate sites to generate parsed VCFs for each type of variant
 grep -w -F -f /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/TylersCode/bedOut/DGRP.2L.bedout_0fold.coordinates Chr2L.variant.and.invariant.vcf.tmp > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/Chr2L.0fold.vcf &
@@ -304,8 +349,11 @@ diversity.0fold.unique = unique(diversity.0fold[,c("V1","V2","V3","V4")])
 diversity.4fold.unique$V4 = substr(diversity.4fold.unique$V4, 8,18)
 diversity.0fold.unique$V4 = substr(diversity.0fold.unique$V4, 8,18)
 
-colnames(diversity.4fold.unique) = c("Chrom", "Site", "pi", "geneID")
-colnames(diversity.0fold.unique) = c("Chrom", "Site", "pi", "geneID")
+colnames(diversity.4fold.unique) = c("Chrom", "Site", "Spi", "geneID")
+colnames(diversity.0fold.unique) = c("Chrom", "Site", "Npi", "geneID")
+
+diversity.4fold.per.gene$geneID = substr(diversity.4fold.per.gene$geneID, 8,18)
+diversity.0fold.per.gene$geneID = substr(diversity.0fold.per.gene$geneID, 8,18)
 
 # Summarize mean nucleotide diversity per gene
 diversity.4fold.per.gene = summaryBy(pi ~ geneID, FUN = c(length, mean), data = diversity.4fold.unique)
@@ -342,6 +390,8 @@ require(dplyr)
 # vep.output = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/DGRP.vep.output.with.degeneracy", header = TRUE)
 # Load in pi calculations
 pi.output = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/nucleotide.diversity.per.gene.Aug10.txt", header = TRUE)
+# Load in pi estimates obtained by Grace Lee
+pi.lee.output = read.delim("GraceLee.table.txt", header = TRUE)
 # Load in the Junctionseq outputs
 junctionseq.results.body = read.table("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/BodyOutput/Aug1.Body.OnlyallGenes.results.txt", header = TRUE, sep = "\t")
 junctionseq.results.head = read.table("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/HeadOutput/Aug1.Head.OnlyallGenes.results.txt", header = TRUE, sep = "\t")
@@ -349,10 +399,15 @@ junctionseq.results.head = read.table("/plas1/amardeep.singh/RNA.Seq.Data/Juncti
 expression.data.body = read.table("/plas1/amardeep.singh/RNA.Seq.Data/GeneExpression/RAL.DifferentialGeneExpression.body.txt", header = TRUE, sep = "\t")
 expression.data.head = read.table("/plas1/amardeep.singh/RNA.Seq.Data/GeneExpression/RAL.DifferentialGeneExpression.head.txt", header = TRUE, sep = "\t")
 
-
 ## Clean up data files
 # Remove sites where piS is 0
 piNpiS.per.gene = pi.output[!(pi.output$piN.piS == "Inf"),]
+# Remove unneeded columns from Lee pi estimates
+pi.lee.output = pi.lee.output[,c(28, 14:19,27)]
+colnames(pi.lee.output)[8] = "piN.piS"
+# Remove sites where piS is 0
+pi.lee.output = pi.lee.output[!(pi.lee.output$piN.piS == "Inf"),]
+
 
 # Remove unnecessary columns from junctionseq file and any rows with no data
 junctionseq.results.body = junctionseq.results.body[!(junctionseq.results.body$testable == FALSE),]
@@ -397,9 +452,13 @@ junctionseq.results.head$sig.hit[!(junctionseq.results.head$geneWisePadj <= 0.01
 junctionseq.results.body.unique = junctionseq.results.body[!duplicated(junctionseq.results.body[c(1,4:5)]), ]
 junctionseq.results.head.unique = junctionseq.results.head[!duplicated(junctionseq.results.head[c(1,4:5)]), ]
 
-# Merge piN/piS data with junctionseq data and add a column for the ratio of piN/piS
-body.pin.pis = merge(junctionseq.results.body.unique,piNpiS.per.gene, by.x = "geneID", by.y = "geneID", sort = FALSE)
-head.pin.pis = merge(junctionseq.results.head.unique,piNpiS.per.gene, by.x = "geneID", by.y = "geneID", sort = FALSE)
+# Merge piN/piS (my data) data with junctionseq data and add a column for the ratio of piN/piS
+#body.pin.pis = merge(junctionseq.results.body.unique,piNpiS.per.gene, by.x = "geneID", by.y = "geneID", sort = FALSE)
+#head.pin.pis = merge(junctionseq.results.head.unique,piNpiS.per.gene, by.x = "geneID", by.y = "geneID", sort = FALSE)
+
+# Merge piN/piS (from Grace Lee) data with junctionseq data and add a column for the ratio of piN/piS
+body.pin.pis = merge(junctionseq.results.body.unique,pi.lee.output, by.x = "geneID", by.y = "geneID", sort = FALSE)
+head.pin.pis = merge(junctionseq.results.head.unique,pi.lee.output, by.x = "geneID", by.y = "geneID", sort = FALSE)
 
 ## Processing gene expression data
 # Assign quantiles bins for male and female biased gene expression
@@ -471,6 +530,9 @@ head.piS_nonsig = vector(length = 10000, mode = "numeric")
 head.piNS_nonsig = vector(length = 10000, mode = "numeric")
 head.piN_piS_nonsig = vector(length = 10000, mode = "numeric")
 
+
+
+## This loop will work when using my piN and piS values ## Use the loop below for estimates provided by Grace Lee
 for (i in 1:10000){
   body.piS_sig[i] = mean(sample(x = body.pin.pis[body.pin.pis$sig.hit == 1,]$mean.pi.4fold.sites, size = length(body.pin.pis[body.pin.pis$sig.hit == 1,]$mean.pi.4fold.sites), replace = TRUE))
   body.piNS_sig[i] = mean(sample(x = body.pin.pis[body.pin.pis$sig.hit == 1,]$mean.pi.0fold.sites, size = length(body.pin.pis[body.pin.pis$sig.hit == 1,]$mean.pi.0fold.sites), replace = TRUE))
@@ -484,6 +546,26 @@ for (i in 1:10000){
   head.piN_piS_sig[i] = mean(sample(x = head.pin.pis[head.pin.pis$sig.hit == 1,]$piN.piS, size = length(head.pin.pis[head.pin.pis$sig.hit == 1,]$piN.piS), replace = TRUE))
   head.piS_nonsig[i] = mean(sample(x = head.pin.pis[head.pin.pis$sig.hit == 1,]$mean.pi.4fold.sites, size = length(head.pin.pis[head.pin.pis$sig.hit == 0,]$mean.pi.4fold.sites), replace = TRUE))
   head.piNS_nonsig[i] = mean(sample(x = head.pin.pis[head.pin.pis$sig.hit == 1,]$mean.pi.0fold.sites, size = length(head.pin.pis[head.pin.pis$sig.hit == 0,]$mean.pi.0fold.sites), replace = TRUE))
+  head.piN_piS_nonsig[i] = mean(sample(x = head.pin.pis[head.pin.pis$sig.hit == 1,]$piN.piS, size = length(head.pin.pis[head.pin.pis$sig.hit == 0,]$piN.piS), replace = TRUE))
+
+  print(i)
+
+}
+
+## Loop to resample Grace Lee's estimates
+for (i in 1:10000){
+  body.piS_sig[i] = mean(sample(x = body.pin.pis[body.pin.pis$sig.hit == 1,]$Spi_RAL, size = length(body.pin.pis[body.pin.pis$sig.hit == 1,]$Spi_RAL), replace = TRUE))
+  body.piNS_sig[i] = mean(sample(x = body.pin.pis[body.pin.pis$sig.hit == 1,]$Npi_RAL, size = length(body.pin.pis[body.pin.pis$sig.hit == 1,]$Npi_RAL), replace = TRUE))
+  body.piN_piS_sig[i] = mean(sample(x = body.pin.pis[body.pin.pis$sig.hit == 1,]$piN.piS, size = length(body.pin.pis[body.pin.pis$sig.hit == 1,]$piN.piS), replace = TRUE))
+  body.piS_nonsig[i] = mean(sample(x = body.pin.pis[body.pin.pis$sig.hit == 1,]$Spi_RAL, size = length(body.pin.pis[body.pin.pis$sig.hit == 0,]$Spi_RAL), replace = TRUE))
+  body.piNS_nonsig[i] = mean(sample(x = body.pin.pis[body.pin.pis$sig.hit == 1,]$Npi_RAL, size = length(body.pin.pis[body.pin.pis$sig.hit == 0,]$Npi_RAL), replace = TRUE))
+  body.piN_piS_nonsig[i] = mean(sample(x = body.pin.pis[body.pin.pis$sig.hit == 1,]$piN.piS, size = length(body.pin.pis[body.pin.pis$sig.hit == 0,]$piN.piS), replace = TRUE))
+
+  head.piS_sig[i] = mean(sample(x = head.pin.pis[head.pin.pis$sig.hit == 1,]$Spi_RAL, size = length(head.pin.pis[head.pin.pis$sig.hit == 1,]$Spi_RAL), replace = TRUE))
+  head.piNS_sig[i] = mean(sample(x = head.pin.pis[head.pin.pis$sig.hit == 1,]$Npi_RAL, size = length(head.pin.pis[head.pin.pis$sig.hit == 1,]$Npi_RAL), replace = TRUE))
+  head.piN_piS_sig[i] = mean(sample(x = head.pin.pis[head.pin.pis$sig.hit == 1,]$piN.piS, size = length(head.pin.pis[head.pin.pis$sig.hit == 1,]$piN.piS), replace = TRUE))
+  head.piS_nonsig[i] = mean(sample(x = head.pin.pis[head.pin.pis$sig.hit == 1,]$Spi_RAL, size = length(head.pin.pis[head.pin.pis$sig.hit == 0,]$Spi_RAL), replace = TRUE))
+  head.piNS_nonsig[i] = mean(sample(x = head.pin.pis[head.pin.pis$sig.hit == 1,]$Npi_RAL, size = length(head.pin.pis[head.pin.pis$sig.hit == 0,]$Npi_RAL), replace = TRUE))
   head.piN_piS_nonsig[i] = mean(sample(x = head.pin.pis[head.pin.pis$sig.hit == 1,]$piN.piS, size = length(head.pin.pis[head.pin.pis$sig.hit == 0,]$piN.piS), replace = TRUE))
 
   print(i)
@@ -535,7 +617,7 @@ head.non.sig.hits.quantile.6 = vector(mode = "numeric", length = 10000)
 head.non.sig.hits.quantile.7 = vector(mode = "numeric", length = 10000)
 head.non.sig.hits.quantile.8 = vector(mode = "numeric", length = 10000)
 
-
+## This loop is for my piN piS estimates use the one below for Grace Lee's estimates
 for (i in 1:10000){
   # Resample significant hits
   body.sig.hits.quantile.1[i] = mean(sample(body.sig.hits$piN.piS[body.sig.hits$quantile == 1], length(body.sig.hits$piN.piS[body.sig.hits$quantile == 1]), replace = TRUE))
@@ -574,6 +656,7 @@ for (i in 1:10000){
   head.non.sig.hits.quantile.6[i] = mean(sample(head.non.sig.hits$piN.piS[head.non.sig.hits$quantile == 6], length(head.non.sig.hits$piN.piS[head.non.sig.hits$quantile == 6]), replace = TRUE))
   head.non.sig.hits.quantile.7[i] = mean(sample(head.non.sig.hits$piN.piS[head.non.sig.hits$quantile == 7], length(head.non.sig.hits$piN.piS[head.non.sig.hits$quantile == 7]), replace = TRUE))
   head.non.sig.hits.quantile.8[i] = mean(sample(head.non.sig.hits$piN.piS[head.non.sig.hits$quantile == 8], length(head.non.sig.hits$piN.piS[head.non.sig.hits$quantile == 8]), replace = TRUE))
+
 print (i)
 }
 
@@ -611,6 +694,7 @@ body.upper.CI = as.vector( c( quantile(body.sig.hits.quantile.1, 0.95)[1],
                          quantile(body.non.sig.hits.quantile.7, 0.95)[1],
                          quantile(body.non.sig.hits.quantile.8, 0.95)[1]))
 
+#
 head.lower.CI = as.vector( c(  quantile(head.sig.hits.quantile.1, 0.05)[1],
                           quantile(head.sig.hits.quantile.2, 0.05)[1],
                           quantile(head.sig.hits.quantile.3, 0.05)[1],
@@ -659,13 +743,13 @@ colnames(body.piN_piS.df) = c("expression.quantile", "piN_piS.mean", "piN_piS.lo
 
 # head
 expression.quantile = rep(seq(1:8),2)
-head.piN_piS.mean = as.numeric(c(head.sig.hits.mean$piN_piS.mean, head.non.sig.hits.mean$piN.piS.mean))
+head.piN_piS.mean = c(head.sig.hits.mean$piN.piS.mean, head.non.sig.hits.mean$piN.piS.mean)
 head.piN_piS.lowerCI = head.lower.CI
 head.piN_piS.upperCI = head.upper.CI
 head.piN_piS.df = as.data.frame(cbind(as.factor(expression.quantile), as.numeric(head.piN_piS.mean), as.numeric(head.piN_piS.lowerCI), as.numeric(head.piN_piS.upperCI)))
 head.piN_piS.df$hit = as.factor(rep(c("sig","non.sig"), each=8))
 head.piN_piS.df$tissue = as.factor("head")
-colnames(head.piN_piS.df) = c("expression.quantile", "piN_piS.mean", "piN_piS.lowerCI", "piN_piS.upperCI","hit","tissue")
+colnames(head.piN_piS.df) = c("expression.quantile", "piN_piS.mean", "piN_piS.lowerCI", "piN_piS.upperCI", "hit", "tissue")
 
 ## Combined plots
 piN_piS.df = rbind(body.piN_piS.df, head.piN_piS.df)
@@ -674,37 +758,44 @@ piN_piS.df = rbind(body.piN_piS.df, head.piN_piS.df)
 
 body.piN_piS.expression.plot = ggplot(body.piN_piS.df, aes(y = piN_piS.mean, x = as.factor(expression.quantile), colour = as.factor(hit))) +
                                       geom_point(aes(x = as.factor(expression.quantile), y = piN_piS.mean, colour = as.factor(hit)),size = 10,
-                                      position = position_dodge(width = 0.5)) +
+                                      position = position_dodge(width = 0.5)) + ylim(0,0.3) +
                                       geom_errorbar(aes(ymin = piN_piS.lowerCI, ymax = piN_piS.upperCI, x = as.factor(expression.quantile), colour=as.factor(hit)),
-                                      width = 0, position = position_dodge(width = 0.5)) + geom_hline(yintercept = 1) +
+                                      width = 0, position = position_dodge(width = 0.5)) + #geom_hline(yintercept = 1) +
                                       theme_bw() + scale_colour_manual(values = c("#7294D4", "#5B1A18")) +
                                       theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
                                             panel.border = element_rect(colour = "black", fill=NA, size=1),
                                             axis.text = element_text(face="bold", color="black",size=40, family = "Helvetica"),
-                                            axis.title=element_blank(), legend.position = "none")
+                                            axis.title=element_blank()) #, legend.position = "none")
+pdf("/plas1/amardeep.singh/tmp/body.piN_piS.expression.plot.pdf")
+body.piN_piS.expression.plot
+dev.off()
+
+
 body.piN_piS.expression.plot
 
 ## Head piN/piS plot
 
 head.piN_piS.expression.plot = ggplot(head.piN_piS.df, aes(y = piN_piS.mean, x = as.factor(expression.quantile), colour = as.factor(hit))) +
                                       geom_point(aes(x = as.factor(expression.quantile), y = piN_piS.mean, colour = as.factor(hit)),size = 10,
-                                      position = position_dodge(width = 0.5)) +
+                                      position = position_dodge(width = 0.5)) + ylim(0,0.3) +
                                       geom_errorbar(aes(ymin = piN_piS.lowerCI, ymax = piN_piS.upperCI, x = as.factor(expression.quantile), colour=as.factor(hit)),
-                                      width = 0, position = position_dodge(width = 0.5)) + geom_hline(yintercept = 1) +
+                                      width = 0, position = position_dodge(width = 0.5)) + #geom_hline(yintercept = 1) +
                                       theme_bw() + scale_colour_manual(values = c("#7294D4", "#5B1A18")) +
                                       theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
                                             panel.border = element_rect(colour = "black", fill=NA, size=1),
                                             axis.text = element_text(face="bold", color="black",size=40, family = "Helvetica"),
-                                            axis.title=element_blank(), legend.position = "none")
-head.piN_piS.expression.plot
+                                            axis.title=element_blank()) #, legend.position = "none")
 
+pdf("/plas1/amardeep.singh/tmp/head.piN_piS.expression.plot.pdf")
+head.piN_piS.expression.plot
+dev.off()
 
 ## Head piN/piS plot
 head.piN_piS.expression.plot = ggplot(head.piN_piS.df, aes(y = piN_piS.mean, x = as.factor(expression.quantile), colour = as.factor(hit))) +
                                       geom_point(aes(x = as.factor(expression.quantile), y = piN_piS.mean, colour = as.factor(hit)),size = 10,
-                                      position = position_dodge(width = 0.5)) + #scale_y_continuous(limits = c(0, 10)) +
+                                      position = position_dodge(width = 0.5)) + ylim(0,0.3) +
                                       geom_errorbar(aes(ymin = piN_piS.lowerCI, ymax = piN_piS.upperCI, x = as.factor(expression.quantile), colour=as.factor(hit)),
-                                      width = 0, position = position_dodge(width = 0.5)) + geom_hline(yintercept = 1) +
+                                      width = 0, position = position_dodge(width = 0.5)) + #geom_hline(yintercept = 1) +
                                       theme_bw() + scale_colour_manual(values = c("#7294D4", "#5B1A18")) +
                                       theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
                                             panel.border = element_rect(colour = "black", fill=NA, size=1),

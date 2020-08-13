@@ -4,10 +4,10 @@
 
 ########################################################################################################################
 ########################################################################################################################
-### This is a script that will calculate Tajima's D in a sliding window in the DGRP and the DPGP3 Populations        ###
+###  This is a script that will calculate Tajima's D in a sliding window in the DGRP and the DPGP3 Populations       ###
 ###  DGRP script is in the first half, second half deals with the DPGP3 Population                                   ###
-### Author: Amardeep Singh -- amardeep.singh[at]utoronto.ca                                                          ###
-### This script makes use of publicly available sequence data for the DGRP population                                ###
+###  Author: Amardeep Singh -- amardeep.singh[at]utoronto.ca                                                         ###
+###  This script makes use of publicly available sequence data for the DGRP population                               ###
 ########################################################################################################################
 ########################################################################################################################
 
@@ -57,7 +57,7 @@ sort -k1,1 -k2,2n /plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.1000
 sort -k1,1 -k2,2n /plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/sigGenes.body.coordinates.bed > sigGenes.body.coordinates.sorted.bed
 sort -k1,1 -k2,2n /plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/sigGenes.head.coordinates.bed > sigGenes.head.coordinates.sorted.bed
 
-# Intersect with siggenes files for head and body
+# Intersect with sig genes files for head and body
 # Whole body
 bedtools intersect -sorted -wa -a /plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.1000bp.Window.Tajima.D.coordinates.sorted.bed -b /plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/sigGenes.body.coordinates.sorted.bed > /plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/sig.windows.body.DGRP.txt
 # Head
@@ -358,8 +358,8 @@ for (i in 1:10000){
   body.sig.hits.quantile.4[i] = mean(sample(body.sig.hits$TajimasD[body.sig.hits$quartile == 4], length(body.sig.hits$TajimasD[body.sig.hits$quartile == 4]), replace = TRUE))
   body.sig.hits.quantile.5[i] = mean(sample(body.sig.hits$TajimasD[body.sig.hits$quartile == 5], length(body.sig.hits$TajimasD[body.sig.hits$quartile == 5]), replace = TRUE))
   body.sig.hits.quantile.6[i] = mean(sample(body.sig.hits$TajimasD[body.sig.hits$quartile == 6], length(body.sig.hits$TajimasD[body.sig.hits$quartile == 6]), replace = TRUE))
-  #body.sig.hits.quantile.7[i] = mean(sample(body.sig.hits$TajimasD[body.sig.hits$quartile == 7], length(body.sig.hits$TajimasD[body.sig.hits$quartile == 7]), replace = TRUE))
-  #body.sig.hits.quantile.8[i] = mean(sample(body.sig.hits$TajimasD[body.sig.hits$quartile == 8], length(body.sig.hits$TajimasD[body.sig.hits$quartile == 8]), replace = TRUE))
+  body.sig.hits.quantile.7[i] = mean(sample(body.sig.hits$TajimasD[body.sig.hits$quartile == 7], length(body.sig.hits$TajimasD[body.sig.hits$quartile == 7]), replace = TRUE))
+  body.sig.hits.quantile.8[i] = mean(sample(body.sig.hits$TajimasD[body.sig.hits$quartile == 8], length(body.sig.hits$TajimasD[body.sig.hits$quartile == 8]), replace = TRUE))
 
   head.sig.hits.quantile.1[i] = mean(sample(head.sig.hits$TajimasD[head.sig.hits$quartile == 1], length(head.sig.hits$TajimasD[head.sig.hits$quartile == 1]), replace = TRUE))
   head.sig.hits.quantile.2[i] = mean(sample(head.sig.hits$TajimasD[head.sig.hits$quartile == 2], length(head.sig.hits$TajimasD[head.sig.hits$quartile == 2]), replace = TRUE))
@@ -367,8 +367,8 @@ for (i in 1:10000){
   head.sig.hits.quantile.4[i] = mean(sample(head.sig.hits$TajimasD[head.sig.hits$quartile == 4], length(head.sig.hits$TajimasD[head.sig.hits$quartile == 4]), replace = TRUE))
   head.sig.hits.quantile.5[i] = mean(sample(head.sig.hits$TajimasD[head.sig.hits$quartile == 5], length(head.sig.hits$TajimasD[head.sig.hits$quartile == 5]), replace = TRUE))
   head.sig.hits.quantile.6[i] = mean(sample(head.sig.hits$TajimasD[head.sig.hits$quartile == 6], length(head.sig.hits$TajimasD[head.sig.hits$quartile == 6]), replace = TRUE))
-  #head.sig.hits.quantile.7[i] = mean(sample(head.sig.hits$TajimasD[head.sig.hits$quartile == 7], length(head.sig.hits$TajimasD[head.sig.hits$quartile == 7]), replace = TRUE))
-  #head.sig.hits.quantile.8[i] = mean(sample(head.sig.hits$TajimasD[head.sig.hits$quartile == 8], length(head.sig.hits$TajimasD[head.sig.hits$quartile == 8]), replace = TRUE))
+  head.sig.hits.quantile.7[i] = mean(sample(head.sig.hits$TajimasD[head.sig.hits$quartile == 7], length(head.sig.hits$TajimasD[head.sig.hits$quartile == 7]), replace = TRUE))
+  head.sig.hits.quantile.8[i] = mean(sample(head.sig.hits$TajimasD[head.sig.hits$quartile == 8], length(head.sig.hits$TajimasD[head.sig.hits$quartile == 8]), replace = TRUE))
 
   # Resample non significant hits
   body.non.sig.hits.quantile.1[i] = mean(sample(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 1], length(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 1]), replace = TRUE))
@@ -377,8 +377,8 @@ for (i in 1:10000){
   body.non.sig.hits.quantile.4[i] = mean(sample(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 4], length(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 4]), replace = TRUE))
   body.non.sig.hits.quantile.5[i] = mean(sample(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 5], length(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 5]), replace = TRUE))
   body.non.sig.hits.quantile.6[i] = mean(sample(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 6], length(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 6]), replace = TRUE))
-  #body.non.sig.hits.quantile.7[i] = mean(sample(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 7], length(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 7]), replace = TRUE))
-  #body.non.sig.hits.quantile.8[i] = mean(sample(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 8], length(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 8]), replace = TRUE))
+  body.non.sig.hits.quantile.7[i] = mean(sample(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 7], length(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 7]), replace = TRUE))
+  body.non.sig.hits.quantile.8[i] = mean(sample(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 8], length(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 8]), replace = TRUE))
 
   head.non.sig.hits.quantile.1[i] = mean(sample(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 1], length(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 1]), replace = TRUE))
   head.non.sig.hits.quantile.2[i] = mean(sample(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 2], length(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 2]), replace = TRUE))
@@ -386,8 +386,8 @@ for (i in 1:10000){
   head.non.sig.hits.quantile.4[i] = mean(sample(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 4], length(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 4]), replace = TRUE))
   head.non.sig.hits.quantile.5[i] = mean(sample(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 5], length(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 5]), replace = TRUE))
   head.non.sig.hits.quantile.6[i] = mean(sample(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 6], length(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 6]), replace = TRUE))
-  #head.non.sig.hits.quantile.7[i] = mean(sample(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 7], length(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 7]), replace = TRUE))
-  #head.non.sig.hits.quantile.8[i] = mean(sample(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 8], length(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 8]), replace = TRUE))
+  head.non.sig.hits.quantile.7[i] = mean(sample(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 7], length(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 7]), replace = TRUE))
+  head.non.sig.hits.quantile.8[i] = mean(sample(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 8], length(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 8]), replace = TRUE))
 print (i)
 }
 
@@ -397,16 +397,16 @@ body.lower.CI = as.vector( c(  quantile(body.sig.hits.quantile.1, 0.05)[1],
                           quantile(body.sig.hits.quantile.4, 0.05)[1],
                           quantile(body.sig.hits.quantile.5, 0.05)[1],
                           quantile(body.sig.hits.quantile.6, 0.05)[1],
-                          #quantile(body.sig.hits.quantile.7, 0.05)[1],
-                          #quantile(body.sig.hits.quantile.8, 0.05)[1],
+                          quantile(body.sig.hits.quantile.7, 0.05)[1],
+                          quantile(body.sig.hits.quantile.8, 0.05)[1],
                           quantile(body.non.sig.hits.quantile.1, 0.05)[1],
                           quantile(body.non.sig.hits.quantile.2, 0.05)[1],
                           quantile(body.non.sig.hits.quantile.3, 0.05)[1],
                           quantile(body.non.sig.hits.quantile.4, 0.05)[1],
                           quantile(body.non.sig.hits.quantile.5, 0.05)[1],
                           quantile(body.non.sig.hits.quantile.6, 0.05)[1],
-                          #quantile(body.non.sig.hits.quantile.7, 0.05)[1],
-                          #quantile(body.non.sig.hits.quantile.8, 0.05)[1])
+                          quantile(body.non.sig.hits.quantile.7, 0.05)[1],
+                          quantile(body.non.sig.hits.quantile.8, 0.05)[1])
                           )
 
 body.upper.CI = as.vector( c( quantile(body.sig.hits.quantile.1, 0.95)[1],
@@ -415,16 +415,16 @@ body.upper.CI = as.vector( c( quantile(body.sig.hits.quantile.1, 0.95)[1],
                          quantile(body.sig.hits.quantile.4, 0.95)[1],
                          quantile(body.sig.hits.quantile.5, 0.95)[1],
                          quantile(body.sig.hits.quantile.6, 0.95)[1],
-                         #quantile(body.sig.hits.quantile.7, 0.95)[1],
-                         #quantile(body.sig.hits.quantile.8, 0.95)[1],
+                         quantile(body.sig.hits.quantile.7, 0.95)[1],
+                         quantile(body.sig.hits.quantile.8, 0.95)[1],
                          quantile(body.non.sig.hits.quantile.1, 0.95)[1],
                          quantile(body.non.sig.hits.quantile.2, 0.95)[1],
                          quantile(body.non.sig.hits.quantile.3, 0.95)[1],
                          quantile(body.non.sig.hits.quantile.4, 0.95)[1],
                          quantile(body.non.sig.hits.quantile.5, 0.95)[1],
                          quantile(body.non.sig.hits.quantile.6, 0.95)[1],
-                         #quantile(body.non.sig.hits.quantile.7, 0.95)[1],
-                         #quantile(body.non.sig.hits.quantile.8, 0.95)[1])
+                         quantile(body.non.sig.hits.quantile.7, 0.95)[1],
+                         quantile(body.non.sig.hits.quantile.8, 0.95)[1])
                          )
 
 head.lower.CI = as.vector( c(  quantile(head.sig.hits.quantile.1, 0.05)[1],
@@ -433,16 +433,16 @@ head.lower.CI = as.vector( c(  quantile(head.sig.hits.quantile.1, 0.05)[1],
                           quantile(head.sig.hits.quantile.4, 0.05)[1],
                           quantile(head.sig.hits.quantile.5, 0.05)[1],
                           quantile(head.sig.hits.quantile.6, 0.05)[1],
-                          #quantile(head.sig.hits.quantile.7, 0.05)[1],
-                          #quantile(head.sig.hits.quantile.8, 0.05)[1],
+                          quantile(head.sig.hits.quantile.7, 0.05)[1],
+                          quantile(head.sig.hits.quantile.8, 0.05)[1],
                           quantile(head.non.sig.hits.quantile.1, 0.05)[1],
                           quantile(head.non.sig.hits.quantile.2, 0.05)[1],
                           quantile(head.non.sig.hits.quantile.3, 0.05)[1],
                           quantile(head.non.sig.hits.quantile.4, 0.05)[1],
                           quantile(head.non.sig.hits.quantile.5, 0.05)[1],
                           quantile(head.non.sig.hits.quantile.6, 0.05)[1],
-                          #quantile(head.non.sig.hits.quantile.7, 0.05)[1],
-                          #quantile(head.non.sig.hits.quantile.8, 0.05)[1])
+                          quantile(head.non.sig.hits.quantile.7, 0.05)[1],
+                          quantile(head.non.sig.hits.quantile.8, 0.05)[1])
                           )
 
 head.upper.CI = as.vector( c( quantile(head.sig.hits.quantile.1, 0.95)[1],
@@ -451,34 +451,35 @@ head.upper.CI = as.vector( c( quantile(head.sig.hits.quantile.1, 0.95)[1],
                          quantile(head.sig.hits.quantile.4, 0.95)[1],
                          quantile(head.sig.hits.quantile.5, 0.95)[1],
                          quantile(head.sig.hits.quantile.6, 0.95)[1],
-                         #quantile(head.sig.hits.quantile.7, 0.95)[1],
-                         #quantile(head.sig.hits.quantile.8, 0.95)[1],
+                         quantile(head.sig.hits.quantile.7, 0.95)[1],
+                         quantile(head.sig.hits.quantile.8, 0.95)[1],
                          quantile(head.non.sig.hits.quantile.1, 0.95)[1],
                          quantile(head.non.sig.hits.quantile.2, 0.95)[1],
                          quantile(head.non.sig.hits.quantile.3, 0.95)[1],
                          quantile(head.non.sig.hits.quantile.4, 0.95)[1],
                          quantile(head.non.sig.hits.quantile.5, 0.95)[1],
                          quantile(head.non.sig.hits.quantile.6, 0.95)[1],
-                         #quantile(head.non.sig.hits.quantile.7, 0.95)[1],
-                         #quantile(head.non.sig.hits.quantile.8, 0.95)[1])
+                         quantile(head.non.sig.hits.quantile.7, 0.95)[1],
+                         quantile(head.non.sig.hits.quantile.8, 0.95)[1])
                          )
 
 
 # Construct dataframes to hold all of our data for plotting
 # Body
-hit = rep(c("sig","non.sig"), each=8)
+#hit = rep(c("sig","non.sig"), each=8)
 expression.quartile = rep(seq(1:8),2)
 body.tajimasD.mean = c(body.sig.hits.mean$TajimasD.mean, body.non.sig.hits.mean$TajimasD.mean)
 body.tajimasD.lowerCI = body.lower.CI
 body.tajimasD.upperCI = body.upper.CI
-body.tajimasD.df = as.data.frame(cbind(as.factor(hit),as.factor(expression.quartile), as.numeric(body.tajimasD.mean), as.numeric(body.tajimasD.lowerCI), as.numeric(body.tajimasD.upperCI)))
+body.tajimasD.df = as.data.frame(cbind(as.factor(expression.quartile), as.numeric(body.tajimasD.mean), as.numeric(body.tajimasD.lowerCI), as.numeric(body.tajimasD.upperCI)))
 body.tajimasD.df$tissue = as.factor("body")
-colnames(body.tajimasD.df) = c("hit", "expression.quartile", "tajimasD.mean", "tajimasD.lowerCI", "tajimasD.upperCI", "tissue")
+body.tajimasD.df$hit = as.factor(rep(c("sig","non.sig"), each=8))
+colnames(body.tajimasD.df) = c("expression.quartile", "tajimasD.mean", "tajimasD.lowerCI", "tajimasD.upperCI", "tissue","hit")
 
 par(mfrow = c(2,1))
 
-body.tajimasD.expression.plot = ggplot(body.tajimasD.df, aes(y = body.tajimasD.mean, x = expression.quartile, colour = hit)) +
-                                      geom_point(aes(x = expression.quartile, y = body.tajimasD.mean, colour = hit),size = 10,
+body.tajimasD.expression.plot = ggplot(body.tajimasD.df, aes(y = as.numeric(body.tajimasD.mean), x = as.factor(expression.quartile), colour = as.factor(hit))) +
+                                      geom_point(aes(x = as.factor(expression.quartile), y = as.numeric(body.tajimasD.mean), colour = as.factor(hit)),size = 10,
                                       position = position_dodge(width = 0.5)) + scale_y_continuous(limits = c(-0.1, 0.1)) +
                                       geom_errorbar(aes(ymin = body.tajimasD.lowerCI, ymax = body.tajimasD.upperCI, x = expression.quartile, colour=hit),
                                       width = 0, position = position_dodge(width = 0.5)) + geom_hline(yintercept = 0) +
@@ -487,30 +488,38 @@ body.tajimasD.expression.plot = ggplot(body.tajimasD.df, aes(y = body.tajimasD.m
                                             panel.border = element_rect(colour = "black", fill=NA, size=1),
                                             axis.text = element_text(face="bold", color="black",size=40, family = "Helvetica"),
                                             axis.title=element_blank(), legend.position = "none")
+
+pdf("/plas1/amardeep.singh/tmp/body.tajimasD.expression.plot.pdf")
 body.tajimasD.expression.plot
+dev.off()
 
 
 # head
-hit = rep(c("sig","non.sig"), each=8)
 expression.quartile = rep(seq(1:8),2)
 head.tajimasD.mean = c(head.sig.hits.mean$TajimasD.mean, head.non.sig.hits.mean$TajimasD.mean)
 head.tajimasD.lowerCI = head.lower.CI
 head.tajimasD.upperCI = head.upper.CI
-head.tajimasD.df = as.data.frame(cbind(as.factor(hit),as.factor(expression.quartile), as.numeric(head.tajimasD.mean), as.numeric(head.tajimasD.lowerCI), as.numeric(head.tajimasD.upperCI)))
+head.tajimasD.df = as.data.frame(cbind(as.factor(expression.quartile), as.numeric(head.tajimasD.mean), as.numeric(head.tajimasD.lowerCI), as.numeric(head.tajimasD.upperCI)))
 head.tajimasD.df$tissue = as.factor("head")
-colnames(head.tajimasD.df) = c("hit", "expression.quartile", "tajimasD.mean", "tajimasD.lowerCI", "tajimasD.upperCI", "tissue")
+head.tajimasD.df$hit = as.factor(rep(c("sig","non.sig"), each=8))
+colnames(head.tajimasD.df) = c("expression.quartile", "tajimasD.mean", "tajimasD.lowerCI", "tajimasD.upperCI", "tissue","hit")
 
-head.tajimasD.expression.plot = ggplot(head.tajimasD.df, aes(y = head.tajimasD.mean, x = expression.quartile, colour = hit)) +
-                                      geom_point(aes(x = expression.quartile, y = head.tajimasD.mean, colour = hit),size = 10,
+head.tajimasD.expression.plot = ggplot(head.tajimasD.df, aes(y = as.numeric(head.tajimasD.mean), x = as.factor(expression.quartile), colour = as.factor(hit))) +
+                                      geom_point(aes(x = as.factor(expression.quartile), y = as.numeric(head.tajimasD.mean), colour = as.factor(hit)),size = 10,
                                       position = position_dodge(width = 0.5)) + scale_y_continuous(limits = c(-0.1, 0.1)) +
                                       geom_errorbar(aes(ymin = head.tajimasD.lowerCI, ymax = head.tajimasD.upperCI, x = expression.quartile, colour=hit),
-                                      width = 0, position = position_dodge(width = 0.5)) + geom_hline(yintercept = 0)
+                                      width = 0, position = position_dodge(width = 0.5)) + geom_hline(yintercept = 0) +
                                       theme_bw() + scale_colour_manual(values = c("#7294D4", "#5B1A18")) +
                                       theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
                                             panel.border = element_rect(colour = "black", fill=NA, size=1),
                                             axis.text = element_text(face="bold", color="black",size=40, family = "Helvetica"),
                                             axis.title=element_blank(), legend.position = "none")
+
+pdf("/plas1/amardeep.singh/tmp/head.tajimasD.expression.plot.pdf")
 head.tajimasD.expression.plot
+dev.off()
+
+
 
 ## Combined plots
 tajimasD.df = rbind(body.tajimasD.df, head.tajimasD.df)

@@ -67,7 +67,7 @@ bedtools intersect -sorted -wa -a /plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomi
 #### SNP LEVEL ANALYSIS ####
 
 # Sort the DGRP file
-# Format the DPGP3 Tajimas D file to a bed format
+# Format the DGRP Tajimas D file to a bed format
 cat /plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.SNP.Level.Tajima.D | awk ' BEGIN {OFS = FS = "\t"} {print $1 "\t" $2 "\t" $2+1 "\t" $4}' > /plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.SNP.Level.Tajima.D.coordinates.bed
 # Remove header from file
 sed -i '/^CHROM/d ' /plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.SNP.Level.Tajima.D.coordinates.bed
@@ -86,7 +86,7 @@ cat /plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/DGRP.SNP.Level.Intersec
 
 # --- R Code ---
 # Now we are going to calculate the Tajima's D for each gene, averaged across all SNPs in a gene
-
+rm(list=ls())
 DGRP.data = read.table("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/DGRP.Intersect/DGRP.SNP.Level.Intersect.Filtered.Output.formatted", sep = "\t", header = FALSE)
 tajimasD.per.gene = aggregate(DGRP.data[, "V3"], list(DGRP.data$V4), mean)
 write.table(tajimasD.per.gene, "/plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.TajimasD.Per.Gene", sep = "\t", quote = F, row.name = F, col.name = F)
@@ -192,13 +192,12 @@ for (i in 1:10000) {
 print(i)
 }
 
-quantile(sig.hits, c(0.05,0.95))
-quantile(nonsig.hits, c(0.05,0.95))
-
+quantile(body.sig.hits, c(0.05,0.95))
+quantile(body.nonsig.hits, c(0.05,0.95))
+quantile(head.sig.hits, c(0.05,0.95))
+quantile(head.nonsig.hits, c(0.05,0.95))
 ## Plot
 
-
-plot()
 boxplot[test2$Tajimas]
 boxplot = boxplot(tajimasD.data.sig.non.sig$TajimaD ~ tajimasD.data.sig.non.sig$hit)
 
@@ -476,7 +475,6 @@ body.tajimasD.df$tissue = as.factor("body")
 body.tajimasD.df$hit = as.factor(rep(c("sig","non.sig"), each=8))
 colnames(body.tajimasD.df) = c("expression.quartile", "tajimasD.mean", "tajimasD.lowerCI", "tajimasD.upperCI", "tissue","hit")
 
-par(mfrow = c(2,1))
 
 body.tajimasD.expression.plot = ggplot(body.tajimasD.df, aes(y = as.numeric(body.tajimasD.mean), x = as.factor(expression.quartile), colour = as.factor(hit))) +
                                       geom_point(aes(x = as.factor(expression.quartile), y = as.numeric(body.tajimasD.mean), colour = as.factor(hit)),size = 10,

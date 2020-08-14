@@ -109,6 +109,12 @@ all_genes_interaction.body = all_genes_interaction.body[,c(7,1:6)]
 write.table(all_genes_interaction.body, file = "/plas1/amardeep.singh/RNA.Seq.Data/GeneExpression/RAL.DifferentialGeneExpression.body.txt", sep = "\t", row.names = FALSE, col.names = TRUE, quote = FALSE)
 write.table(all_genes_interaction.head, file = "/plas1/amardeep.singh/RNA.Seq.Data/GeneExpression/RAL.DifferentialGeneExpression.head.txt", sep = "\t", row.names = FALSE, col.names = TRUE, quote = FALSE)
 
+counts(dds_interaction.body)
+
+# Save DESeq2 RDS files
+saveRDS(dds_interaction.head, file = "/plas1/amardeep.singh/RNA.Seq.Data/GeneExpression/DESeq2.output.head.rds")
+saveRDS(dds_interaction.body, file = "/plas1/amardeep.singh/RNA.Seq.Data/GeneExpression/DESeq2.output.body.rds")
+
 
 ###########################################################################################
 ###     Comparing Gene Expression at genes with SD in Exon uasage to those without      ###
@@ -118,6 +124,7 @@ rm(list=ls())
 require(dplyr)
 require(doBy)
 require(ggplot2)
+require(grid)
 
 ## Loading in data files
 # Read in JunctionSeq results
@@ -126,6 +133,8 @@ junctionseq.results.head = read.table("/plas1/amardeep.singh/RNA.Seq.Data/Juncti
 ## Load in the differential gene expression data
 DGE.data.body = read.table("/plas1/amardeep.singh/RNA.Seq.Data/GeneExpression/RAL.DifferentialGeneExpression.body.txt", header = TRUE, sep = "\t")
 DGE.data.head = read.table("/plas1/amardeep.singh/RNA.Seq.Data/GeneExpression/RAL.DifferentialGeneExpression.head.txt", header = TRUE, sep = "\t")
+
+
 
 ## Cleaning up data files
 # Remove any sites that were not tested in the JunctionSeq output
@@ -154,8 +163,8 @@ junctionseq.results.body.merged.unique = merge(junctionseq.results.body.unique, 
 junctionseq.results.head.merged.unique = merge(junctionseq.results.head.unique, DGE.data.head, by.x = "geneID", by.y = "FlyBaseID")
 
 # Subset out the columns of interest (i.e., gene ID, TajimasD, significant differences in exon usage, and log2FC)
-expression.data.body = junctionseq.results.body.merged.unique[, c(1:3,6)]
-expression.data.head = junctionseq.results.head.merged.unique[, c(1:3,6)]
+expression.data.body = junctionseq.results.body.merged.unique[, c(1:3,5,6)]
+expression.data.head = junctionseq.results.head.merged.unique[, c(1:3,6,7)]
 
 # Assign quartile bins for male and female biased gene expression
 male.biased.body = expression.data.body[expression.data.body$log2FoldChange > 0,]
@@ -169,181 +178,202 @@ female.biased.body = female.biased.body[!(is.na(female.biased.body$log2FoldChang
 male.biased.head = male.biased.head[!(is.na(male.biased.head$log2FoldChange)),]
 female.biased.head = female.biased.head[!(is.na(female.biased.head$log2FoldChange)),]
 
-
 # Assign quartiles for both MBG and FBG
-male.biased.body = male.biased.body %>% mutate(quartile = ntile(log2FoldChange, 4))
-female.biased.body = female.biased.body %>% mutate(quartile = ntile(log2FoldChange, 4))
-male.biased.head = male.biased.head %>% mutate(quartile = ntile(log2FoldChange, 4))
-female.biased.head = female.biased.head %>% mutate(quartile = ntile(log2FoldChange, 4))
+male.biased.body = male.biased.body %>% mutate(quantile = ntile(log2FoldChange, 4))
+female.biased.body = female.biased.body %>% mutate(quantile = ntile(log2FoldChange, 4))
+male.biased.head = male.biased.head %>% mutate(quantile = ntile(log2FoldChange, 4))
+female.biased.head = female.biased.head %>% mutate(quantile = ntile(log2FoldChange, 4))
 
 # For the male genes, lets add 4 to each quartile
-male.biased.body$quartile = male.biased.body$quartile + 4
-male.biased.head$quartile = male.biased.head$quartile + 4
+male.biased.body$quantile = male.biased.body$quantile + 4
+male.biased.head$quantile = male.biased.head$quantile + 4
 
 # Merge data back
 expression.data.body = rbind(male.biased.body,female.biased.body)
+expression.data.body$tissue = "body"
 expression.data.head = rbind(male.biased.head,female.biased.head)
+expression.data.head$tissue = "head"
+expression.data=rbind(expression.data.body,expression.data.head)
 
+# Subset quantiles of gene expression
+body.quantile.bin.1 = expression.data.body[expression.data.body$quantile == 1, ]
+body.quantile.bin.2 = expression.data.body[expression.data.body$quantile == 2, ]
+body.quantile.bin.3 = expression.data.body[expression.data.body$quantile == 3, ]
+body.quantile.bin.4 = expression.data.body[expression.data.body$quantile == 4, ]
+body.quantile.bin.5 = expression.data.body[expression.data.body$quantile == 5, ]
+body.quantile.bin.6 = expression.data.body[expression.data.body$quantile == 6, ]
+body.quantile.bin.7 = expression.data.body[expression.data.body$quantile == 7, ]
+body.quantile.bin.8 = expression.data.body[expression.data.body$quantile == 8, ]
 
-## Plotting
+head.quantile.bin.1 = expression.data.head[expression.data.head$quantile == 1, ]
+head.quantile.bin.2 = expression.data.head[expression.data.head$quantile == 2, ]
+head.quantile.bin.3 = expression.data.head[expression.data.head$quantile == 3, ]
+head.quantile.bin.4 = expression.data.head[expression.data.head$quantile == 4, ]
+head.quantile.bin.5 = expression.data.head[expression.data.head$quantile == 5, ]
+head.quantile.bin.6 = expression.data.head[expression.data.head$quantile == 6, ]
+head.quantile.bin.7 = expression.data.head[expression.data.head$quantile == 7, ]
+head.quantile.bin.8 = expression.data.head[expression.data.head$quantile == 8, ]
 
-# Subset sig and non sig sites
-body.sig.hits = expression.data.body[expression.data.body$sig.hit == 1,]
-body.non.sig.hits = expression.data.body[expression.data.body$sig.hit == 0,]
-head.sig.hits = expression.data.head[expression.data.head$sig.hit == 1,]
-head.non.sig.hits = expression.data.head[expression.data.head$sig.hit == 0,]
+# Fractions in each quantile
+body.df.fraction = c( (nrow(body.quantile.bin.1[body.quantile.bin.1$sig.hit == 1,])) / (nrow(body.quantile.bin.1[body.quantile.bin.1$sig.hit == 0,])),
+                      (nrow(body.quantile.bin.2[body.quantile.bin.2$sig.hit == 1,])) / (nrow(body.quantile.bin.2[body.quantile.bin.2$sig.hit == 0,])),
+                      (nrow(body.quantile.bin.3[body.quantile.bin.3$sig.hit == 1,])) / (nrow(body.quantile.bin.3[body.quantile.bin.3$sig.hit == 0,])),
+                      (nrow(body.quantile.bin.4[body.quantile.bin.4$sig.hit == 1,])) / (nrow(body.quantile.bin.4[body.quantile.bin.4$sig.hit == 0,])),
+                      (nrow(body.quantile.bin.5[body.quantile.bin.5$sig.hit == 1,])) / (nrow(body.quantile.bin.5[body.quantile.bin.5$sig.hit == 0,])),
+                      (nrow(body.quantile.bin.6[body.quantile.bin.6$sig.hit == 1,])) / (nrow(body.quantile.bin.6[body.quantile.bin.6$sig.hit == 0,])),
+                      (nrow(body.quantile.bin.7[body.quantile.bin.7$sig.hit == 1,])) / (nrow(body.quantile.bin.7[body.quantile.bin.7$sig.hit == 0,])),
+                      (nrow(body.quantile.bin.8[body.quantile.bin.8$sig.hit == 1,])) / (nrow(body.quantile.bin.8[body.quantile.bin.8$sig.hit == 0,])))
 
-# Bootstrap means for each subset
-# Body
-body.sig.hits.quantile.1 = vector(mode = "numeric", length = 10000)
-body.sig.hits.quantile.2 = vector(mode = "numeric", length = 10000)
-body.sig.hits.quantile.3 = vector(mode = "numeric", length = 10000)
-body.sig.hits.quantile.4 = vector(mode = "numeric", length = 10000)
-body.sig.hits.quantile.5 = vector(mode = "numeric", length = 10000)
-body.sig.hits.quantile.6 = vector(mode = "numeric", length = 10000)
-body.sig.hits.quantile.7 = vector(mode = "numeric", length = 10000)
-body.sig.hits.quantile.8 = vector(mode = "numeric", length = 10000)
-body.non.sig.hits.quantile.1 = vector(mode = "numeric", length = 10000)
-body.non.sig.hits.quantile.2 = vector(mode = "numeric", length = 10000)
-body.non.sig.hits.quantile.3 = vector(mode = "numeric", length = 10000)
-body.non.sig.hits.quantile.4 = vector(mode = "numeric", length = 10000)
-body.non.sig.hits.quantile.5 = vector(mode = "numeric", length = 10000)
-body.non.sig.hits.quantile.6 = vector(mode = "numeric", length = 10000)
-body.non.sig.hits.quantile.7 = vector(mode = "numeric", length = 10000)
-body.non.sig.hits.quantile.8 = vector(mode = "numeric", length = 10000)
+head.df.fraction = c( (nrow(head.quantile.bin.1[head.quantile.bin.1$sig.hit == 1,])) / (nrow(head.quantile.bin.1[head.quantile.bin.1$sig.hit == 0,])),
+                      (nrow(head.quantile.bin.2[head.quantile.bin.2$sig.hit == 1,])) / (nrow(head.quantile.bin.2[head.quantile.bin.2$sig.hit == 0,])),
+                      (nrow(head.quantile.bin.3[head.quantile.bin.3$sig.hit == 1,])) / (nrow(head.quantile.bin.3[head.quantile.bin.3$sig.hit == 0,])),
+                      (nrow(head.quantile.bin.4[head.quantile.bin.4$sig.hit == 1,])) / (nrow(head.quantile.bin.4[head.quantile.bin.4$sig.hit == 0,])),
+                      (nrow(head.quantile.bin.5[head.quantile.bin.5$sig.hit == 1,])) / (nrow(head.quantile.bin.5[head.quantile.bin.5$sig.hit == 0,])),
+                      (nrow(head.quantile.bin.6[head.quantile.bin.6$sig.hit == 1,])) / (nrow(head.quantile.bin.6[head.quantile.bin.6$sig.hit == 0,])),
+                      (nrow(head.quantile.bin.7[head.quantile.bin.7$sig.hit == 1,])) / (nrow(head.quantile.bin.7[head.quantile.bin.7$sig.hit == 0,])),
+                      (nrow(head.quantile.bin.8[head.quantile.bin.8$sig.hit == 1,])) / (nrow(head.quantile.bin.8[head.quantile.bin.8$sig.hit == 0,])))
 
-# Head
-head.sig.hits.quantile.1 = vector(mode = "numeric", length = 10000)
-head.sig.hits.quantile.2 = vector(mode = "numeric", length = 10000)
-head.sig.hits.quantile.3 = vector(mode = "numeric", length = 10000)
-head.sig.hits.quantile.4 = vector(mode = "numeric", length = 10000)
-head.sig.hits.quantile.5 = vector(mode = "numeric", length = 10000)
-head.sig.hits.quantile.6 = vector(mode = "numeric", length = 10000)
-head.sig.hits.quantile.7 = vector(mode = "numeric", length = 10000)
-head.sig.hits.quantile.8 = vector(mode = "numeric", length = 10000)
-head.non.sig.hits.quantile.1 = vector(mode = "numeric", length = 10000)
-head.non.sig.hits.quantile.2 = vector(mode = "numeric", length = 10000)
-head.non.sig.hits.quantile.3 = vector(mode = "numeric", length = 10000)
-head.non.sig.hits.quantile.4 = vector(mode = "numeric", length = 10000)
-head.non.sig.hits.quantile.5 = vector(mode = "numeric", length = 10000)
-head.non.sig.hits.quantile.6 = vector(mode = "numeric", length = 10000)
-head.non.sig.hits.quantile.7 = vector(mode = "numeric", length = 10000)
-head.non.sig.hits.quantile.8 = vector(mode = "numeric", length = 10000)
+## Plotting ##
+# First plot will be the fraction of genes in gene expression quantiles that are significantly DEU or not
+# Body Data
+body.quantile.1.fraction = vector(mode = "numeric", length = 10000)
+body.quantile.2.fraction = vector(mode = "numeric", length = 10000)
+body.quantile.3.fraction = vector(mode = "numeric", length = 10000)
+body.quantile.4.fraction = vector(mode = "numeric", length = 10000)
+body.quantile.5.fraction = vector(mode = "numeric", length = 10000)
+body.quantile.6.fraction = vector(mode = "numeric", length = 10000)
+body.quantile.7.fraction = vector(mode = "numeric", length = 10000)
+body.quantile.8.fraction = vector(mode = "numeric", length = 10000)
+
+# Head Data
+head.quantile.1.fraction = vector(mode = "numeric", length = 10000)
+head.quantile.2.fraction = vector(mode = "numeric", length = 10000)
+head.quantile.3.fraction = vector(mode = "numeric", length = 10000)
+head.quantile.4.fraction = vector(mode = "numeric", length = 10000)
+head.quantile.5.fraction = vector(mode = "numeric", length = 10000)
+head.quantile.6.fraction = vector(mode = "numeric", length = 10000)
+head.quantile.7.fraction = vector(mode = "numeric", length = 10000)
+head.quantile.8.fraction = vector(mode = "numeric", length = 10000)
 
 # Resampling
 for (i in 1:10000){
 
-  body.sig.hits.quantile.1[i] = mean(sample(body.sig.hits$log2FoldChange[body.sig.hits$quartile == 1], length(body.sig.hits$log2FoldChange[body.sig.hits$quartile == 1]), replace = TRUE))
-  body.sig.hits.quantile.2[i] = mean(sample(body.sig.hits$log2FoldChange[body.sig.hits$quartile == 2], length(body.sig.hits$log2FoldChange[body.sig.hits$quartile == 2]), replace = TRUE))
-  body.sig.hits.quantile.3[i] = mean(sample(body.sig.hits$log2FoldChange[body.sig.hits$quartile == 3], length(body.sig.hits$log2FoldChange[body.sig.hits$quartile == 3]), replace = TRUE))
-  body.sig.hits.quantile.4[i] = mean(sample(body.sig.hits$log2FoldChange[body.sig.hits$quartile == 4], length(body.sig.hits$log2FoldChange[body.sig.hits$quartile == 4]), replace = TRUE))
-  body.sig.hits.quantile.5[i] = mean(sample(body.sig.hits$log2FoldChange[body.sig.hits$quartile == 5], length(body.sig.hits$log2FoldChange[body.sig.hits$quartile == 5]), replace = TRUE))
-  body.sig.hits.quantile.6[i] = mean(sample(body.sig.hits$log2FoldChange[body.sig.hits$quartile == 6], length(body.sig.hits$log2FoldChange[body.sig.hits$quartile == 6]), replace = TRUE))
-  body.sig.hits.quantile.7[i] = mean(sample(body.sig.hits$log2FoldChange[body.sig.hits$quartile == 7], length(body.sig.hits$log2FoldChange[body.sig.hits$quartile == 7]), replace = TRUE))
-  body.sig.hits.quantile.8[i] = mean(sample(body.sig.hits$log2FoldChange[body.sig.hits$quartile == 8], length(body.sig.hits$log2FoldChange[body.sig.hits$quartile == 8]), replace = TRUE))
+  sample.body.quantile1 = sample(body.quantile.bin.1$sig.hit, nrow(body.quantile.bin.1), replace = TRUE)
+  sample.body.quantile2 = sample(body.quantile.bin.2$sig.hit, nrow(body.quantile.bin.2), replace = TRUE)
+  sample.body.quantile3 = sample(body.quantile.bin.3$sig.hit, nrow(body.quantile.bin.3), replace = TRUE)
+  sample.body.quantile4 = sample(body.quantile.bin.4$sig.hit, nrow(body.quantile.bin.4), replace = TRUE)
+  sample.body.quantile5 = sample(body.quantile.bin.5$sig.hit, nrow(body.quantile.bin.5), replace = TRUE)
+  sample.body.quantile6 = sample(body.quantile.bin.6$sig.hit, nrow(body.quantile.bin.6), replace = TRUE)
+  sample.body.quantile7 = sample(body.quantile.bin.7$sig.hit, nrow(body.quantile.bin.7), replace = TRUE)
+  sample.body.quantile8 = sample(body.quantile.bin.8$sig.hit, nrow(body.quantile.bin.8), replace = TRUE)
 
-  head.sig.hits.quantile.1[i] = mean(sample(head.sig.hits$log2FoldChange[head.sig.hits$quartile == 1], length(head.sig.hits$log2FoldChange[head.sig.hits$quartile == 1]), replace = TRUE))
-  head.sig.hits.quantile.2[i] = mean(sample(head.sig.hits$log2FoldChange[head.sig.hits$quartile == 2], length(head.sig.hits$log2FoldChange[head.sig.hits$quartile == 2]), replace = TRUE))
-  head.sig.hits.quantile.3[i] = mean(sample(head.sig.hits$log2FoldChange[head.sig.hits$quartile == 3], length(head.sig.hits$log2FoldChange[head.sig.hits$quartile == 3]), replace = TRUE))
-  head.sig.hits.quantile.4[i] = mean(sample(head.sig.hits$log2FoldChange[head.sig.hits$quartile == 4], length(head.sig.hits$log2FoldChange[head.sig.hits$quartile == 4]), replace = TRUE))
-  head.sig.hits.quantile.5[i] = mean(sample(head.sig.hits$log2FoldChange[head.sig.hits$quartile == 5], length(head.sig.hits$log2FoldChange[head.sig.hits$quartile == 5]), replace = TRUE))
-  head.sig.hits.quantile.6[i] = mean(sample(head.sig.hits$log2FoldChange[head.sig.hits$quartile == 6], length(head.sig.hits$log2FoldChange[head.sig.hits$quartile == 6]), replace = TRUE))
-  head.sig.hits.quantile.7[i] = mean(sample(head.sig.hits$log2FoldChange[head.sig.hits$quartile == 7], length(head.sig.hits$log2FoldChange[head.sig.hits$quartile == 7]), replace = TRUE))
-  head.sig.hits.quantile.8[i] = mean(sample(head.sig.hits$log2FoldChange[head.sig.hits$quartile == 8], length(head.sig.hits$log2FoldChange[head.sig.hits$quartile == 8]), replace = TRUE))
+  sample.head.quantile1 = sample(head.quantile.bin.1$sig.hit, nrow(head.quantile.bin.1), replace = TRUE)
+  sample.head.quantile2 = sample(head.quantile.bin.2$sig.hit, nrow(head.quantile.bin.2), replace = TRUE)
+  sample.head.quantile3 = sample(head.quantile.bin.3$sig.hit, nrow(head.quantile.bin.3), replace = TRUE)
+  sample.head.quantile4 = sample(head.quantile.bin.4$sig.hit, nrow(head.quantile.bin.4), replace = TRUE)
+  sample.head.quantile5 = sample(head.quantile.bin.5$sig.hit, nrow(head.quantile.bin.5), replace = TRUE)
+  sample.head.quantile6 = sample(head.quantile.bin.6$sig.hit, nrow(head.quantile.bin.6), replace = TRUE)
+  sample.head.quantile7 = sample(head.quantile.bin.7$sig.hit, nrow(head.quantile.bin.7), replace = TRUE)
+  sample.head.quantile8 = sample(head.quantile.bin.8$sig.hit, nrow(head.quantile.bin.8), replace = TRUE)
 
-  # Resample non significant hits
-  body.non.sig.hits.quantile.1[i] = mean(sample(body.non.sig.hits$log2FoldChange[body.non.sig.hits$quartile == 1], length(body.non.sig.hits$log2FoldChange[body.non.sig.hits$quartile == 1]), replace = TRUE))
-  body.non.sig.hits.quantile.2[i] = mean(sample(body.non.sig.hits$log2FoldChange[body.non.sig.hits$quartile == 2], length(body.non.sig.hits$log2FoldChange[body.non.sig.hits$quartile == 2]), replace = TRUE))
-  body.non.sig.hits.quantile.3[i] = mean(sample(body.non.sig.hits$log2FoldChange[body.non.sig.hits$quartile == 3], length(body.non.sig.hits$log2FoldChange[body.non.sig.hits$quartile == 3]), replace = TRUE))
-  body.non.sig.hits.quantile.4[i] = mean(sample(body.non.sig.hits$log2FoldChange[body.non.sig.hits$quartile == 4], length(body.non.sig.hits$log2FoldChange[body.non.sig.hits$quartile == 4]), replace = TRUE))
-  body.non.sig.hits.quantile.5[i] = mean(sample(body.non.sig.hits$log2FoldChange[body.non.sig.hits$quartile == 5], length(body.non.sig.hits$log2FoldChange[body.non.sig.hits$quartile == 5]), replace = TRUE))
-  body.non.sig.hits.quantile.6[i] = mean(sample(body.non.sig.hits$log2FoldChange[body.non.sig.hits$quartile == 6], length(body.non.sig.hits$log2FoldChange[body.non.sig.hits$quartile == 6]), replace = TRUE))
-  body.non.sig.hits.quantile.7[i] = mean(sample(body.non.sig.hits$log2FoldChange[body.non.sig.hits$quartile == 7], length(body.non.sig.hits$log2FoldChange[body.non.sig.hits$quartile == 7]), replace = TRUE))
-  body.non.sig.hits.quantile.8[i] = mean(sample(body.non.sig.hits$log2FoldChange[body.non.sig.hits$quartile == 8], length(body.non.sig.hits$log2FoldChange[body.non.sig.hits$quartile == 8]), replace = TRUE))
+  body.quantile.1.fraction[i] = length(sample.body.quantile1[sample.body.quantile1 == 1]) / length(sample.body.quantile1[sample.body.quantile1 == 0])
+  body.quantile.2.fraction[i] = length(sample.body.quantile2[sample.body.quantile2 == 1]) / length(sample.body.quantile2[sample.body.quantile2 == 0])
+  body.quantile.3.fraction[i] = length(sample.body.quantile3[sample.body.quantile3 == 1]) / length(sample.body.quantile3[sample.body.quantile3 == 0])
+  body.quantile.4.fraction[i] = length(sample.body.quantile4[sample.body.quantile4 == 1]) / length(sample.body.quantile4[sample.body.quantile4 == 0])
+  body.quantile.5.fraction[i] = length(sample.body.quantile5[sample.body.quantile5 == 1]) / length(sample.body.quantile5[sample.body.quantile5 == 0])
+  body.quantile.6.fraction[i] = length(sample.body.quantile6[sample.body.quantile6 == 1]) / length(sample.body.quantile6[sample.body.quantile6 == 0])
+  body.quantile.7.fraction[i] = length(sample.body.quantile7[sample.body.quantile7 == 1]) / length(sample.body.quantile7[sample.body.quantile7 == 0])
+  body.quantile.8.fraction[i] = length(sample.body.quantile8[sample.body.quantile8 == 1]) / length(sample.body.quantile8[sample.body.quantile8 == 0])
 
-  head.non.sig.hits.quantile.1[i] = mean(sample(head.non.sig.hits$log2FoldChange[head.non.sig.hits$quartile == 1], length(head.non.sig.hits$log2FoldChange[head.non.sig.hits$quartile == 1]), replace = TRUE))
-  head.non.sig.hits.quantile.2[i] = mean(sample(head.non.sig.hits$log2FoldChange[head.non.sig.hits$quartile == 2], length(head.non.sig.hits$log2FoldChange[head.non.sig.hits$quartile == 2]), replace = TRUE))
-  head.non.sig.hits.quantile.3[i] = mean(sample(head.non.sig.hits$log2FoldChange[head.non.sig.hits$quartile == 3], length(head.non.sig.hits$log2FoldChange[head.non.sig.hits$quartile == 3]), replace = TRUE))
-  head.non.sig.hits.quantile.4[i] = mean(sample(head.non.sig.hits$log2FoldChange[head.non.sig.hits$quartile == 4], length(head.non.sig.hits$log2FoldChange[head.non.sig.hits$quartile == 4]), replace = TRUE))
-  head.non.sig.hits.quantile.5[i] = mean(sample(head.non.sig.hits$log2FoldChange[head.non.sig.hits$quartile == 5], length(head.non.sig.hits$log2FoldChange[head.non.sig.hits$quartile == 5]), replace = TRUE))
-  head.non.sig.hits.quantile.6[i] = mean(sample(head.non.sig.hits$log2FoldChange[head.non.sig.hits$quartile == 6], length(head.non.sig.hits$log2FoldChange[head.non.sig.hits$quartile == 6]), replace = TRUE))
-  head.non.sig.hits.quantile.7[i] = mean(sample(head.non.sig.hits$log2FoldChange[head.non.sig.hits$quartile == 7], length(head.non.sig.hits$log2FoldChange[head.non.sig.hits$quartile == 7]), replace = TRUE))
-  head.non.sig.hits.quantile.8[i] = mean(sample(head.non.sig.hits$log2FoldChange[head.non.sig.hits$quartile == 8], length(head.non.sig.hits$log2FoldChange[head.non.sig.hits$quartile == 8]), replace = TRUE))
-print (i)
+  head.quantile.1.fraction[i] = length(sample.head.quantile1[sample.head.quantile1 == 1]) / length(sample.head.quantile1[sample.head.quantile1 == 0])
+  head.quantile.2.fraction[i] = length(sample.head.quantile2[sample.head.quantile2 == 1]) / length(sample.head.quantile2[sample.head.quantile2 == 0])
+  head.quantile.3.fraction[i] = length(sample.head.quantile3[sample.head.quantile3 == 1]) / length(sample.head.quantile3[sample.head.quantile3 == 0])
+  head.quantile.4.fraction[i] = length(sample.head.quantile4[sample.head.quantile4 == 1]) / length(sample.head.quantile4[sample.head.quantile4 == 0])
+  head.quantile.5.fraction[i] = length(sample.head.quantile5[sample.head.quantile5 == 1]) / length(sample.head.quantile5[sample.head.quantile5 == 0])
+  head.quantile.6.fraction[i] = length(sample.head.quantile6[sample.head.quantile6 == 1]) / length(sample.head.quantile6[sample.head.quantile6 == 0])
+  head.quantile.7.fraction[i] = length(sample.head.quantile7[sample.head.quantile7 == 1]) / length(sample.head.quantile7[sample.head.quantile7 == 0])
+  head.quantile.8.fraction[i] = length(sample.head.quantile8[sample.head.quantile8 == 1]) / length(sample.head.quantile8[sample.head.quantile8 == 0])
+
+  print (i)
 }
 
-body.lower.CI = as.vector( c(  quantile(body.sig.hits.quantile.1, 0.05)[1],
-                          quantile(body.sig.hits.quantile.2, 0.05)[1],
-                          quantile(body.sig.hits.quantile.3, 0.05)[1],
-                          quantile(body.sig.hits.quantile.4, 0.05)[1],
-                          quantile(body.sig.hits.quantile.5, 0.05)[1],
-                          quantile(body.sig.hits.quantile.6, 0.05)[1],
-                          quantile(body.sig.hits.quantile.7, 0.05)[1],
-                          quantile(body.sig.hits.quantile.8, 0.05)[1],
-                          quantile(body.non.sig.hits.quantile.1, 0.05)[1],
-                          quantile(body.non.sig.hits.quantile.2, 0.05)[1],
-                          quantile(body.non.sig.hits.quantile.3, 0.05)[1],
-                          quantile(body.non.sig.hits.quantile.4, 0.05)[1],
-                          quantile(body.non.sig.hits.quantile.5, 0.05)[1],
-                          quantile(body.non.sig.hits.quantile.6, 0.05)[1],
-                          quantile(body.non.sig.hits.quantile.7, 0.05)[1],
-                          quantile(body.non.sig.hits.quantile.8, 0.05)[1])
-                          )
+body.lower.CI = as.vector( c( quantile(body.quantile.1.fraction, 0.05)[1],
+                              quantile(body.quantile.2.fraction, 0.05)[1],
+                              quantile(body.quantile.3.fraction, 0.05)[1],
+                              quantile(body.quantile.4.fraction, 0.05)[1],
+                              quantile(body.quantile.5.fraction, 0.05)[1],
+                              quantile(body.quantile.6.fraction, 0.05)[1],
+                              quantile(body.quantile.7.fraction, 0.05)[1],
+                              quantile(body.quantile.8.fraction, 0.05)[1]))
 
-body.upper.CI = as.vector( c( quantile(body.sig.hits.quantile.1, 0.95)[1],
-                         quantile(body.sig.hits.quantile.2, 0.95)[1],
-                         quantile(body.sig.hits.quantile.3, 0.95)[1],
-                         quantile(body.sig.hits.quantile.4, 0.95)[1],
-                         quantile(body.sig.hits.quantile.5, 0.95)[1],
-                         quantile(body.sig.hits.quantile.6, 0.95)[1],
-                         quantile(body.sig.hits.quantile.7, 0.95)[1],
-                         quantile(body.sig.hits.quantile.8, 0.95)[1],
-                         quantile(body.non.sig.hits.quantile.1, 0.95)[1],
-                         quantile(body.non.sig.hits.quantile.2, 0.95)[1],
-                         quantile(body.non.sig.hits.quantile.3, 0.95)[1],
-                         quantile(body.non.sig.hits.quantile.4, 0.95)[1],
-                         quantile(body.non.sig.hits.quantile.5, 0.95)[1],
-                         quantile(body.non.sig.hits.quantile.6, 0.95)[1],
-                         quantile(body.non.sig.hits.quantile.7, 0.95)[1],
-                         quantile(body.non.sig.hits.quantile.8, 0.95)[1])
-                         )
+body.high.CI = as.vector( c( quantile(body.quantile.1.fraction, 0.95)[1],
+                              quantile(body.quantile.2.fraction, 0.95)[1],
+                              quantile(body.quantile.3.fraction, 0.95)[1],
+                              quantile(body.quantile.4.fraction, 0.95)[1],
+                              quantile(body.quantile.5.fraction, 0.95)[1],
+                              quantile(body.quantile.6.fraction, 0.95)[1],
+                              quantile(body.quantile.7.fraction, 0.95)[1],
+                              quantile(body.quantile.8.fraction, 0.95)[1]))
+#
+head.lower.CI = as.vector( c( quantile(head.quantile.1.fraction, 0.05)[1],
+                              quantile(head.quantile.2.fraction, 0.05)[1],
+                              quantile(head.quantile.3.fraction, 0.05)[1],
+                              quantile(head.quantile.4.fraction, 0.05)[1],
+                              quantile(head.quantile.5.fraction, 0.05)[1],
+                              quantile(head.quantile.6.fraction, 0.05)[1],
+                              quantile(head.quantile.7.fraction, 0.05)[1],
+                              quantile(head.quantile.8.fraction, 0.05)[1]))
 
-head.lower.CI = as.vector( c(  quantile(head.sig.hits.quantile.1, 0.05)[1],
-                          quantile(head.sig.hits.quantile.2, 0.05)[1],
-                          quantile(head.sig.hits.quantile.3, 0.05)[1],
-                          quantile(head.sig.hits.quantile.4, 0.05)[1],
-                          quantile(head.sig.hits.quantile.5, 0.05)[1],
-                          quantile(head.sig.hits.quantile.6, 0.05)[1],
-                          quantile(head.sig.hits.quantile.7, 0.05)[1],
-                          quantile(head.sig.hits.quantile.8, 0.05)[1],
-                          quantile(head.non.sig.hits.quantile.1, 0.05)[1],
-                          quantile(head.non.sig.hits.quantile.2, 0.05)[1],
-                          quantile(head.non.sig.hits.quantile.3, 0.05)[1],
-                          quantile(head.non.sig.hits.quantile.4, 0.05)[1],
-                          quantile(head.non.sig.hits.quantile.5, 0.05)[1],
-                          quantile(head.non.sig.hits.quantile.6, 0.05)[1],
-                          quantile(head.non.sig.hits.quantile.7, 0.05)[1],
-                          quantile(head.non.sig.hits.quantile.8, 0.05)[1])
-                          )
+head.high.CI = as.vector( c( quantile(head.quantile.1.fraction, 0.95)[1],
+                              quantile(head.quantile.2.fraction, 0.95)[1],
+                              quantile(head.quantile.3.fraction, 0.95)[1],
+                              quantile(head.quantile.4.fraction, 0.95)[1],
+                              quantile(head.quantile.5.fraction, 0.95)[1],
+                              quantile(head.quantile.6.fraction, 0.95)[1],
+                              quantile(head.quantile.7.fraction, 0.95)[1],
+                              quantile(head.quantile.8.fraction, 0.95)[1]))
 
-head.upper.CI = as.vector( c( quantile(head.sig.hits.quantile.1, 0.95)[1],
-                         quantile(head.sig.hits.quantile.2, 0.95)[1],
-                         quantile(head.sig.hits.quantile.3, 0.95)[1],
-                         quantile(head.sig.hits.quantile.4, 0.95)[1],
-                         quantile(head.sig.hits.quantile.5, 0.95)[1],
-                         quantile(head.sig.hits.quantile.6, 0.95)[1],
-                         quantile(head.sig.hits.quantile.7, 0.95)[1],
-                         quantile(head.sig.hits.quantile.8, 0.95)[1],
-                         quantile(head.non.sig.hits.quantile.1, 0.95)[1],
-                         quantile(head.non.sig.hits.quantile.2, 0.95)[1],
-                         quantile(head.non.sig.hits.quantile.3, 0.95)[1],
-                         quantile(head.non.sig.hits.quantile.4, 0.95)[1],
-                         quantile(head.non.sig.hits.quantile.5, 0.95)[1],
-                         quantile(head.non.sig.hits.quantile.6, 0.95)[1],
-                         quantile(head.non.sig.hits.quantile.7, 0.95)[1],
-                         quantile(head.non.sig.hits.quantile.8, 0.95)[1])
-                         )
+body.gene.expression.df = as.data.frame(cbind(body.df.fraction, body.lower.CI, body.high.CI))
+body.gene.expression.df$quantile = seq(1,8,1)
+body.gene.expression.df$tissue = "body"
+colnames(body.gene.expression.df) = c("fraction", "lower.CI", "upper.CI", "quantile", "tissue")
+head.gene.expression.df = as.data.frame(cbind(head.df.fraction, head.lower.CI, head.high.CI))
+head.gene.expression.df$quantile = seq(1,8,1)
+head.gene.expression.df$tissue = "head"
+colnames(head.gene.expression.df) = c("fraction", "lower.CI", "upper.CI", "quantile", "tissue")
 
+gene.expression.df = rbind(body.gene.expression.df,head.gene.expression.df)
+
+# Plotting fractions
+fraction.of.genes = ggplot(gene.expression.df, aes(y=fraction, x = as.factor(quantile))) +
+                           geom_point(aes(x = as.factor(quantile), y=fraction), size = 10,
+                           position = position_dodge(width = 0.5)) +
+                           geom_errorbar(aes(ymin = lower.CI, ymax = upper.CI, x = as.factor(quantile)),
+                           width = 0, position = position_dodge(width = 0.5)) +
+                           theme_bw()  + scale_colour_manual(values = c("#E74C3C")) +
+                           theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
+                                 panel.border = element_rect(colour = "black", fill=NA, size=1),
+                                 axis.text = element_text(face="bold", color="black",size=15, family = "Helvetica"),
+                                 axis.title=element_blank(), legend.position = "none") +
+                          facet_grid(tissue~., scales = "free") + theme(panel.spacing = unit(2, "lines"))
+pdf("/plas1/amardeep.singh/tmp/gene.expression.fractions.pdf")
+fraction.of.genes
+dev.off()
+
+
+# Plotting gene expression as an index
+sexbias.exonbias.plot = ggplot(expression.data, aes(y=baseMean, x=log2FoldChange, colour = as.factor(sig.hit))) +
+                           geom_point(aes(y=baseMean, x=log2FoldChange, colour = as.factor(sig.hit)), size = 2) + xlim(c(-15,15)) +
+                           theme_bw() + scale_colour_manual(values = c("#7294D4", "#5B1A18")) + geom_vline(xintercept = 0, linetype = 2) +
+                           theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
+                                 panel.border = element_rect(colour = "black", fill=NA, size=1),
+                                 axis.text = element_text(face="bold", color="black",size=10, family = "Helvetica"),
+                                 axis.title=element_blank(), legend.position = "none") +
+                           facet_wrap(tissue~., scales = "free_y") #+ theme(panel.spacing = unit(1, "lines"))
+
+pdf("/plas1/amardeep.singh/tmp/gene.expression.continuous.pdf")
+sexbias.exonbias.plot
+dev.off()
 
 
 

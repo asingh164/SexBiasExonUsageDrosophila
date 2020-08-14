@@ -54,11 +54,73 @@ cat DGRP_Chr3R/*.fasta > Chr3R.fas &
 ########################################################################
 
 # Making VCF files that contain only variant sites from .fas  multi-alignment files
-snp-sites -v -o ChrX.vcf ChrX.fas &
-snp-sites -v -o Chr2L.vcf Chr2L.fas &
-snp-sites -v -o Chr2R.vcf Chr2R.fas &
-snp-sites -v -o Chr3L.vcf Chr3L.fas &
-snp-sites -v -o Chr3R.vcf Chr3R.fas &
+~/apps/snp-sites/bin/snp-sites -v -o Chr2L.vcf /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DGRP.Genomic.Data/MultiFastaFiles/Chr2L.fas &
+~/apps/snp-sites/bin/snp-sites -v -o Chr2R.vcf /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DGRP.Genomic.Data/MultiFastaFiles/Chr2R.fas &
+~/apps/snp-sites/bin/snp-sites -v -o Chr3L.vcf /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DGRP.Genomic.Data/MultiFastaFiles/Chr3L.fas &
+~/apps/snp-sites/bin/snp-sites -v -o Chr3R.vcf /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DGRP.Genomic.Data/MultiFastaFiles/Chr3R.fas &
+~/apps/snp-sites/bin/snp-sites -v -o ChrX.vcf /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DGRP.Genomic.Data/MultiFastaFiles/ChrX.fas &
+
+## Prepare VCF files for liftOver to convert coordinates from release 5 (dm3) -> release 6 (dm6)
+# Redirect header to attach to VCF later
+cat Chr2L.variant.and.invariant.vcf | grep '#' > vcf.header
+
+# Remove headers from vcf files
+sed -i '/^#/d' Chr2L.vcf &
+sed -i '/^#/d' Chr2R.vcf &
+sed -i '/^#/d' Chr3L.vcf &
+sed -i '/^#/d' Chr3R.vcf &
+sed -i '/^#/d' ChrX.vcf &
+
+# Replace Chromosome column with proper ID
+cat Chr2L.vcf | awk -F"\t" '{OFS=FS}{ $1="2L" ; print   }' > Chr2L.tmp && mv Chr2L.tmp Chr2L.vcf &
+cat Chr2R.vcf | awk -F"\t" '{OFS=FS}{ $1="2R" ; print   }' > Chr2R.tmp && mv Chr2R.tmp Chr2R.vcf &
+cat Chr3L.vcf | awk -F"\t" '{OFS=FS}{ $1="3L" ; print   }' > Chr3L.tmp && mv Chr3L.tmp Chr3L.vcf &
+cat Chr3R.vcf | awk -F"\t" '{OFS=FS}{ $1="3R" ; print   }' > Chr3R.tmp && mv Chr3R.tmp Chr3R.vcf &
+cat ChrX.vcf | awk -F"\t" '{OFS=FS}{ $1="X" ; print   }' > ChrX.tmp && mv ChrX.tmp ChrX.vcf &
+rm Chr*.tmp
+
+# Add a unique ID column that can be used to reattach to lifted over coordinates
+cat Chr2L.vcf | awk 'BEGIN {OFS=FS="\t"}{print $1 ":" $2}' | paste - Chr2L.vcf | cut -f 1,4-$NF > Chr2L.vcf.tmp &
+cat Chr2R.vcf | awk 'BEGIN {OFS=FS="\t"}{print $1 ":" $2}' | paste - Chr2R.vcf | cut -f 1,4-$NF > Chr2R.vcf.tmp &
+cat Chr3L.vcf | awk 'BEGIN {OFS=FS="\t"}{print $1 ":" $2}' | paste - Chr3L.vcf | cut -f 1,4-$NF > Chr3L.vcf.tmp &
+cat Chr3R.vcf | awk 'BEGIN {OFS=FS="\t"}{print $1 ":" $2}' | paste - Chr3R.vcf | cut -f 1,4-$NF > Chr3R.vcf.tmp &
+cat ChrX.vcf | awk 'BEGIN {OFS=FS="\t"}{print $1 ":" $2}' | paste - ChrX.vcf | cut -f 1,4-$NF > ChrX.vcf.tmp &
+
+# Make columns with coordinates in BED format for liftOver
+cat Chr2L.vcf | awk 'BEGIN { OFS=FS="\t" }{print "chr" $1, $2-1, $2 }' | paste - Chr2L.vcf > Chr2L.vcf.for.liftover &
+cat Chr2R.vcf | awk 'BEGIN { OFS=FS="\t" }{print "chr" $1, $2-1, $2 }' | paste - Chr2R.vcf > Chr2R.vcf.for.liftover &
+cat Chr3L.vcf | awk 'BEGIN { OFS=FS="\t" }{print "chr" $1, $2-1, $2 }' | paste - Chr3L.vcf > Chr3L.vcf.for.liftover &
+cat Chr3R.vcf | awk 'BEGIN { OFS=FS="\t" }{print "chr" $1, $2-1, $2 }' | paste - Chr3R.vcf > Chr3R.vcf.for.liftover &
+cat ChrX.vcf | awk 'BEGIN { OFS=FS="\t" }{print "chr" $1, $2-1, $2 }' | paste - ChrX.vcf > ChrX.vcf.for.liftover &
+
+# Liftover from assembly dm3 to dm6
+liftOver -bedPlus=3 -tab /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DGRP.Genomic.Data/Chr2L.vcf.for.liftover /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/dm3ToDm6.over.chain /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DGRP.Genomic.Data/Chr2L.liftedover.vcf Chr2L.unlifted.bed &
+liftOver -bedPlus=3 -tab /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DGRP.Genomic.Data/Chr2R.vcf.for.liftover /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/dm3ToDm6.over.chain /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DGRP.Genomic.Data/Chr2R.liftedover.vcf Chr2R.unlifted.bed &
+liftOver -bedPlus=3 -tab /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DGRP.Genomic.Data/Chr3L.vcf.for.liftover /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/dm3ToDm6.over.chain /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DGRP.Genomic.Data/Chr3L.liftedover.vcf Chr3L.unlifted.bed &
+liftOver -bedPlus=3 -tab /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DGRP.Genomic.Data/Chr3R.vcf.for.liftover /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/dm3ToDm6.over.chain /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DGRP.Genomic.Data/Chr3R.liftedover.vcf Chr3R.unlifted.bed &
+liftOver -bedPlus=3 -tab /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DGRP.Genomic.Data/ChrX.vcf.for.liftover /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/dm3ToDm6.over.chain /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DGRP.Genomic.Data/ChrX.liftedover.vcf ChrX.unlifted.bed &
+
+## Add a unique ID column with the old coordinates so that I can intersect the old and new vcfs to recover all individual genotypes
+## NOTE: THESE OUTPUT FILES ARE NOW 1 BASED!
+cat Chr2L.liftedover.vcf | awk 'BEGIN {OFS=FS="\t"}{print $4 ":" $5, $4, $3}' > Chr2L.liftedOver.Coordinates &
+cat Chr2R.liftedover.vcf | awk 'BEGIN {OFS=FS="\t"}{print $4 ":" $5, $4, $3}' > Chr2R.liftedOver.Coordinates &
+cat Chr3L.liftedover.vcf | awk 'BEGIN {OFS=FS="\t"}{print $4 ":" $5, $4, $3}' > Chr3L.liftedOver.Coordinates &
+cat Chr3R.liftedover.vcf | awk 'BEGIN {OFS=FS="\t"}{print $4 ":" $5, $4, $3}' > Chr3R.liftedOver.Coordinates &
+cat ChrX.liftedover.vcf | awk 'BEGIN {OFS=FS="\t"}{print $4 ":" $5, $4, $3}' > ChrX.liftedOver.Coordinates &
+
+# Now file with new coordinates to file with genotypic info on all individuals to make VCF with release 6 coordinates
+join -j 1 -t $'\t' Chr2L.liftedOver.Coordinates Chr2L.vcf.tmp | cut -f 2-$NF > Chr2L.release6.vcf &
+join -j 1 -t $'\t' Chr2R.liftedOver.Coordinates Chr2R.vcf.tmp | cut -f 2-$NF > Chr2R.release6.vcf &
+join -j 1 -t $'\t' Chr3L.liftedOver.Coordinates Chr3L.vcf.tmp | cut -f 2-$NF > Chr3L.release6.vcf &
+join -j 1 -t $'\t' Chr3R.liftedOver.Coordinates Chr3R.vcf.tmp | cut -f 2-$NF > Chr3R.release6.vcf &
+join -j 1 -t $'\t' ChrX.liftedOver.Coordinates ChrX.vcf.tmp | cut -f 2-$NF > ChrX.release6.vcf &
+
+# Remove intermediate files
+rm Chr*.liftedOver.Coordinates
+rm Chr*.liftedover.vcf
+rm *unlifted.bed
+rm *for.liftover
+rm Chr*.vcf.tmp
 
 
 ############################################
@@ -66,15 +128,16 @@ snp-sites -v -o Chr3R.vcf Chr3R.fas &
 ############################################
 
 #----- R code -----
+rm(list=ls())
 require(matrixStats)
 
 ## Modify VCF for Tajima's D analysis (r5 coordinates + remove positions where depth<20)
 
 ## Import vcf files of interest ## Need to change these two depending on the specific file
-chr.vcf <- read.table("/plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/ChrX.vcf")
+chr.vcf <- read.table("/plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DGRP.Genomic.Data/Chr3L.release6.vcf")
 print("Chromosome Loaded!")
-output.name = "chr.X"
-chr.number = "X"
+output.name = "chr.3L"
+chr.number = "3L"
 
 #Sanity check
 #plot(rownames(test.vcf),test.vcf$V2)
@@ -120,10 +183,9 @@ vcf <- subset(vcf,rowCounts(vcf[,10:ncol(vcf)]!="./.")>19)
 vcf$V2 <- format(vcf$V2,scientific=F)
 
 write.table(vcf, file = paste("/plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/", output.name, "_modified.vcf", sep = ""), sep="\t",row.names = F, quote=F, col.names=F)
-
 rm(list=ls())
 
------ /R code -----
+#----- /R code -----
 
 ## Concatenate all VCFs and add header ## I had generated this header previously
 cat chr.X_modified.vcf chr.2L_modified.vcf chr.2R_modified.vcf chr.3L_modified.vcf chr.3R_modified.vcf > DGRP.filtered.vcf

@@ -534,7 +534,18 @@ tajimasD.expression.plot = ggplot(tajimasD.df, aes(y = tajimasD.mean, x = expres
                                             axis.text = element_text(face="bold", color="black",size=20, family = "Helvetica"),
                                             axis.title=element_blank(), legend.position = "none") +
                                       facet_grid(tissue ~ .)
-tajimasD.expression.plot
+
+pdf("/plas1/amardeep.singh/tmp/combined.tajimasD.expression.plot.pdf")
+combined.tajimasD.expression.plot
+dev.off()
+
+
+############################################################################################################################################
+############################################################################################################################################
+
+
+
+####     D E P R E C A T E D     D O     N O T     U S E !   ####
 
 
 
@@ -972,20 +983,6 @@ tajimasD.df = as.data.frame(cbind(hit,expression.quartile, tajimasD.mean, tajima
 tajimasD.expression.plot = ggplot(tajimasD.df, aes(y = tajimasD.mean, x = expression.quartile, colour = hit)) +
                     geom_point(aes(x = expression.quartile, y = tajimasD.mean, colour = hit),size = 1, position = position_dodge(width = 0.5)) +
                     geom_errorbar(aes(ymin = tajimasD.lowerCI, ymax = tajimasD.upperCI, x = expression.quartile, colour=hit), width = 0, position = position_dodge(width = 0.5))
-
-
-var.plot=ggplot(data.summary, aes(y = adjusted.variance))+
-  geom_point(aes(x=sex, shape=treatment, colour=sex), size = 6.5,  position=position_dodge(width=0.5))+
-  geom_errorbar(aes(ymin=adj.lower.ci, ymax=adj.upper.ci,x=sex, shape=treatment, colour=sex),size = 1.5, width=0.0,position=position_dodge(width=0.5)) +
-  theme_bw() +
-  ylim(0, 10) +
-  theme(panel.grid.minor.x=element_blank(),panel.grid.minor.y=element_blank(),panel.grid.major.x=element_blank(), panel.grid.major.y=element_blank(),
-        text = element_text(size=40, family = "Times"), axis.title.x=element_blank(), axis.text.x=element_blank(), axis.ticks.x=element_blank(),
-        axis.title.y = element_blank(), axis.text.y=element_text(colour = "black"), axis.ticks.y=element_line(colour = "black"),
-        strip.background = element_rect(colour = "black", fill = "light grey"), strip.text = element_text(size = 40), legend.position = "none") +
-  facet_wrap(~population.type, nrow = 1, strip.position="bottom", scale = "free_x") +
-  scale_fill_manual(values=c("#F4A582", "#92C5DE"))
-var.plot
 
 
 

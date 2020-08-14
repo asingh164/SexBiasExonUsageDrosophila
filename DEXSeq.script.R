@@ -1,7 +1,10 @@
-#
 ################################################################
 ###### DEXSeq Script for Differential Exon Usage Analysis  #####
 ################################################################
+
+
+#### D E P R E C A T E D -- S W I T C H E D   T O   U S I N G    J U C T I O N S E Q ####
+
 
 ## Author: Amardeep Singh -- amardeep.singh[at]utoronto.ca
 ## This program makes use of public releases of the Drosophila genome from Flybase (dmel_r6.32_FB2020_01)
@@ -13,7 +16,7 @@
 
 # Python scripts:
 
-# You will need to have installed DEXSeq in R which will automatically download two Python scripts that convert the GTF file into a
+# You will need to have installed DEXSeq in R which will automatically download two Python scripts that converts the GTF file into a
 # format necessary for DEXSeq
 # Location of Python scripts
 pythonScriptsDir = system.file( "python_scripts", package="DEXSeq" )

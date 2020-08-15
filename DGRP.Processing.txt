@@ -22,6 +22,7 @@ wget http://pooldata.genetics.wisc.edu/dgrp_sequences.tar.bz2
 # Obtain the code provided for filtering the sequences from John Pool's website
 wget http://johnpool.net/masking.zip
 
+
 ################################################
 ### Prepare a Multi-fasta file for SNP-Sites ###
 ################################################

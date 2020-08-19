@@ -88,8 +88,31 @@ cat /plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/DGRP.SNP.Level.Intersec
 # Now we are going to calculate the Tajima's D for each gene, averaged across all SNPs in a gene
 rm(list=ls())
 DGRP.data = read.table("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/DGRP.Intersect/DGRP.SNP.Level.Intersect.Filtered.Output.formatted", sep = "\t", header = FALSE)
-tajimasD.per.gene = aggregate(DGRP.data[, "V3"], list(DGRP.data$V4), mean)
-write.table(tajimasD.per.gene, "/plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.TajimasD.Per.Gene", sep = "\t", quote = F, row.name = F, col.name = F)
+# List of 4 fold degenerate sites (File is generated in the piN:piSAnalysis.txt script)
+diversity.4fold = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/diversity.4fold.sites", header = FALSE)
+
+# Format chromosome column to be the same and retain only columns needed
+diversity.4fold$V1 = substr(diversity.4fold$V1, 4,5)
+diversity.4fold$V4 = substr(diversity.4fold$V4, 8,18)
+# Retain only columns needed
+diversity.4fold=diversity.4fold[,c(1,2,4)]
+
+# Add an index column to each file
+diversity.4fold$index = paste(diversity.4fold$V1, diversity.4fold$V2, sep = ":")
+DGRP.data$index = paste(DGRP.data$V1, DGRP.data$V2, sep = ":")
+# Remove duplicates from the degeneracy file
+diversity.4fold.unique = unique(diversity.4fold)
+# Add column names to files
+colnames(diversity.4fold.unique) = c("chr", "pos", "geneID", "index")
+colnames(DGRP.data) = c("chr", "pos", "tajimasD","geneID", "index")
+
+# Merge 4fold sites file with TajimasD file
+merged.data = merge(diversity.4fold.unique, DGRP.data, by = c("index", "geneID"))
+tajimasD.4fold.per.gene = summaryBy(tajimasD ~ geneID, data = merged.data)
+
+tajimasD.4fold.per.gene = aggregate(merged.data[, "V3.x"], list(merged.data$V3.x), mean)
+
+write.table(tajimasD.4fold.per.gene, "/plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.TajimasD.4fold.Per.Gene", sep = "\t", quote = F, row.name = F, col.name = T)
 #\--- R CODE ---
 
 
@@ -133,12 +156,14 @@ DGRP.tajimaD[!(DGRP.tajimaD$ID %in% windows.sig.hits.head.unique),]$head.hit = 0
 ###################################################################
 
 # --- R Code ---
+rm(list=ls())
+require(doBy)
 # Loading in data files
 # Read in JunctionSeq results
 junctionseq.results.body = read.table("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/BodyOutput/Aug1.Body.OnlyallGenes.results.txt", header = TRUE, sep = "\t")
 junctionseq.results.head = read.table("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/HeadOutput/Aug1.Head.OnlyallGenes.results.txt", header = TRUE, sep = "\t")
-# Read in Tajimas D per gene results
-tajimasD.per.gene = read.table("/plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.TajimasD.Per.Gene", header = FALSE, sep = "\t")
+# Read in Tajimas D per gene results ## 4fold sites
+tajimasD.per.gene = read.table("/plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.TajimasD.4fold.Per.Gene", header = TRUE, sep = "\t")
 # Rename the Tajima's D column
 colnames(tajimasD.per.gene)[2] = "TajimasD"
 
@@ -147,14 +172,13 @@ colnames(tajimasD.per.gene)[2] = "TajimasD"
 junctionseq.results.body = junctionseq.results.body[!(is.na(junctionseq.results.body$pvalue)),]
 junctionseq.results.head = junctionseq.results.head[!(is.na(junctionseq.results.head$pvalue)),]
 
-# Lets remove any rows where the expr in males or females is less than 10
-junctionseq.results.body.filtered = junctionseq.results.body[junctionseq.results.body$expr_male > 10 & junctionseq.results.body$expr_female > 10 ,]
-junctionseq.results.head.filtered = junctionseq.results.head[junctionseq.results.head$expr_male > 10 & junctionseq.results.head$expr_female > 10 ,]
-
+# Lets remove any rows where the expr in males or females is less than 50
+junctionseq.results.body.filtered = junctionseq.results.body[junctionseq.results.body$expr_male > 50 & junctionseq.results.body$expr_female > 50 ,]
+junctionseq.results.head.filtered = junctionseq.results.head[junctionseq.results.head$expr_male > 50 & junctionseq.results.head$expr_female > 50 ,]
 
 # Merge the junctionseq files with the TajimasD per gene file
-junctionseq.results.body.merged = merge(junctionseq.results.body.filtered, tajimasD.per.gene, by.x = "geneID", by.y = "V1", sort = FALSE)
-junctionseq.results.head.merged = merge(junctionseq.results.head.filtered, tajimasD.per.gene, by.x = "geneID", by.y = "V1", sort = FALSE)
+junctionseq.results.body.merged = merge(junctionseq.results.body.filtered, tajimasD.per.gene, by.x = "geneID", by.y = "geneID", sort = FALSE)
+junctionseq.results.head.merged = merge(junctionseq.results.head.filtered, tajimasD.per.gene, by.x = "geneID", by.y = "geneID", sort = FALSE)
 
 # Clean up data and remove duplicate genes (i.e., keep only the gene level and not exon level info)
 junctionseq.results.body.merged = junctionseq.results.body.merged[, c(1,25,26)]
@@ -192,11 +216,24 @@ for (i in 1:10000) {
 print(i)
 }
 
-quantile(body.sig.hits, c(0.05,0.95))
-quantile(body.nonsig.hits, c(0.05,0.95))
-quantile(head.sig.hits, c(0.05,0.95))
-quantile(head.nonsig.hits, c(0.05,0.95))
+# Construct dataframe for plotting
+# Body results
+body.tajimasD = summaryBy(TajimasD ~ sig.hit, data = junctionseq.results.body.merged.unique)
+head.tajimasD = summaryBy(TajimasD ~ sig.hit, data = junctionseq.results.head.merged.unique)
+body.tajimasD$tissue = "body"
+head.tajimasD$tissue = "head"
+tajimasD.summary = rbind(body.tajimasD,head.tajimasD)
+# Assign quantiles to each mean value
+tajimasD.summary$lowerCI = c( quantile(body.nonsig.hits,0.05),quantile(body.sig.hits,0.05),
+                              quantile(head.nonsig.hits,0.05),quantile(head.sig.hits,0.05))
+tajimasD.summary$upperCI = c( quantile(body.nonsig.hits,0.95),quantile(body.sig.hits,0.95),
+                              quantile(head.nonsig.hits,0.95),quantile(head.sig.hits,0.95))
+
+
+
+
 ## Plot
+
 
 boxplot[test2$Tajimas]
 boxplot = boxplot(tajimasD.data.sig.non.sig$TajimaD ~ tajimasD.data.sig.non.sig$hit)

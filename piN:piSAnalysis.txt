@@ -92,7 +92,7 @@ rm Chr*.variant.and.invariant.vcf.tmp
 # The code can be run as a bash script but I just ran each step separately so make sure to modify the input/output files
 #   and make sure all your files are where they need to be
 
-# Extract coordinates for each site (these bed files are 0-based and need to be updated to 1-based to match the vcf files - just take the third field as the starting site)
+# Extract coordinates for each site (these bed files are 0-based and need to be updated to 1-based to match the vcf files)
 cat DGRP.2L.bedout_0fold.bed | awk '{OFS = FS = "\t"} {print $1 ":" $2+1}' > DGRP.2L.bedout_0fold.coordinates &
 cat DGRP.2L.bedout_4fold.bed | awk '{OFS = FS = "\t"} {print $1 ":" $2+1}' > DGRP.2L.bedout_4fold.coordinates &
 cat DGRP.2R.bedout_0fold.bed | awk '{OFS = FS = "\t"} {print $1 ":" $2+1}' > DGRP.2R.bedout_0fold.coordinates &
@@ -236,30 +236,6 @@ cat vcf.header chr.3R.4fold_modified.vcf > chr.3R.4fold_modified.vcf.tmp && mv c
 cat vcf.header chr.X.0fold_modified.vcf > chr.X.0fold_modified.vcf.tmp && mv chr.X.0fold_modified.vcf.tmp chr.X.0fold_modified.vcf &
 cat vcf.header chr.X.4fold_modified.vcf > chr.X.4fold_modified.vcf.tmp && mv chr.X.4fold_modified.vcf.tmp chr.X.4fold_modified.vcf &
 
-
-## Parse VCF to convert into a format for Simon Martin's geno.file
-python3 parseVCF.py -i chr.2L.0fold_modified.vcf --skipIndels > chr.2L.0fold_genofile.vcf &
-python3 parseVCF.py -i chr.2L.4fold_modified.vcf --skipIndels > chr.2L.4fold_genofile.vcf &
-python3 parseVCF.py -i chr.2R.0fold_modified.vcf --skipIndels > chr.2R.0fold_genofile.vcf &
-python3 parseVCF.py -i chr.2R.4fold_modified.vcf --skipIndels > chr.2R.4fold_genofile.vcf &
-python3 parseVCF.py -i chr.3L.0fold_modified.vcf --skipIndels > chr.3L.0fold_genofile.vcf &
-python3 parseVCF.py -i chr.3L.4fold_modified.vcf --skipIndels > chr.3L.4fold_genofile.vcf &
-python3 parseVCF.py -i chr.3R.0fold_modified.vcf --skipIndels > chr.3R.0fold_genofile.vcf &
-python3 parseVCF.py -i chr.3R.4fold_modified.vcf --skipIndels > chr.3R.4fold_genofile.vcf &
-python3 parseVCF.py -i chr.X.0fold_modified.vcf --skipIndels > chr.X.0fold_genofile.vcf &
-python3 parseVCF.py -i chr.X.4fold_modified.vcf --skipIndels > chr.X.4fold_genofile.vcf &
-
-python3 popgenWindows.py -w 1 -m 1 -g chr.2L.0fold_genofile.vcf -o chr.2L.0fold.output.csv.gz -f phased -T 20 &
-python3 popgenWindows.py -w 1 -m 1 -g chr.2L.4fold_genofile.vcf -o chr.2L.4fold.output.csv.gz -f phased -T 20 &
-python3 popgenWindows.py -w 1 -m 1 -g chr.2R.0fold_genofile.vcf -o chr.2R.0fold.output.csv.gz -f phased -T 20 &
-python3 popgenWindows.py -w 1 -m 1 -g chr.2R.4fold_genofile.vcf -o chr.2R.4fold.output.csv.gz -f phased -T 10 &
-
-python3 popgenWindows.py -w 1 -m 1 -g chr.3L.0fold_genofile.vcf -o chr.3L.0fold.output.csv.gz -f phased -T 20 &
-python3 popgenWindows.py -w 1 -m 1 -g chr.3L.4fold_genofile.vcf -o chr.3L.4fold.output.csv.gz -f phased -T 20 &
-python3 popgenWindows.py -w 1 -m 1 -g chr.3R.0fold_genofile.vcf -o chr.3R.0fold.output.csv.gz -f phased -T 20 &
-python3 popgenWindows.py -w 1 -m 1 -g chr.3R.4fold_genofile.vcf -o chr.3R.4fold.output.csv.gz -f phased -T 20 &
-python3 popgenWindows.py -w 1 -m 1 -g chr.X.0fold_genofile.vcf -o chr.X.0fold.output.csv.gz -f phased -T 20 &
-python3 popgenWindows.py -w 1 -m 1 -g chr.X.4fold_genofile.vcf -o chr.X.4fold.output.csv.gz -f phased -T 20 &
 
 #############################################################################################
 ######    Calculating Nucleotide Diversity in the DGRP and Assigning Sites to genes    ######

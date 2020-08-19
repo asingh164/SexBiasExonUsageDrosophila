@@ -193,21 +193,34 @@ writeCompleteResults(count.set.object, "/plas1/amardeep.singh/RNA.Seq.Data/Junct
 
 ## Analyzing junctionseq output
 
-jseq.allgenes.body = gzfile('/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/BodyOutput/Aug1.Body.OnlyallGenes.results.txt.gz', 'rt')
-jseq.allgenes.head = gzfile('/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/HeadOutput/Aug1.Head.OnlyallGenes.results.txt.gz', 'rt')
+#jseq.allgenes.body = gzfile('/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/BodyOutput/Aug1.Body.OnlyallGenes.results.txt.gz', 'rt')
+#jseq.allgenes.head = gzfile('/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/HeadOutput/Aug1.Head.OnlyallGenes.results.txt.gz', 'rt')
+jseq.allgenes.body = read.table("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/BodyOutput/Aug1.Body.OnlyallGenes.results.txt", sep = "\t", header = TRUE)
+jseq.allgenes.head = read.table("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/HeadOutput/Aug1.Head.OnlyallGenes.results.txt", sep = "\t", header = TRUE)
 
-jseq.allgenes.body = read.delim(jseq.allgenes.body, header = TRUE)
-jseq.allgenes.head  = read.delim(jseq.allgenes.head, header = TRUE)
+# Clean up files and remove any exons that were not tested
+jseq.allgenes.body = jseq.allgenes.body[!(is.na(jseq.allgenes.body$expr_female)),]
+jseq.allgenes.body = jseq.allgenes.body[!(is.na(jseq.allgenes.body$expr_male)),]
+jseq.allgenes.head = jseq.allgenes.head[!(is.na(jseq.allgenes.head$expr_female)),]
+jseq.allgenes.head = jseq.allgenes.head[!(is.na(jseq.allgenes.head$expr_male)),]
 
-length(unique((jseq.allgenes.body[jseq.allgenes.body$geneWisePadj < 0.01,])$geneID))
-length(unique((jseq.allgenes.head[jseq.allgenes.head$geneWisePadj < 0.01,])$geneID))
+# Obtain a list of significant and non-significant genes and output into seperate txt files
+# first, remove all genes with fewer than 50 reads mapping to exons in males and females
+jseq.allgenes.body = jseq.allgenes.body[jseq.allgenes.body$expr_female > 50 & jseq.allgenes.body$expr_male > 50,]
+jseq.allgenes.head = jseq.allgenes.head[jseq.allgenes.head$expr_female > 50 & jseq.allgenes.head$expr_male > 50,]
+
+sig.genes.body = unique(jseq.allgenes.body$geneID[jseq.allgenes.body$geneWisePadj < 0.01])
+sig.genes.head = unique(jseq.allgenes.head$geneID[jseq.allgenes.head$geneWisePadj < 0.01])
+
+write.table(sig.genes.body, file = "/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/body.significant.genes.Aug18.txt", sep = "\t", row.name = FALSE, col.names = FALSE, quote = FALSE)
+write.table(sig.genes.head, file = "/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/head.significant.genes.Aug18.txt", sep = "\t", row.name = FALSE, col.names = FALSE, quote = FALSE)
 
 
-# Remove all sites where there are fewer than 5 reads mapping to a site
-jseq.allgenes.body.remove.low.expression = jseq.allgenes.body[jseq.allgenes.body$expr_female > 20 | jseq.allgenes.body$expr_male > 20, ]
+# Remove all sites where there are fewer than 50 reads mapping to a site
+jseq.allgenes.body.remove.low.expression = jseq.allgenes.body[jseq.allgenes.body$expr_female > 50 | jseq.allgenes.body$expr_male > 50, ]
 length(unique((jseq.allgenes.body.remove.low.expression[jseq.allgenes.body.remove.low.expression$geneWisePadj < 0.01,])$geneID))
 
-jseq.allgenes.head.remove.low.expression = jseq.allgenes.head[jseq.allgenes.head$expr_female > 20 | jseq.allgenes.head$expr_male > 20, ]
+jseq.allgenes.head.remove.low.expression = jseq.allgenes.head[jseq.allgenes.head$expr_female > 50 | jseq.allgenes.head$expr_male > 50, ]
 length(unique((jseq.allgenes.head.remove.low.expression[jseq.allgenes.head.remove.low.expression$geneWisePadj < 0.01,])$geneID))
 
 

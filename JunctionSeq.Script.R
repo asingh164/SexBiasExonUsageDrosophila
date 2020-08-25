@@ -209,11 +209,17 @@ jseq.allgenes.head = jseq.allgenes.head[!(is.na(jseq.allgenes.head$expr_male)),]
 jseq.allgenes.body = jseq.allgenes.body[jseq.allgenes.body$expr_female > 50 & jseq.allgenes.body$expr_male > 50,]
 jseq.allgenes.head = jseq.allgenes.head[jseq.allgenes.head$expr_female > 50 & jseq.allgenes.head$expr_male > 50,]
 
+# Unique genes with significant DEU
 sig.genes.body = unique(jseq.allgenes.body$geneID[jseq.allgenes.body$geneWisePadj < 0.01])
 sig.genes.head = unique(jseq.allgenes.head$geneID[jseq.allgenes.head$geneWisePadj < 0.01])
+nonsig.genes.body = unique(jseq.allgenes.body$geneID[jseq.allgenes.body$geneWisePadj > 0.01])
+nonsig.genes.head = unique(jseq.allgenes.head$geneID[jseq.allgenes.head$geneWisePadj > 0.01])
+
 
 write.table(sig.genes.body, file = "/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/body.significant.genes.Aug18.txt", sep = "\t", row.name = FALSE, col.names = FALSE, quote = FALSE)
 write.table(sig.genes.head, file = "/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/head.significant.genes.Aug18.txt", sep = "\t", row.name = FALSE, col.names = FALSE, quote = FALSE)
+write.table(nonsig.genes.body, file = "/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/body.non.significant.genes.Aug18.txt", sep = "\t", row.name = FALSE, col.names = FALSE, quote = FALSE)
+write.table(nonsig.genes.head, file = "/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/head.non.significant.genes.Aug18.txt", sep = "\t", row.name = FALSE, col.names = FALSE, quote = FALSE)
 
 
 # Remove all sites where there are fewer than 50 reads mapping to a site

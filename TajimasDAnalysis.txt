@@ -1,4 +1,4 @@
-##########################################
+sex.averaged.log2FC.quantile##########################################
 ######      Tajima's D Analysis     ######
 ##########################################
 
@@ -233,8 +233,6 @@ tajimasD.summary$upperCI = c( quantile(body.nonsig.hits,0.95),quantile(body.sig.
 
 
 ## Plot
-
-
 boxplot[test2$Tajimas]
 boxplot = boxplot(tajimasD.data.sig.non.sig$TajimaD ~ tajimasD.data.sig.non.sig$hit)
 
@@ -249,6 +247,7 @@ sig.tajimaD.resamples = sample(sig.tajimaD, 10000, replace = TRUE)
 #########################################################
 ###     Tajimas D and Sex-Bias in Gene expression     ###
 #########################################################
+rm(list = ls())
 require(dplyr)
 require(doBy)
 require(ggplot2)
@@ -262,7 +261,7 @@ require(ggplot2)
 junctionseq.results.body = read.table("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/BodyOutput/Aug1.Body.OnlyallGenes.results.txt", header = TRUE, sep = "\t")
 junctionseq.results.head = read.table("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/HeadOutput/Aug1.Head.OnlyallGenes.results.txt", header = TRUE, sep = "\t")
 # Read in Tajimas D per gene results
-tajimasD.per.gene = read.table("/plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.TajimasD.Per.Gene", header = FALSE, sep = "\t")
+tajimasD.per.gene = read.table("/plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.TajimasD.4fold.Per.Gene", header = TRUE, sep = "\t")
 ## Load in the differential gene expression data
 DGE.data.body = read.table("/plas1/amardeep.singh/RNA.Seq.Data/GeneExpression/RAL.DifferentialGeneExpression.body.txt", header = TRUE, sep = "\t")
 DGE.data.head = read.table("/plas1/amardeep.singh/RNA.Seq.Data/GeneExpression/RAL.DifferentialGeneExpression.head.txt", header = TRUE, sep = "\t")
@@ -275,18 +274,17 @@ colnames(tajimasD.per.gene)[2] = "TajimasD"
 junctionseq.results.body = junctionseq.results.body[!(is.na(junctionseq.results.body$pvalue)),]
 junctionseq.results.head = junctionseq.results.head[!(is.na(junctionseq.results.head$pvalue)),]
 # Lets remove any rows where the expr in males or females is less than 10 in the junctionseq data
-junctionseq.results.filtered.body = junctionseq.results.body[junctionseq.results.body$expr_male > 10 & junctionseq.results.body$expr_female > 10,]
-junctionseq.results.filtered.head = junctionseq.results.head[junctionseq.results.head$expr_male > 10 & junctionseq.results.head$expr_female > 10,]
+junctionseq.results.filtered.body = junctionseq.results.body[junctionseq.results.body$expr_male > 50 & junctionseq.results.body$expr_female > 50,]
+junctionseq.results.filtered.head = junctionseq.results.head[junctionseq.results.head$expr_male > 50 & junctionseq.results.head$expr_female > 50,]
 
 # Merge the two data files and clean them up
-junctionseq.results.body.merged = merge(junctionseq.results.filtered.body, tajimasD.per.gene, by.x = "geneID", by.y = "V1", sort = FALSE)
+junctionseq.results.body.merged = merge(junctionseq.results.filtered.body, tajimasD.per.gene, by.x = "geneID", by.y = "geneID", sort = FALSE)
 junctionseq.results.body.merged = junctionseq.results.body.merged[, c(1,25,26)]
 junctionseq.results.body.merged = junctionseq.results.body.merged[!duplicated(junctionseq.results.body.merged[1:3]),]
 
-junctionseq.results.head.merged = merge(junctionseq.results.filtered.head, tajimasD.per.gene, by.x = "geneID", by.y = "V1", sort = FALSE)
+junctionseq.results.head.merged = merge(junctionseq.results.filtered.head, tajimasD.per.gene, by.x = "geneID", by.y = "geneID", sort = FALSE)
 junctionseq.results.head.merged = junctionseq.results.head.merged[, c(1,25,26)]
 junctionseq.results.head.merged = junctionseq.results.head.merged[!duplicated(junctionseq.results.head.merged[1:3]),]
-
 
 # Assign significant hits
 junctionseq.results.body.merged$sig.hit = NA
@@ -297,21 +295,23 @@ junctionseq.results.head.merged$sig.hit = NA
 junctionseq.results.head.merged$sig.hit[junctionseq.results.head.merged$geneWisePadj <= 0.01] = 1
 junctionseq.results.head.merged$sig.hit[!(junctionseq.results.head.merged$geneWisePadj <= 0.01)] = 0
 
-
 # Collapse duplicates
 junctionseq.results.body.merged.unique = unique(junctionseq.results.body.merged)
 junctionseq.results.head.merged.unique = unique(junctionseq.results.head.merged)
-
 
 # Merge Junctionseq/TajimasD data with DGE data
 junctionseq.results.body.merged.unique = merge(junctionseq.results.body.merged.unique, DGE.data.body, by.x = "geneID", by.y = "FlyBaseID")
 junctionseq.results.head.merged.unique = merge(junctionseq.results.head.merged.unique, DGE.data.head, by.x = "geneID", by.y = "FlyBaseID")
 
 # Subset out the columns of interest (i.e., gene ID, TajimasD, significant differences in exon usage, and log2FC)
-expression.data.body = junctionseq.results.body.merged.unique[, c(1,3,4,7)]
-expression.data.head = junctionseq.results.head.merged.unique[, c(1,3,4,8)]
+expression.data.body = junctionseq.results.body.merged.unique[, c(1,3:6)]
+expression.data.head = junctionseq.results.head.merged.unique[, c(1,3:6)]
 
-# Assign quartile bins for male and female biased gene expression
+# Assign quantiles for sex-averaged mean expression
+expression.data.body = expression.data.body %>% mutate(sex.averaged.expression.quantile = ntile(baseMean, 3))
+expression.data.head = expression.data.head %>% mutate(sex.averaged.expression.quantile = ntile(baseMean, 3))
+
+# Seperate out genes into male and female biased gene expression
 male.biased.body = expression.data.body[expression.data.body$log2FoldChange > 0,]
 female.biased.body = expression.data.body[expression.data.body$log2FoldChange < 0,]
 male.biased.head = expression.data.head[expression.data.head$log2FoldChange > 0,]
@@ -323,31 +323,432 @@ female.biased.body = female.biased.body[!(is.na(female.biased.body$log2FoldChang
 male.biased.head = male.biased.head[!(is.na(male.biased.head$log2FoldChange)),]
 female.biased.head = female.biased.head[!(is.na(female.biased.head$log2FoldChange)),]
 
-# Assign quartiles for both MBG and FBG
-male.biased.body = male.biased.body %>% mutate(quartile = ntile(log2FoldChange, 4))
-female.biased.body = female.biased.body %>% mutate(quartile = ntile(log2FoldChange, 4))
-male.biased.head = male.biased.head %>% mutate(quartile = ntile(log2FoldChange, 4))
-female.biased.head = female.biased.head %>% mutate(quartile = ntile(log2FoldChange, 4))
+# Assign quantiles for sex-averaged mean expression
+#male.biased.body = male.biased.body %>% mutate(sex.averaged.expression.quantile = ntile(baseMean, 3))
+#male.biased.head = male.biased.body %>% mutate(sex.averaged.expression.quantile = ntile(baseMean, 3))
+#female.biased.body = female.biased.body %>% mutate(sex.averaged.expression.quantile = ntile(baseMean, 3))
+#female.biased.head = female.biased.head %>% mutate(sex.averaged.expression.quantile = ntile(baseMean, 3))
 
-# For the male genes, lets add 4 to each quartile
-male.biased.body$quartile = male.biased.body$quartile + 4
-male.biased.head$quartile = male.biased.head$quartile + 4
+# Assign quantile for both MBG and FBG within each sex-averaged expression quantile ## Careful in using this variable, it is only relevant when parsed by sex-averaged gene expression!
+male.biased.body.lowexp = male.biased.body[male.biased.body$sex.averaged.expression.quantile == 1,] %>% mutate(sex.averaged.log2FC.quantile = ntile(log2FoldChange, 3))
+male.biased.body.intermediateexp = male.biased.body[male.biased.body$sex.averaged.expression.quantile == 2,] %>% mutate(sex.averaged.log2FC.quantile = ntile(log2FoldChange, 3))
+male.biased.body.highexp = male.biased.body[male.biased.body$sex.averaged.expression.quantile == 3,] %>% mutate(sex.averaged.log2FC.quantile = ntile(log2FoldChange, 3))
+male.biased.head.lowexp = male.biased.head[male.biased.head$sex.averaged.expression.quantile == 1,] %>% mutate(sex.averaged.log2FC.quantile = ntile(log2FoldChange, 3))
+male.biased.head.intermediateexp = male.biased.head[male.biased.head$sex.averaged.expression.quantile == 2,] %>% mutate(sex.averaged.log2FC.quantile = ntile(log2FoldChange, 3))
+male.biased.head.highexp = male.biased.head[male.biased.head$sex.averaged.expression.quantile == 3,] %>% mutate(sex.averaged.log2FC.quantile = ntile(log2FoldChange, 3))
+
+female.biased.body.lowexp = female.biased.body[female.biased.body$sex.averaged.expression.quantile == 1,] %>% mutate(sex.averaged.log2FC.quantile = ntile(log2FoldChange, 3))
+female.biased.body.intermediateexp = female.biased.body[female.biased.body$sex.averaged.expression.quantile == 2,] %>% mutate(sex.averaged.log2FC.quantile = ntile(log2FoldChange, 3))
+female.biased.body.highexp = female.biased.body[female.biased.body$sex.averaged.expression.quantile == 3,] %>% mutate(sex.averaged.log2FC.quantile = ntile(log2FoldChange, 3))
+female.biased.head.lowexp = female.biased.head[female.biased.head$sex.averaged.expression.quantile == 1,] %>% mutate(sex.averaged.log2FC.quantile = ntile(log2FoldChange, 3))
+female.biased.head.intermediateexp = female.biased.head[female.biased.head$sex.averaged.expression.quantile == 2,] %>% mutate(sex.averaged.log2FC.quantile = ntile(log2FoldChange, 3))
+female.biased.head.highexp = female.biased.head[female.biased.head$sex.averaged.expression.quantile == 3,] %>% mutate(sex.averaged.log2FC.quantile = ntile(log2FoldChange, 3))
+
+# For the male genes, lets add 3 to each quantile
+male.biased.body.lowexp$sex.averaged.log2FC.quantile = male.biased.body.lowexp$sex.averaged.log2FC.quantile + 3
+male.biased.body.intermediateexp$sex.averaged.log2FC.quantile = male.biased.body.intermediateexp$sex.averaged.log2FC.quantile + 3
+male.biased.body.highexp$sex.averaged.log2FC.quantile = male.biased.body.highexp$sex.averaged.log2FC.quantile + 3
+male.biased.head.lowexp$sex.averaged.log2FC.quantile = male.biased.head.lowexp$sex.averaged.log2FC.quantile + 3
+male.biased.head.intermediateexp$sex.averaged.log2FC.quantile = male.biased.head.intermediateexp$sex.averaged.log2FC.quantile + 3
+male.biased.head.highexp$sex.averaged.log2FC.quantile = male.biased.head.highexp$sex.averaged.log2FC.quantile + 3
+
+# Combine back into male-biased and female-biased dataframes
+male.biased.body = rbind(male.biased.body.lowexp, male.biased.body.intermediateexp,male.biased.body.highexp)
+male.biased.head = rbind(male.biased.head.lowexp, male.biased.head.intermediateexp,male.biased.head.highexp)
+female.biased.body = rbind(female.biased.body.lowexp, female.biased.body.intermediateexp,female.biased.body.highexp)
+female.biased.head = rbind(female.biased.head.lowexp, female.biased.head.intermediateexp,female.biased.head.highexp)
+
+# Assign quantile for both MBG and FBG overall
+male.biased.body = male.biased.body %>% mutate(log2FC.quantile = ntile(log2FoldChange, 3))
+male.biased.head = male.biased.head %>% mutate(log2FC.quantile = ntile(log2FoldChange, 3))
+female.biased.body = female.biased.body %>% mutate(log2FC.quantile = ntile(log2FoldChange, 3))
+female.biased.head = female.biased.head %>% mutate(log2FC.quantile = ntile(log2FoldChange, 3))
+
+# For the male genes, lets add 3 to each quantile
+male.biased.body$log2FC.quantile = male.biased.body$log2FC.quantile + 3
+male.biased.head$log2FC.quantile = male.biased.head$log2FC.quantile + 3
 
 # Merge data back
 expression.data.body = rbind(male.biased.body,female.biased.body)
 expression.data.head = rbind(male.biased.head,female.biased.head)
+expression.data.body$tissue= "body"
+expression.data.head$tissue= "head"
 
-# Lets plot TajimasD for sig hits in quartile bins
-body.sig.hits = expression.data.body[expression.data.body$sig.hit == 1,]
-body.non.sig.hits = expression.data.body[expression.data.body$sig.hit == 0,]
-head.sig.hits = expression.data.head[expression.data.head$sig.hit == 1,]
-head.non.sig.hits = expression.data.head[expression.data.head$sig.hit == 0,]
+expression.data.tajimasD = rbind(expression.data.head, expression.data.body)
 
-# Determine mean tajimasD in each quartile
-body.sig.hits.mean = summaryBy(TajimasD ~ quartile, FUN=c(mean), data = body.sig.hits)
-body.non.sig.hits.mean = summaryBy(TajimasD ~ quartile, FUN=c(mean), data = body.non.sig.hits)
-head.sig.hits.mean = summaryBy(TajimasD ~ quartile, FUN=c(mean), data = head.sig.hits)
-head.non.sig.hits.mean = summaryBy(TajimasD ~ quartile, FUN=c(mean), data = head.non.sig.hits)
+### Plotting #### -- Three different plots
+
+# 1. First plot is just averaging Tajima's D among significant and non-significant genes
+tajimasD.summary = summaryBy(TajimasD ~ sig.hit + tissue, data = expression.data.tajimasD)
+
+resample.data = as.data.frame(cbind(vector(mode="numeric", length = 10000 * nrow(tajimasD.summary)),
+                                    vector(mode="numeric", length = 10000 * nrow(tajimasD.summary)),
+                                    vector(mode="numeric", length = 10000 * nrow(tajimasD.summary)),
+                                    vector(mode="numeric", length = 10000 * nrow(tajimasD.summary))))
+
+output.row.start = 1
+output.row.end = 4
+for (i in 1:10000){
+
+    resampled.df = rbind( sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body", ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body", ]), replace = TRUE),
+                         sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body", ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body", ]), replace = TRUE),
+                         sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head", ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head", ]), replace = TRUE),
+                         sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head", ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head", ]), replace = TRUE))
+
+                  # Output summary of resampled data to resample dataframe
+                  resample.data[output.row.start:output.row.end, ] = summaryBy(TajimasD ~ sig.hit + tissue, FUN=c(mean, length), data = resampled.df)
+                  output.row.start = output.row.end  + 1
+                  output.row.end = output.row.end + 4
+                  print(i)
+
+}
+
+# Rename columns of resampled data
+colnames(resample.data) = c("sig.hit","tissue","TajimasD.Mean","Number.of.Genes")
+
+tajimasD.data.summary = summaryBy(TajimasD.Mean ~ sig.hit + tissue, FUN = function(x) c(Mean = mean(x), lower.ci = quantile(x, probs = 0.05), upper.ci=quantile(x, probs = 0.95)), data = resample.data)
+colnames(tajimasD.data.summary) = c("sig.hit","tissue","TajimasD.Mean","TajimasD.lowerCI","TajimasD.upperCI")
+
+# Replace resample.data.summary "mean" with true observed mean
+tajimasD.data.summary$TajimasD.Mean = tajimasD.summary$TajimasD.mean
+
+tajimasD.summary.plot = ggplot(tajimasD.data.summary, aes(y = TajimasD.Mean, x = as.factor(tissue), colour = as.factor(sig.hit))) +
+                                      geom_point(aes(y = TajimasD.Mean, x = as.factor(tissue), colour = as.factor(sig.hit)),size = 10,
+                                      position = position_dodge(width = 0.5)) + scale_y_continuous(limits = c(-0.075, 0.1)) +
+                                      geom_errorbar(aes(ymin = TajimasD.lowerCI, ymax = TajimasD.upperCI, x = as.factor(tissue), colour=as.factor(sig.hit)),
+                                      width = 0, position = position_dodge(width = 0.5)) +
+                                      theme_bw()  + scale_colour_manual(values = c("#7294D4", "#5B1A18")) +
+                                      theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
+                                            panel.border = element_rect(colour = "black", fill=NA, size=1),
+                                            axis.text = element_text(face="bold", color="black",size=20, family = "Helvetica"),
+                                            axis.title=element_blank(), legend.position = "none")
+
+pdf("/plas1/amardeep.singh/tmp/TajimasD.summary.plot.pdf", height = 10, width = 5)
+tajimasD.summary.plot
+dev.off()
+
+
+
+##### Plotting Tajimas D against log2FC without parsing out by sex-averaged gene expression   ######
+
+# Summary for means
+expression.data.tajimaD.summary = summaryBy(TajimasD ~ log2FC.quantile + sig.hit + tissue, FUN=c(mean, length), data = expression.data.tajimasD)
+
+# Bootstrap means for each subset
+# Data frame to hold resampled results
+resample.data = as.data.frame(cbind(vector(mode="numeric", length = 10000 * nrow(expression.data.tajimaD.summary)),
+                                    vector(mode="numeric", length = 10000 * nrow(expression.data.tajimaD.summary)),
+                                    vector(mode="numeric", length = 10000 * nrow(expression.data.tajimaD.summary)),
+                                    vector(mode="numeric", length = 10000 * nrow(expression.data.tajimaD.summary)),
+                                    vector(mode="numeric", length = 10000 * nrow(expression.data.tajimaD.summary))))
+
+## Loop to resample TajimasD data
+output.row.start = 1
+output.row.end = 24
+for (i in 1:10000){
+  resampled.df=rbind( sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$log2FC.quantile == 1, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$log2FC.quantile == 1, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$log2FC.quantile == 1, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$log2FC.quantile == 1, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$log2FC.quantile == 2, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$log2FC.quantile == 2, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$log2FC.quantile == 2, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$log2FC.quantile == 2, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$log2FC.quantile == 3, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$log2FC.quantile == 3, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$log2FC.quantile == 3, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$log2FC.quantile == 3, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$log2FC.quantile == 4, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$log2FC.quantile == 4, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$log2FC.quantile == 4, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$log2FC.quantile == 4, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$log2FC.quantile == 5, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$log2FC.quantile == 5, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$log2FC.quantile == 5, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$log2FC.quantile == 5, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$log2FC.quantile == 6, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$log2FC.quantile == 6, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$log2FC.quantile == 6, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$log2FC.quantile == 6, ]), replace = TRUE),
+
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$log2FC.quantile == 1, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$log2FC.quantile == 1, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$log2FC.quantile == 1, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$log2FC.quantile == 1, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$log2FC.quantile == 2, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$log2FC.quantile == 2, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$log2FC.quantile == 2, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$log2FC.quantile == 2, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$log2FC.quantile == 3, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$log2FC.quantile == 3, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$log2FC.quantile == 3, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$log2FC.quantile == 3, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$log2FC.quantile == 4, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$log2FC.quantile == 4, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$log2FC.quantile == 4, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$log2FC.quantile == 4, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$log2FC.quantile == 5, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$log2FC.quantile == 5, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$log2FC.quantile == 5, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$log2FC.quantile == 5, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$log2FC.quantile == 6, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$log2FC.quantile == 6, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$log2FC.quantile == 6, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$log2FC.quantile == 6, ]), replace = TRUE))
+
+                    # Output summary of resampled data to resample dataframe
+                    resample.data[output.row.start:output.row.end, ] = summaryBy(TajimasD ~ log2FC.quantile + sig.hit + tissue, FUN=c(mean, length), data = resampled.df)
+                    output.row.start = output.row.end  + 1
+                    output.row.end = output.row.end + 24
+                    print(i)
+}
+
+
+colnames(resample.data) = c("log2FC.quantile","sig.hit","tissue","TajimasD","number.of.genes")
+write.table(resample.data, file = "/plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/TajimasD.resampled.averaged.across.abs.gene.expression.txt", quote = FALSE, row.names = FALSE, col.names = TRUE, sep = "\t")
+
+resample.data = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/TajimasD.resampled.averaged.across.abs.gene.expression.txt", header = TRUE)
+
+# Rename columns of resampled data
+tajimasD.data.summary = summaryBy(TajimasD ~ log2FC.quantile + sig.hit + tissue, FUN = function(x) c(Mean = mean(x), lower.ci = quantile(x, probs = 0.05), upper.ci=quantile(x, probs = 0.95)), data = resample.data)
+
+# Replace resample.data.summary "mean" with true observed mean
+colnames(tajimasD.data.summary) = c("log2FC.quantile","sig.hit","tissue","TajimasD.Mean","TajimasD.lowerCI","TajimasD.upperCI")
+tajimasD.data.summary$TajimasD.Mean = expression.data.tajimaD.summary$TajimasD.mean
+
+tajimasD.expression.plot = ggplot(tajimasD.data.summary, aes(y = TajimasD.Mean, x = as.factor(log2FC.quantile), colour = as.factor(sig.hit))) +
+                                      geom_point(aes(y = TajimasD.Mean, x = as.factor(log2FC.quantile), colour = as.factor(sig.hit)),size = 10,
+                                      position = position_dodge(width = 0.5)) + #scale_y_continuous(limits = c(-0.2, 0.2)) +
+                                      geom_errorbar(aes(ymin = TajimasD.lowerCI, ymax = TajimasD.upperCI, x = as.factor(log2FC.quantile), colour=as.factor(sig.hit)),
+                                      width = 0, position = position_dodge(width = 0.5)) +
+                                      theme_bw()  + scale_colour_manual(values = c("#7294D4", "#5B1A18")) +
+                                      theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
+                                            panel.border = element_rect(colour = "black", fill=NA, size=1),
+                                            axis.text = element_text(face="bold", color="black",size=20, family = "Helvetica"),
+                                            axis.title=element_blank(), legend.position = "none") +
+                                      facet_grid(tissue ~. )
+
+pdf("/plas1/amardeep.singh/tmp/TajimasD.by.log2FC.expression.pdf", height = 10, width = 10)
+tajimasD.expression.plot
+dev.off()
+
+
+##### Plotting Tajimas D against sex-averaged gene expression without parsing by log2FC  ######
+
+# Summary for means
+expression.data.tajimaD.summary = summaryBy(TajimasD ~ sex.averaged.expression.quantile + sig.hit + tissue, FUN=c(mean, length), data = expression.data.tajimasD)
+
+# Bootstrap means for each subset
+# Data frame to hold resampled results
+resample.data = as.data.frame(cbind(vector(mode="numeric", length = 10000 * nrow(expression.data.tajimaD.summary)),
+                                    vector(mode="numeric", length = 10000 * nrow(expression.data.tajimaD.summary)),
+                                    vector(mode="numeric", length = 10000 * nrow(expression.data.tajimaD.summary)),
+                                    vector(mode="numeric", length = 10000 * nrow(expression.data.tajimaD.summary)),
+                                    vector(mode="numeric", length = 10000 * nrow(expression.data.tajimaD.summary))))
+
+## Loop to resample TajimasD data
+output.row.start = 1
+output.row.end = 12
+for (i in 1:10000){
+  resampled.df=rbind( sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$sex.averaged.expression.quantile == 1, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$sex.averaged.expression.quantile == 1, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$sex.averaged.expression.quantile == 1, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$sex.averaged.expression.quantile == 1, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$sex.averaged.expression.quantile == 2, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$sex.averaged.expression.quantile == 2, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$sex.averaged.expression.quantile == 2, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$sex.averaged.expression.quantile == 2, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$sex.averaged.expression.quantile == 3, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$sex.averaged.expression.quantile == 3, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$sex.averaged.expression.quantile == 3, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$sex.averaged.expression.quantile == 3, ]), replace = TRUE),
+
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$sex.averaged.expression.quantile == 1, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$sex.averaged.expression.quantile == 1, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$sex.averaged.expression.quantile == 1, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$sex.averaged.expression.quantile == 1, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$sex.averaged.expression.quantile == 2, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$sex.averaged.expression.quantile == 2, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$sex.averaged.expression.quantile == 2, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$sex.averaged.expression.quantile == 2, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$sex.averaged.expression.quantile == 3, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$sex.averaged.expression.quantile == 3, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$sex.averaged.expression.quantile == 3, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$sex.averaged.expression.quantile == 3, ]), replace = TRUE))
+
+                    # Output summary of resampled data to resample dataframe
+                    resample.data[output.row.start:output.row.end, ] = summaryBy(TajimasD ~ sex.averaged.expression.quantile + sig.hit + tissue, FUN=c(mean, length), data = resampled.df)
+                    output.row.start = output.row.end  + 1
+                    output.row.end = output.row.end + 24
+                    print(i)
+}
+
+
+colnames(resample.data) = c("sex.averaged.expression.quantile","sig.hit","tissue","TajimasD","number.of.genes")
+write.table(resample.data, file = "/plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/TajimasD.resampled.versus.sex.averaged.expression.quantile.txt", quote = FALSE, row.names = FALSE, col.names = TRUE, sep = "\t")
+
+resample.data = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/TajimasD.resampled.versus.sex.averaged.expression.quantile.txt", header = TRUE)
+
+# Rename columns of resampled data
+tajimasD.data.summary = summaryBy(TajimasD ~ sex.averaged.expression.quantile + sig.hit + tissue, FUN = function(x) c(Mean = mean(x), lower.ci = quantile(x, probs = 0.05), upper.ci=quantile(x, probs = 0.95)), data = resample.data)
+
+# Replace resample.data.summary "mean" with true observed mean
+colnames(tajimasD.data.summary) = c("sex.averaged.expression.quantile","sig.hit","tissue","TajimasD.Mean","TajimasD.lowerCI","TajimasD.upperCI")
+tajimasD.data.summary$TajimasD.Mean = expression.data.tajimaD.summary$TajimasD.mean
+
+tajimasD.sex.averaged.expression.plot = ggplot(tajimasD.data.summary, aes(y = TajimasD.Mean, x = as.factor(sex.averaged.expression.quantile), colour = as.factor(sig.hit))) +
+                                      geom_point(aes(y = TajimasD.Mean, x = as.factor(sex.averaged.expression.quantile), colour = as.factor(sig.hit)),size = 10,
+                                      position = position_dodge(width = 0.5)) + ylim(-0.25, 0.15) +
+                                      geom_errorbar(aes(ymin = TajimasD.lowerCI, ymax = TajimasD.upperCI, x = as.factor(sex.averaged.expression.quantile), colour=as.factor(sig.hit)),
+                                      width = 0, position = position_dodge(width = 0.5)) +
+                                      theme_bw()  + scale_colour_manual(values = c("#7294D4", "#5B1A18")) +
+                                      theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
+                                            panel.border = element_rect(colour = "black", fill=NA, size=1),
+                                            axis.text = element_text(face="bold", color="black",size=20, family = "Helvetica"),
+                                            axis.title=element_blank(), legend.position = "none") +
+                                      facet_grid(tissue ~., scales = "free" )
+
+pdf("/plas1/amardeep.singh/tmp/TajimasD.by.sex.averaged.expression.quantile.pdf", height = 10, width = 10)
+tajimasD.sex.averaged.expression.plot
+dev.off()
+
+
+
+
+##### Plotting Tajimas D after parsing out by sex-averaged gene expression and log2FC expression   ######
+
+# Summary for means
+expression.data.tajimaD.summary = summaryBy(TajimasD ~  sex.averaged.expression.quantile + sex.averaged.log2FC.quantile + sig.hit + tissue, FUN=c(mean, length), data = expression.data.tajimasD)
+
+# Bootstrap means for each subset
+# Data frame to hold resampled results
+resample.data = as.data.frame(cbind(vector(mode="numeric", length = 10000 * nrow(expression.data.tajimaD.summary)),
+                                    vector(mode="numeric", length = 10000 * nrow(expression.data.tajimaD.summary)),
+                                    vector(mode="numeric", length = 10000 * nrow(expression.data.tajimaD.summary)),
+                                    vector(mode="numeric", length = 10000 * nrow(expression.data.tajimaD.summary)),
+                                    vector(mode="numeric", length = 10000 * nrow(expression.data.tajimaD.summary)),
+                                    vector(mode="numeric", length = 10000 * nrow(expression.data.tajimaD.summary))))
+
+## Loop to resample TajimasD data
+output.row.start = 1
+output.row.end = 72
+for (i in 1:10000){
+  resampled.df=rbind(
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$sex.averaged.expression.quantile == 1 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 1, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body"& expression.data.tajimasD$sex.averaged.expression.quantile == 1  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 1, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$sex.averaged.expression.quantile == 1 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 1, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body"& expression.data.tajimasD$sex.averaged.expression.quantile == 1  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 1, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$sex.averaged.expression.quantile == 1 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 2, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body"& expression.data.tajimasD$sex.averaged.expression.quantile == 1  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 2, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$sex.averaged.expression.quantile == 1 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 2, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body"& expression.data.tajimasD$sex.averaged.expression.quantile == 1  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 2, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$sex.averaged.expression.quantile == 1 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 3, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body"& expression.data.tajimasD$sex.averaged.expression.quantile == 1  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 3, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$sex.averaged.expression.quantile == 1 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 3, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body"& expression.data.tajimasD$sex.averaged.expression.quantile == 1  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 3, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$sex.averaged.expression.quantile == 1 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 4, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body"& expression.data.tajimasD$sex.averaged.expression.quantile == 1  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 4, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$sex.averaged.expression.quantile == 1 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 4, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body"& expression.data.tajimasD$sex.averaged.expression.quantile == 1  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 4, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$sex.averaged.expression.quantile == 1 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 5, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body"& expression.data.tajimasD$sex.averaged.expression.quantile == 1  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 5, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$sex.averaged.expression.quantile == 1 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 5, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body"& expression.data.tajimasD$sex.averaged.expression.quantile == 1  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 5, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$sex.averaged.expression.quantile == 1 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 6, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body"& expression.data.tajimasD$sex.averaged.expression.quantile == 1  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 6, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$sex.averaged.expression.quantile == 1 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 6, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body"& expression.data.tajimasD$sex.averaged.expression.quantile == 1  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 6, ]), replace = TRUE),
+
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$sex.averaged.expression.quantile == 2 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 1, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body"& expression.data.tajimasD$sex.averaged.expression.quantile == 2  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 1, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$sex.averaged.expression.quantile == 2 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 1, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body"& expression.data.tajimasD$sex.averaged.expression.quantile == 2  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 1, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$sex.averaged.expression.quantile == 2 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 2, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body"& expression.data.tajimasD$sex.averaged.expression.quantile == 2  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 2, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$sex.averaged.expression.quantile == 2 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 2, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body"& expression.data.tajimasD$sex.averaged.expression.quantile == 2  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 2, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$sex.averaged.expression.quantile == 2 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 3, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body"& expression.data.tajimasD$sex.averaged.expression.quantile == 2  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 3, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$sex.averaged.expression.quantile == 2 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 3, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body"& expression.data.tajimasD$sex.averaged.expression.quantile == 2  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 3, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$sex.averaged.expression.quantile == 2 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 4, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body"& expression.data.tajimasD$sex.averaged.expression.quantile == 2  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 4, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$sex.averaged.expression.quantile == 2 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 4, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body"& expression.data.tajimasD$sex.averaged.expression.quantile == 2  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 4, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$sex.averaged.expression.quantile == 2 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 5, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body"& expression.data.tajimasD$sex.averaged.expression.quantile == 2  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 5, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$sex.averaged.expression.quantile == 2 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 5, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body"& expression.data.tajimasD$sex.averaged.expression.quantile == 2  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 5, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$sex.averaged.expression.quantile == 2 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 6, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body"& expression.data.tajimasD$sex.averaged.expression.quantile == 2  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 6, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$sex.averaged.expression.quantile == 2 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 6, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body"& expression.data.tajimasD$sex.averaged.expression.quantile == 2  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 6, ]), replace = TRUE),
+
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$sex.averaged.expression.quantile == 3 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 1, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body"& expression.data.tajimasD$sex.averaged.expression.quantile == 3  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 1, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$sex.averaged.expression.quantile == 3 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 1, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body"& expression.data.tajimasD$sex.averaged.expression.quantile == 3  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 1, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$sex.averaged.expression.quantile == 3 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 2, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body"& expression.data.tajimasD$sex.averaged.expression.quantile == 3  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 2, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$sex.averaged.expression.quantile == 3 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 2, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body"& expression.data.tajimasD$sex.averaged.expression.quantile == 3  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 2, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$sex.averaged.expression.quantile == 3 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 3, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body"& expression.data.tajimasD$sex.averaged.expression.quantile == 3  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 3, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$sex.averaged.expression.quantile == 3 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 3, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body"& expression.data.tajimasD$sex.averaged.expression.quantile == 3  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 3, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$sex.averaged.expression.quantile == 3 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 4, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body"& expression.data.tajimasD$sex.averaged.expression.quantile == 3  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 4, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$sex.averaged.expression.quantile == 3 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 4, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body"& expression.data.tajimasD$sex.averaged.expression.quantile == 3  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 4, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$sex.averaged.expression.quantile == 3 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 5, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body"& expression.data.tajimasD$sex.averaged.expression.quantile == 3  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 5, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$sex.averaged.expression.quantile == 3 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 5, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body"& expression.data.tajimasD$sex.averaged.expression.quantile == 3  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 5, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$sex.averaged.expression.quantile == 3 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 6, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "body"& expression.data.tajimasD$sex.averaged.expression.quantile == 3  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 6, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$sex.averaged.expression.quantile == 3 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 6, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "body"& expression.data.tajimasD$sex.averaged.expression.quantile == 3  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 6, ]), replace = TRUE),
+
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$sex.averaged.expression.quantile == 1 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 1, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head"& expression.data.tajimasD$sex.averaged.expression.quantile == 1  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 1, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$sex.averaged.expression.quantile == 1 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 1, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head"& expression.data.tajimasD$sex.averaged.expression.quantile == 1  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 1, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$sex.averaged.expression.quantile == 1 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 2, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head"& expression.data.tajimasD$sex.averaged.expression.quantile == 1  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 2, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$sex.averaged.expression.quantile == 1 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 2, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head"& expression.data.tajimasD$sex.averaged.expression.quantile == 1  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 2, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$sex.averaged.expression.quantile == 1 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 3, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head"& expression.data.tajimasD$sex.averaged.expression.quantile == 1  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 3, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$sex.averaged.expression.quantile == 1 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 3, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head"& expression.data.tajimasD$sex.averaged.expression.quantile == 1  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 3, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$sex.averaged.expression.quantile == 1 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 4, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head"& expression.data.tajimasD$sex.averaged.expression.quantile == 1  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 4, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$sex.averaged.expression.quantile == 1 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 4, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head"& expression.data.tajimasD$sex.averaged.expression.quantile == 1  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 4, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$sex.averaged.expression.quantile == 1 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 5, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head"& expression.data.tajimasD$sex.averaged.expression.quantile == 1  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 5, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$sex.averaged.expression.quantile == 1 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 5, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head"& expression.data.tajimasD$sex.averaged.expression.quantile == 1  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 5, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$sex.averaged.expression.quantile == 1 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 6, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head"& expression.data.tajimasD$sex.averaged.expression.quantile == 1  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 6, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$sex.averaged.expression.quantile == 1 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 6, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head"& expression.data.tajimasD$sex.averaged.expression.quantile == 1  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 6, ]), replace = TRUE),
+
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$sex.averaged.expression.quantile == 2 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 1, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head"& expression.data.tajimasD$sex.averaged.expression.quantile == 2  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 1, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$sex.averaged.expression.quantile == 2 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 1, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head"& expression.data.tajimasD$sex.averaged.expression.quantile == 2  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 1, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$sex.averaged.expression.quantile == 2 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 2, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head"& expression.data.tajimasD$sex.averaged.expression.quantile == 2  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 2, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$sex.averaged.expression.quantile == 2 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 2, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head"& expression.data.tajimasD$sex.averaged.expression.quantile == 2  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 2, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$sex.averaged.expression.quantile == 2 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 3, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head"& expression.data.tajimasD$sex.averaged.expression.quantile == 2  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 3, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$sex.averaged.expression.quantile == 2 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 3, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head"& expression.data.tajimasD$sex.averaged.expression.quantile == 2  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 3, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$sex.averaged.expression.quantile == 2 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 4, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head"& expression.data.tajimasD$sex.averaged.expression.quantile == 2  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 4, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$sex.averaged.expression.quantile == 2 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 4, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head"& expression.data.tajimasD$sex.averaged.expression.quantile == 2  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 4, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$sex.averaged.expression.quantile == 2 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 5, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head"& expression.data.tajimasD$sex.averaged.expression.quantile == 2  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 5, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$sex.averaged.expression.quantile == 2 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 5, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head"& expression.data.tajimasD$sex.averaged.expression.quantile == 2  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 5, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$sex.averaged.expression.quantile == 2 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 6, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head"& expression.data.tajimasD$sex.averaged.expression.quantile == 2  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 6, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$sex.averaged.expression.quantile == 2 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 6, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head"& expression.data.tajimasD$sex.averaged.expression.quantile == 2  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 6, ]), replace = TRUE),
+
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$sex.averaged.expression.quantile == 3 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 1, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head"& expression.data.tajimasD$sex.averaged.expression.quantile == 3  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 1, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$sex.averaged.expression.quantile == 3 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 1, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head"& expression.data.tajimasD$sex.averaged.expression.quantile == 3  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 1, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$sex.averaged.expression.quantile == 3 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 2, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head"& expression.data.tajimasD$sex.averaged.expression.quantile == 3  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 2, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$sex.averaged.expression.quantile == 3 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 2, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head"& expression.data.tajimasD$sex.averaged.expression.quantile == 3  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 2, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$sex.averaged.expression.quantile == 3 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 3, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head"& expression.data.tajimasD$sex.averaged.expression.quantile == 3  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 3, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$sex.averaged.expression.quantile == 3 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 3, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head"& expression.data.tajimasD$sex.averaged.expression.quantile == 3  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 3, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$sex.averaged.expression.quantile == 3 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 4, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head"& expression.data.tajimasD$sex.averaged.expression.quantile == 3  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 4, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$sex.averaged.expression.quantile == 3 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 4, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head"& expression.data.tajimasD$sex.averaged.expression.quantile == 3  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 4, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$sex.averaged.expression.quantile == 3 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 5, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head"& expression.data.tajimasD$sex.averaged.expression.quantile == 3  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 5, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$sex.averaged.expression.quantile == 3 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 5, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head"& expression.data.tajimasD$sex.averaged.expression.quantile == 3  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 5, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$sex.averaged.expression.quantile == 3 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 6, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 1 & expression.data.tajimasD$tissue == "head"& expression.data.tajimasD$sex.averaged.expression.quantile == 3  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 6, ]), replace = TRUE),
+                    sample_n(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$sex.averaged.expression.quantile == 3 & expression.data.tajimasD$sex.averaged.log2FC.quantile == 6, ], nrow(expression.data.tajimasD[expression.data.tajimasD$sig.hit == 0 & expression.data.tajimasD$tissue == "head"& expression.data.tajimasD$sex.averaged.expression.quantile == 3  & expression.data.tajimasD$sex.averaged.log2FC.quantile == 6, ]), replace = TRUE))
+
+                    # Output summary of resampled data to resample dataframe
+                    resample.data[output.row.start:output.row.end, ] = summaryBy(TajimasD ~  sex.averaged.expression.quantile+ sex.averaged.log2FC.quantile + sig.hit + tissue, FUN=c(mean, length), data = resampled.df)
+                    output.row.start = output.row.end  + 1
+                    output.row.end = output.row.end + 72
+                    print(i)
+}
+
+colnames(resample.data) = c("sex.averaged.expression.quantile", "sex.averaged.log2FC.quantile","sig.hit","tissue","TajimasD","number.of.genes")
+write.table(resample.data, file = "/plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/TajimasD.resampled.parsed.by.abs.gene.expression.txt", quote = FALSE, row.names = FALSE, col.names = TRUE, sep = "\t")
+
+# Load resampled data
+resample.data = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/TajimasD.resampled.parsed.by.abs.gene.expression.txt", header = TRUE)
+
+# Rename columns of resampled data
+tajimasD.data.summary = summaryBy(TajimasD ~ sex.averaged.expression.quantile + sex.averaged.log2FC.quantile + sig.hit + tissue, FUN = function(x) c(Mean = mean(x), lower.ci = quantile(x, probs = 0.05), upper.ci=quantile(x, probs = 0.95)), data = resample.data)
+colnames(tajimasD.data.summary) = c("sex.averaged.expression.quantile","sex.averaged.log2FC.quantile","sig.hit","tissue","TajimasD.Mean","TajimasD.lowerCI","TajimasD.upperCI")
+
+# Replace resample.data.summary "mean" with true observed mean
+tajimasD.data.summary$TajimasD.Mean = expression.data.tajimaD.summary$TajimasD.mean
+
+tajimasD.expression.plot = ggplot(tajimasD.data.summary, aes(y = TajimasD.Mean, x = as.factor(sex.averaged.log2FC.quantile), colour = as.factor(sig.hit))) +
+                                      geom_point(aes(y = TajimasD.Mean, x = as.factor(sex.averaged.log2FC.quantile), colour = as.factor(sig.hit)),size = 7,
+                                      position = position_dodge(width = 0.5)) + #scale_y_continuous(limits = c(-0.2, 0.2)) +
+                                      geom_errorbar(aes(ymin = TajimasD.lowerCI, ymax = TajimasD.upperCI, x = as.factor(sex.averaged.log2FC.quantile), colour=as.factor(sig.hit)),
+                                      width = 0, position = position_dodge(width = 0.5)) +
+                                      theme_bw()  + scale_colour_manual(values = c("#7294D4", "#5B1A18")) +
+                                      theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
+                                            panel.border = element_rect(colour = "black", fill=NA, size=1),
+                                            axis.text = element_text(face="bold", color="black",size=20, family = "Helvetica"),
+                                            axis.title=element_blank(), legend.position = "none") +
+                                      facet_grid(tissue ~ as.factor(sex.averaged.expression.quantile), scales = "free")
+
+pdf("/plas1/amardeep.singh/tmp/TajimasD.by.abs.gene.expression.and.log2FC.expression.pdf", height = 10, width = 10)
+tajimasD.expression.plot
+dev.off()
+
+
+## Plotting TajimasD against expression as a continuous trait rather than in quantiles
+# Model fitting
+tajimasD.model.body = lm(TajimasD ~ baseMean*log2FoldChange + sig.hit, data = expression.data.tajimasD[expression.data.tajimasD$tissue == "body", ])
+tajimasD.model.head = lm(TajimasD ~ baseMean*log2FoldChange + sig.hit, data = expression.data.tajimasD[expression.data.tajimasD$tissue == "head", ])
+
+tajimasD.model.body = lm(TajimasD ~ baseMean*abs(log2FoldChange) + sig.hit, data = expression.data.tajimasD[expression.data.tajimasD$tissue == "body", ])
+tajimasD.model.head = lm(TajimasD ~ baseMean*abs(log2FoldChange) + sig.hit, data = expression.data.tajimasD[expression.data.tajimasD$tissue == "head", ])
+
+
+# TajimasD ~ log2FC expression
+
+tajimasD.expression.continuous.plot = ggplot(expression.data.tajimasD, aes(y = TajimasD, x = log2FoldChange, colour = as.factor(sig.hit))) +
+                                            geom_point(aes(y = TajimasD, x =log2FoldChange, colour = as.factor(sig.hit)),size = 1) +
+                                            #position = position_dodge(width = 0.5)) + #scale_y_continuous(limits = c(-0.2, 0.2)) +
+                                            theme_bw()  + scale_colour_manual(values = c("#7294D4", "#5B1A18")) +
+                                            theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
+                                              panel.border = element_rect(colour = "black", fill=NA, size=1),
+                                              axis.text = element_text(face="bold", color="black",size=20, family = "Helvetica"),
+                                              axis.title=element_blank(), legend.position = "none") +
+                                            facet_grid(~tissue)
+pdf("/plas1/amardeep.singh/tmp/TajimasD.by.continuous.log2FC.expression.pdf", height = 10, width = 10)
+tajimasD.expression.continuous.plot
+dev.off()
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # Bootstrap means for each subset
 # Body
@@ -394,8 +795,8 @@ for (i in 1:10000){
   body.sig.hits.quantile.4[i] = mean(sample(body.sig.hits$TajimasD[body.sig.hits$quartile == 4], length(body.sig.hits$TajimasD[body.sig.hits$quartile == 4]), replace = TRUE))
   body.sig.hits.quantile.5[i] = mean(sample(body.sig.hits$TajimasD[body.sig.hits$quartile == 5], length(body.sig.hits$TajimasD[body.sig.hits$quartile == 5]), replace = TRUE))
   body.sig.hits.quantile.6[i] = mean(sample(body.sig.hits$TajimasD[body.sig.hits$quartile == 6], length(body.sig.hits$TajimasD[body.sig.hits$quartile == 6]), replace = TRUE))
-  body.sig.hits.quantile.7[i] = mean(sample(body.sig.hits$TajimasD[body.sig.hits$quartile == 7], length(body.sig.hits$TajimasD[body.sig.hits$quartile == 7]), replace = TRUE))
-  body.sig.hits.quantile.8[i] = mean(sample(body.sig.hits$TajimasD[body.sig.hits$quartile == 8], length(body.sig.hits$TajimasD[body.sig.hits$quartile == 8]), replace = TRUE))
+  #body.sig.hits.quantile.7[i] = mean(sample(body.sig.hits$TajimasD[body.sig.hits$quartile == 7], length(body.sig.hits$TajimasD[body.sig.hits$quartile == 7]), replace = TRUE))
+  #body.sig.hits.quantile.8[i] = mean(sample(body.sig.hits$TajimasD[body.sig.hits$quartile == 8], length(body.sig.hits$TajimasD[body.sig.hits$quartile == 8]), replace = TRUE))
 
   head.sig.hits.quantile.1[i] = mean(sample(head.sig.hits$TajimasD[head.sig.hits$quartile == 1], length(head.sig.hits$TajimasD[head.sig.hits$quartile == 1]), replace = TRUE))
   head.sig.hits.quantile.2[i] = mean(sample(head.sig.hits$TajimasD[head.sig.hits$quartile == 2], length(head.sig.hits$TajimasD[head.sig.hits$quartile == 2]), replace = TRUE))
@@ -403,8 +804,8 @@ for (i in 1:10000){
   head.sig.hits.quantile.4[i] = mean(sample(head.sig.hits$TajimasD[head.sig.hits$quartile == 4], length(head.sig.hits$TajimasD[head.sig.hits$quartile == 4]), replace = TRUE))
   head.sig.hits.quantile.5[i] = mean(sample(head.sig.hits$TajimasD[head.sig.hits$quartile == 5], length(head.sig.hits$TajimasD[head.sig.hits$quartile == 5]), replace = TRUE))
   head.sig.hits.quantile.6[i] = mean(sample(head.sig.hits$TajimasD[head.sig.hits$quartile == 6], length(head.sig.hits$TajimasD[head.sig.hits$quartile == 6]), replace = TRUE))
-  head.sig.hits.quantile.7[i] = mean(sample(head.sig.hits$TajimasD[head.sig.hits$quartile == 7], length(head.sig.hits$TajimasD[head.sig.hits$quartile == 7]), replace = TRUE))
-  head.sig.hits.quantile.8[i] = mean(sample(head.sig.hits$TajimasD[head.sig.hits$quartile == 8], length(head.sig.hits$TajimasD[head.sig.hits$quartile == 8]), replace = TRUE))
+  #head.sig.hits.quantile.7[i] = mean(sample(head.sig.hits$TajimasD[head.sig.hits$quartile == 7], length(head.sig.hits$TajimasD[head.sig.hits$quartile == 7]), replace = TRUE))
+  #head.sig.hits.quantile.8[i] = mean(sample(head.sig.hits$TajimasD[head.sig.hits$quartile == 8], length(head.sig.hits$TajimasD[head.sig.hits$quartile == 8]), replace = TRUE))
 
   # Resample non significant hits
   body.non.sig.hits.quantile.1[i] = mean(sample(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 1], length(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 1]), replace = TRUE))
@@ -413,8 +814,8 @@ for (i in 1:10000){
   body.non.sig.hits.quantile.4[i] = mean(sample(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 4], length(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 4]), replace = TRUE))
   body.non.sig.hits.quantile.5[i] = mean(sample(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 5], length(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 5]), replace = TRUE))
   body.non.sig.hits.quantile.6[i] = mean(sample(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 6], length(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 6]), replace = TRUE))
-  body.non.sig.hits.quantile.7[i] = mean(sample(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 7], length(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 7]), replace = TRUE))
-  body.non.sig.hits.quantile.8[i] = mean(sample(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 8], length(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 8]), replace = TRUE))
+  #body.non.sig.hits.quantile.7[i] = mean(sample(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 7], length(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 7]), replace = TRUE))
+  #body.non.sig.hits.quantile.8[i] = mean(sample(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 8], length(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 8]), replace = TRUE))
 
   head.non.sig.hits.quantile.1[i] = mean(sample(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 1], length(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 1]), replace = TRUE))
   head.non.sig.hits.quantile.2[i] = mean(sample(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 2], length(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 2]), replace = TRUE))
@@ -422,8 +823,8 @@ for (i in 1:10000){
   head.non.sig.hits.quantile.4[i] = mean(sample(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 4], length(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 4]), replace = TRUE))
   head.non.sig.hits.quantile.5[i] = mean(sample(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 5], length(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 5]), replace = TRUE))
   head.non.sig.hits.quantile.6[i] = mean(sample(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 6], length(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 6]), replace = TRUE))
-  head.non.sig.hits.quantile.7[i] = mean(sample(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 7], length(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 7]), replace = TRUE))
-  head.non.sig.hits.quantile.8[i] = mean(sample(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 8], length(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 8]), replace = TRUE))
+  #head.non.sig.hits.quantile.7[i] = mean(sample(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 7], length(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 7]), replace = TRUE))
+  #head.non.sig.hits.quantile.8[i] = mean(sample(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 8], length(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 8]), replace = TRUE))
 print (i)
 }
 
@@ -433,17 +834,17 @@ body.lower.CI = as.vector( c(  quantile(body.sig.hits.quantile.1, 0.05)[1],
                           quantile(body.sig.hits.quantile.4, 0.05)[1],
                           quantile(body.sig.hits.quantile.5, 0.05)[1],
                           quantile(body.sig.hits.quantile.6, 0.05)[1],
-                          quantile(body.sig.hits.quantile.7, 0.05)[1],
-                          quantile(body.sig.hits.quantile.8, 0.05)[1],
+                          #quantile(body.sig.hits.quantile.7, 0.05)[1],
+                          #quantile(body.sig.hits.quantile.8, 0.05)[1],
                           quantile(body.non.sig.hits.quantile.1, 0.05)[1],
                           quantile(body.non.sig.hits.quantile.2, 0.05)[1],
                           quantile(body.non.sig.hits.quantile.3, 0.05)[1],
                           quantile(body.non.sig.hits.quantile.4, 0.05)[1],
                           quantile(body.non.sig.hits.quantile.5, 0.05)[1],
-                          quantile(body.non.sig.hits.quantile.6, 0.05)[1],
-                          quantile(body.non.sig.hits.quantile.7, 0.05)[1],
-                          quantile(body.non.sig.hits.quantile.8, 0.05)[1])
-                          )
+                          quantile(body.non.sig.hits.quantile.6, 0.05)[1]))
+                          #quantile(body.non.sig.hits.quantile.7, 0.05)[1],
+                          #quantile(body.non.sig.hits.quantile.8, 0.05)[1]))
+
 
 body.upper.CI = as.vector( c( quantile(body.sig.hits.quantile.1, 0.95)[1],
                          quantile(body.sig.hits.quantile.2, 0.95)[1],
@@ -451,17 +852,17 @@ body.upper.CI = as.vector( c( quantile(body.sig.hits.quantile.1, 0.95)[1],
                          quantile(body.sig.hits.quantile.4, 0.95)[1],
                          quantile(body.sig.hits.quantile.5, 0.95)[1],
                          quantile(body.sig.hits.quantile.6, 0.95)[1],
-                         quantile(body.sig.hits.quantile.7, 0.95)[1],
-                         quantile(body.sig.hits.quantile.8, 0.95)[1],
+                         #quantile(body.sig.hits.quantile.7, 0.95)[1],
+                         #quantile(body.sig.hits.quantile.8, 0.95)[1],
                          quantile(body.non.sig.hits.quantile.1, 0.95)[1],
                          quantile(body.non.sig.hits.quantile.2, 0.95)[1],
                          quantile(body.non.sig.hits.quantile.3, 0.95)[1],
                          quantile(body.non.sig.hits.quantile.4, 0.95)[1],
                          quantile(body.non.sig.hits.quantile.5, 0.95)[1],
-                         quantile(body.non.sig.hits.quantile.6, 0.95)[1],
-                         quantile(body.non.sig.hits.quantile.7, 0.95)[1],
-                         quantile(body.non.sig.hits.quantile.8, 0.95)[1])
-                         )
+                         quantile(body.non.sig.hits.quantile.6, 0.95)[1]))
+                         #quantile(body.non.sig.hits.quantile.7, 0.95)[1],
+                         #quantile(body.non.sig.hits.quantile.8, 0.95)[1]))
+
 
 head.lower.CI = as.vector( c(  quantile(head.sig.hits.quantile.1, 0.05)[1],
                           quantile(head.sig.hits.quantile.2, 0.05)[1],
@@ -469,17 +870,17 @@ head.lower.CI = as.vector( c(  quantile(head.sig.hits.quantile.1, 0.05)[1],
                           quantile(head.sig.hits.quantile.4, 0.05)[1],
                           quantile(head.sig.hits.quantile.5, 0.05)[1],
                           quantile(head.sig.hits.quantile.6, 0.05)[1],
-                          quantile(head.sig.hits.quantile.7, 0.05)[1],
-                          quantile(head.sig.hits.quantile.8, 0.05)[1],
+                          #quantile(head.sig.hits.quantile.7, 0.05)[1],
+                          #quantile(head.sig.hits.quantile.8, 0.05)[1],
                           quantile(head.non.sig.hits.quantile.1, 0.05)[1],
                           quantile(head.non.sig.hits.quantile.2, 0.05)[1],
                           quantile(head.non.sig.hits.quantile.3, 0.05)[1],
                           quantile(head.non.sig.hits.quantile.4, 0.05)[1],
                           quantile(head.non.sig.hits.quantile.5, 0.05)[1],
-                          quantile(head.non.sig.hits.quantile.6, 0.05)[1],
-                          quantile(head.non.sig.hits.quantile.7, 0.05)[1],
-                          quantile(head.non.sig.hits.quantile.8, 0.05)[1])
-                          )
+                          quantile(head.non.sig.hits.quantile.6, 0.05)[1]))
+                          #quantile(head.non.sig.hits.quantile.7, 0.05)[1],
+                          #quantile(head.non.sig.hits.quantile.8, 0.05)[1]))
+
 
 head.upper.CI = as.vector( c( quantile(head.sig.hits.quantile.1, 0.95)[1],
                          quantile(head.sig.hits.quantile.2, 0.95)[1],
@@ -487,29 +888,29 @@ head.upper.CI = as.vector( c( quantile(head.sig.hits.quantile.1, 0.95)[1],
                          quantile(head.sig.hits.quantile.4, 0.95)[1],
                          quantile(head.sig.hits.quantile.5, 0.95)[1],
                          quantile(head.sig.hits.quantile.6, 0.95)[1],
-                         quantile(head.sig.hits.quantile.7, 0.95)[1],
-                         quantile(head.sig.hits.quantile.8, 0.95)[1],
+                         #quantile(head.sig.hits.quantile.7, 0.95)[1],
+                         #quantile(head.sig.hits.quantile.8, 0.95)[1],
                          quantile(head.non.sig.hits.quantile.1, 0.95)[1],
                          quantile(head.non.sig.hits.quantile.2, 0.95)[1],
                          quantile(head.non.sig.hits.quantile.3, 0.95)[1],
                          quantile(head.non.sig.hits.quantile.4, 0.95)[1],
                          quantile(head.non.sig.hits.quantile.5, 0.95)[1],
-                         quantile(head.non.sig.hits.quantile.6, 0.95)[1],
-                         quantile(head.non.sig.hits.quantile.7, 0.95)[1],
-                         quantile(head.non.sig.hits.quantile.8, 0.95)[1])
-                         )
+                         quantile(head.non.sig.hits.quantile.6, 0.95)[1]))
+                         #quantile(head.non.sig.hits.quantile.7, 0.95)[1],
+                         #quantile(head.non.sig.hits.quantile.8, 0.95)[1])
+
 
 
 # Construct dataframes to hold all of our data for plotting
 # Body
-#hit = rep(c("sig","non.sig"), each=8)
-expression.quartile = rep(seq(1:8),2)
+#hit = rep(c("sig","non.sig"), each=6)
+expression.quartile = rep(seq(1:6),2)
 body.tajimasD.mean = c(body.sig.hits.mean$TajimasD.mean, body.non.sig.hits.mean$TajimasD.mean)
 body.tajimasD.lowerCI = body.lower.CI
 body.tajimasD.upperCI = body.upper.CI
 body.tajimasD.df = as.data.frame(cbind(as.factor(expression.quartile), as.numeric(body.tajimasD.mean), as.numeric(body.tajimasD.lowerCI), as.numeric(body.tajimasD.upperCI)))
 body.tajimasD.df$tissue = as.factor("body")
-body.tajimasD.df$hit = as.factor(rep(c("sig","non.sig"), each=8))
+body.tajimasD.df$hit = as.factor(rep(c("sig","non.sig"), each=6))
 colnames(body.tajimasD.df) = c("expression.quartile", "tajimasD.mean", "tajimasD.lowerCI", "tajimasD.upperCI", "tissue","hit")
 
 
@@ -530,13 +931,13 @@ dev.off()
 
 
 # head
-expression.quartile = rep(seq(1:8),2)
+expression.quartile = rep(seq(1:6),2)
 head.tajimasD.mean = c(head.sig.hits.mean$TajimasD.mean, head.non.sig.hits.mean$TajimasD.mean)
 head.tajimasD.lowerCI = head.lower.CI
 head.tajimasD.upperCI = head.upper.CI
 head.tajimasD.df = as.data.frame(cbind(as.factor(expression.quartile), as.numeric(head.tajimasD.mean), as.numeric(head.tajimasD.lowerCI), as.numeric(head.tajimasD.upperCI)))
 head.tajimasD.df$tissue = as.factor("head")
-head.tajimasD.df$hit = as.factor(rep(c("sig","non.sig"), each=8))
+head.tajimasD.df$hit = as.factor(rep(c("sig","non.sig"), each=6))
 colnames(head.tajimasD.df) = c("expression.quartile", "tajimasD.mean", "tajimasD.lowerCI", "tajimasD.upperCI", "tissue","hit")
 
 head.tajimasD.expression.plot = ggplot(head.tajimasD.df, aes(y = as.numeric(head.tajimasD.mean), x = as.factor(expression.quartile), colour = as.factor(hit))) +
@@ -573,7 +974,254 @@ tajimasD.expression.plot = ggplot(tajimasD.df, aes(y = tajimasD.mean, x = expres
                                       facet_grid(tissue ~ .)
 
 pdf("/plas1/amardeep.singh/tmp/combined.tajimasD.expression.plot.pdf")
-combined.tajimasD.expression.plot
+tajimasD.expression.plot
+dev.off()
+
+
+
+
+
+
+
+
+
+
+
+
+###### D E P R E C A T E D     P L O T T I N G     D G R P      D A T A ########
+### Plotting ####
+
+# Lets plot TajimasD for sig hits in quartile bins
+
+# Summary for means
+expression.data.tajimaD = summaryBy(TajimasD ~ quartile + sig.hit + tissue, FUN=c(median, length), data = expression.data.tajimaD)
+
+
+# Bootstrap means for each subset
+# Body
+body.sig.hits.quantile.1 = vector(mode = "numeric", length = 10000)
+body.sig.hits.quantile.2 = vector(mode = "numeric", length = 10000)
+body.sig.hits.quantile.3 = vector(mode = "numeric", length = 10000)
+body.sig.hits.quantile.4 = vector(mode = "numeric", length = 10000)
+body.sig.hits.quantile.5 = vector(mode = "numeric", length = 10000)
+body.sig.hits.quantile.6 = vector(mode = "numeric", length = 10000)
+body.sig.hits.quantile.7 = vector(mode = "numeric", length = 10000)
+body.sig.hits.quantile.8 = vector(mode = "numeric", length = 10000)
+body.non.sig.hits.quantile.1 = vector(mode = "numeric", length = 10000)
+body.non.sig.hits.quantile.2 = vector(mode = "numeric", length = 10000)
+body.non.sig.hits.quantile.3 = vector(mode = "numeric", length = 10000)
+body.non.sig.hits.quantile.4 = vector(mode = "numeric", length = 10000)
+body.non.sig.hits.quantile.5 = vector(mode = "numeric", length = 10000)
+body.non.sig.hits.quantile.6 = vector(mode = "numeric", length = 10000)
+body.non.sig.hits.quantile.7 = vector(mode = "numeric", length = 10000)
+body.non.sig.hits.quantile.8 = vector(mode = "numeric", length = 10000)
+
+# Head
+head.sig.hits.quantile.1 = vector(mode = "numeric", length = 10000)
+head.sig.hits.quantile.2 = vector(mode = "numeric", length = 10000)
+head.sig.hits.quantile.3 = vector(mode = "numeric", length = 10000)
+head.sig.hits.quantile.4 = vector(mode = "numeric", length = 10000)
+head.sig.hits.quantile.5 = vector(mode = "numeric", length = 10000)
+head.sig.hits.quantile.6 = vector(mode = "numeric", length = 10000)
+head.sig.hits.quantile.7 = vector(mode = "numeric", length = 10000)
+head.sig.hits.quantile.8 = vector(mode = "numeric", length = 10000)
+head.non.sig.hits.quantile.1 = vector(mode = "numeric", length = 10000)
+head.non.sig.hits.quantile.2 = vector(mode = "numeric", length = 10000)
+head.non.sig.hits.quantile.3 = vector(mode = "numeric", length = 10000)
+head.non.sig.hits.quantile.4 = vector(mode = "numeric", length = 10000)
+head.non.sig.hits.quantile.5 = vector(mode = "numeric", length = 10000)
+head.non.sig.hits.quantile.6 = vector(mode = "numeric", length = 10000)
+head.non.sig.hits.quantile.7 = vector(mode = "numeric", length = 10000)
+head.non.sig.hits.quantile.8 = vector(mode = "numeric", length = 10000)
+
+for (i in 1:10000){
+  # Resample significant hits
+  body.sig.hits.quantile.1[i] = mean(sample(body.sig.hits$TajimasD[body.sig.hits$quartile == 1], length(body.sig.hits$TajimasD[body.sig.hits$quartile == 1]), replace = TRUE))
+  body.sig.hits.quantile.2[i] = mean(sample(body.sig.hits$TajimasD[body.sig.hits$quartile == 2], length(body.sig.hits$TajimasD[body.sig.hits$quartile == 2]), replace = TRUE))
+  body.sig.hits.quantile.3[i] = mean(sample(body.sig.hits$TajimasD[body.sig.hits$quartile == 3], length(body.sig.hits$TajimasD[body.sig.hits$quartile == 3]), replace = TRUE))
+  body.sig.hits.quantile.4[i] = mean(sample(body.sig.hits$TajimasD[body.sig.hits$quartile == 4], length(body.sig.hits$TajimasD[body.sig.hits$quartile == 4]), replace = TRUE))
+  body.sig.hits.quantile.5[i] = mean(sample(body.sig.hits$TajimasD[body.sig.hits$quartile == 5], length(body.sig.hits$TajimasD[body.sig.hits$quartile == 5]), replace = TRUE))
+  body.sig.hits.quantile.6[i] = mean(sample(body.sig.hits$TajimasD[body.sig.hits$quartile == 6], length(body.sig.hits$TajimasD[body.sig.hits$quartile == 6]), replace = TRUE))
+  #body.sig.hits.quantile.7[i] = mean(sample(body.sig.hits$TajimasD[body.sig.hits$quartile == 7], length(body.sig.hits$TajimasD[body.sig.hits$quartile == 7]), replace = TRUE))
+  #body.sig.hits.quantile.8[i] = mean(sample(body.sig.hits$TajimasD[body.sig.hits$quartile == 8], length(body.sig.hits$TajimasD[body.sig.hits$quartile == 8]), replace = TRUE))
+
+  head.sig.hits.quantile.1[i] = mean(sample(head.sig.hits$TajimasD[head.sig.hits$quartile == 1], length(head.sig.hits$TajimasD[head.sig.hits$quartile == 1]), replace = TRUE))
+  head.sig.hits.quantile.2[i] = mean(sample(head.sig.hits$TajimasD[head.sig.hits$quartile == 2], length(head.sig.hits$TajimasD[head.sig.hits$quartile == 2]), replace = TRUE))
+  head.sig.hits.quantile.3[i] = mean(sample(head.sig.hits$TajimasD[head.sig.hits$quartile == 3], length(head.sig.hits$TajimasD[head.sig.hits$quartile == 3]), replace = TRUE))
+  head.sig.hits.quantile.4[i] = mean(sample(head.sig.hits$TajimasD[head.sig.hits$quartile == 4], length(head.sig.hits$TajimasD[head.sig.hits$quartile == 4]), replace = TRUE))
+  head.sig.hits.quantile.5[i] = mean(sample(head.sig.hits$TajimasD[head.sig.hits$quartile == 5], length(head.sig.hits$TajimasD[head.sig.hits$quartile == 5]), replace = TRUE))
+  head.sig.hits.quantile.6[i] = mean(sample(head.sig.hits$TajimasD[head.sig.hits$quartile == 6], length(head.sig.hits$TajimasD[head.sig.hits$quartile == 6]), replace = TRUE))
+  #head.sig.hits.quantile.7[i] = mean(sample(head.sig.hits$TajimasD[head.sig.hits$quartile == 7], length(head.sig.hits$TajimasD[head.sig.hits$quartile == 7]), replace = TRUE))
+  #head.sig.hits.quantile.8[i] = mean(sample(head.sig.hits$TajimasD[head.sig.hits$quartile == 8], length(head.sig.hits$TajimasD[head.sig.hits$quartile == 8]), replace = TRUE))
+
+  # Resample non significant hits
+  body.non.sig.hits.quantile.1[i] = mean(sample(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 1], length(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 1]), replace = TRUE))
+  body.non.sig.hits.quantile.2[i] = mean(sample(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 2], length(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 2]), replace = TRUE))
+  body.non.sig.hits.quantile.3[i] = mean(sample(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 3], length(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 3]), replace = TRUE))
+  body.non.sig.hits.quantile.4[i] = mean(sample(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 4], length(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 4]), replace = TRUE))
+  body.non.sig.hits.quantile.5[i] = mean(sample(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 5], length(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 5]), replace = TRUE))
+  body.non.sig.hits.quantile.6[i] = mean(sample(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 6], length(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 6]), replace = TRUE))
+  #body.non.sig.hits.quantile.7[i] = mean(sample(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 7], length(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 7]), replace = TRUE))
+  #body.non.sig.hits.quantile.8[i] = mean(sample(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 8], length(body.non.sig.hits$TajimasD[body.non.sig.hits$quartile == 8]), replace = TRUE))
+
+  head.non.sig.hits.quantile.1[i] = mean(sample(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 1], length(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 1]), replace = TRUE))
+  head.non.sig.hits.quantile.2[i] = mean(sample(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 2], length(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 2]), replace = TRUE))
+  head.non.sig.hits.quantile.3[i] = mean(sample(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 3], length(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 3]), replace = TRUE))
+  head.non.sig.hits.quantile.4[i] = mean(sample(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 4], length(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 4]), replace = TRUE))
+  head.non.sig.hits.quantile.5[i] = mean(sample(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 5], length(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 5]), replace = TRUE))
+  head.non.sig.hits.quantile.6[i] = mean(sample(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 6], length(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 6]), replace = TRUE))
+  #head.non.sig.hits.quantile.7[i] = mean(sample(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 7], length(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 7]), replace = TRUE))
+  #head.non.sig.hits.quantile.8[i] = mean(sample(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 8], length(head.non.sig.hits$TajimasD[head.non.sig.hits$quartile == 8]), replace = TRUE))
+print (i)
+}
+
+body.lower.CI = as.vector( c(  quantile(body.sig.hits.quantile.1, 0.05)[1],
+                          quantile(body.sig.hits.quantile.2, 0.05)[1],
+                          quantile(body.sig.hits.quantile.3, 0.05)[1],
+                          quantile(body.sig.hits.quantile.4, 0.05)[1],
+                          quantile(body.sig.hits.quantile.5, 0.05)[1],
+                          quantile(body.sig.hits.quantile.6, 0.05)[1],
+                          #quantile(body.sig.hits.quantile.7, 0.05)[1],
+                          #quantile(body.sig.hits.quantile.8, 0.05)[1],
+                          quantile(body.non.sig.hits.quantile.1, 0.05)[1],
+                          quantile(body.non.sig.hits.quantile.2, 0.05)[1],
+                          quantile(body.non.sig.hits.quantile.3, 0.05)[1],
+                          quantile(body.non.sig.hits.quantile.4, 0.05)[1],
+                          quantile(body.non.sig.hits.quantile.5, 0.05)[1],
+                          quantile(body.non.sig.hits.quantile.6, 0.05)[1]))
+                          #quantile(body.non.sig.hits.quantile.7, 0.05)[1],
+                          #quantile(body.non.sig.hits.quantile.8, 0.05)[1]))
+
+
+body.upper.CI = as.vector( c( quantile(body.sig.hits.quantile.1, 0.95)[1],
+                         quantile(body.sig.hits.quantile.2, 0.95)[1],
+                         quantile(body.sig.hits.quantile.3, 0.95)[1],
+                         quantile(body.sig.hits.quantile.4, 0.95)[1],
+                         quantile(body.sig.hits.quantile.5, 0.95)[1],
+                         quantile(body.sig.hits.quantile.6, 0.95)[1],
+                         #quantile(body.sig.hits.quantile.7, 0.95)[1],
+                         #quantile(body.sig.hits.quantile.8, 0.95)[1],
+                         quantile(body.non.sig.hits.quantile.1, 0.95)[1],
+                         quantile(body.non.sig.hits.quantile.2, 0.95)[1],
+                         quantile(body.non.sig.hits.quantile.3, 0.95)[1],
+                         quantile(body.non.sig.hits.quantile.4, 0.95)[1],
+                         quantile(body.non.sig.hits.quantile.5, 0.95)[1],
+                         quantile(body.non.sig.hits.quantile.6, 0.95)[1]))
+                         #quantile(body.non.sig.hits.quantile.7, 0.95)[1],
+                         #quantile(body.non.sig.hits.quantile.8, 0.95)[1]))
+
+
+head.lower.CI = as.vector( c(  quantile(head.sig.hits.quantile.1, 0.05)[1],
+                          quantile(head.sig.hits.quantile.2, 0.05)[1],
+                          quantile(head.sig.hits.quantile.3, 0.05)[1],
+                          quantile(head.sig.hits.quantile.4, 0.05)[1],
+                          quantile(head.sig.hits.quantile.5, 0.05)[1],
+                          quantile(head.sig.hits.quantile.6, 0.05)[1],
+                          #quantile(head.sig.hits.quantile.7, 0.05)[1],
+                          #quantile(head.sig.hits.quantile.8, 0.05)[1],
+                          quantile(head.non.sig.hits.quantile.1, 0.05)[1],
+                          quantile(head.non.sig.hits.quantile.2, 0.05)[1],
+                          quantile(head.non.sig.hits.quantile.3, 0.05)[1],
+                          quantile(head.non.sig.hits.quantile.4, 0.05)[1],
+                          quantile(head.non.sig.hits.quantile.5, 0.05)[1],
+                          quantile(head.non.sig.hits.quantile.6, 0.05)[1]))
+                          #quantile(head.non.sig.hits.quantile.7, 0.05)[1],
+                          #quantile(head.non.sig.hits.quantile.8, 0.05)[1]))
+
+
+head.upper.CI = as.vector( c( quantile(head.sig.hits.quantile.1, 0.95)[1],
+                         quantile(head.sig.hits.quantile.2, 0.95)[1],
+                         quantile(head.sig.hits.quantile.3, 0.95)[1],
+                         quantile(head.sig.hits.quantile.4, 0.95)[1],
+                         quantile(head.sig.hits.quantile.5, 0.95)[1],
+                         quantile(head.sig.hits.quantile.6, 0.95)[1],
+                         #quantile(head.sig.hits.quantile.7, 0.95)[1],
+                         #quantile(head.sig.hits.quantile.8, 0.95)[1],
+                         quantile(head.non.sig.hits.quantile.1, 0.95)[1],
+                         quantile(head.non.sig.hits.quantile.2, 0.95)[1],
+                         quantile(head.non.sig.hits.quantile.3, 0.95)[1],
+                         quantile(head.non.sig.hits.quantile.4, 0.95)[1],
+                         quantile(head.non.sig.hits.quantile.5, 0.95)[1],
+                         quantile(head.non.sig.hits.quantile.6, 0.95)[1]))
+                         #quantile(head.non.sig.hits.quantile.7, 0.95)[1],
+                         #quantile(head.non.sig.hits.quantile.8, 0.95)[1])
+
+
+
+# Construct dataframes to hold all of our data for plotting
+# Body
+#hit = rep(c("sig","non.sig"), each=6)
+expression.quartile = rep(seq(1:6),2)
+body.tajimasD.mean = c(body.sig.hits.mean$TajimasD.mean, body.non.sig.hits.mean$TajimasD.mean)
+body.tajimasD.lowerCI = body.lower.CI
+body.tajimasD.upperCI = body.upper.CI
+body.tajimasD.df = as.data.frame(cbind(as.factor(expression.quartile), as.numeric(body.tajimasD.mean), as.numeric(body.tajimasD.lowerCI), as.numeric(body.tajimasD.upperCI)))
+body.tajimasD.df$tissue = as.factor("body")
+body.tajimasD.df$hit = as.factor(rep(c("sig","non.sig"), each=6))
+colnames(body.tajimasD.df) = c("expression.quartile", "tajimasD.mean", "tajimasD.lowerCI", "tajimasD.upperCI", "tissue","hit")
+
+
+body.tajimasD.expression.plot = ggplot(body.tajimasD.df, aes(y = as.numeric(body.tajimasD.mean), x = as.factor(expression.quartile), colour = as.factor(hit))) +
+                                      geom_point(aes(x = as.factor(expression.quartile), y = as.numeric(body.tajimasD.mean), colour = as.factor(hit)),size = 10,
+                                      position = position_dodge(width = 0.5)) + scale_y_continuous(limits = c(-0.1, 0.1)) +
+                                      geom_errorbar(aes(ymin = body.tajimasD.lowerCI, ymax = body.tajimasD.upperCI, x = expression.quartile, colour=hit),
+                                      width = 0, position = position_dodge(width = 0.5)) + geom_hline(yintercept = 0) +
+                                      theme_bw() + scale_colour_manual(values = c("#7294D4", "#5B1A18")) +
+                                      theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
+                                            panel.border = element_rect(colour = "black", fill=NA, size=1),
+                                            axis.text = element_text(face="bold", color="black",size=40, family = "Helvetica"),
+                                            axis.title=element_blank(), legend.position = "none")
+
+pdf("/plas1/amardeep.singh/tmp/body.tajimasD.expression.plot.pdf")
+body.tajimasD.expression.plot
+dev.off()
+
+
+# head
+expression.quartile = rep(seq(1:6),2)
+head.tajimasD.mean = c(head.sig.hits.mean$TajimasD.mean, head.non.sig.hits.mean$TajimasD.mean)
+head.tajimasD.lowerCI = head.lower.CI
+head.tajimasD.upperCI = head.upper.CI
+head.tajimasD.df = as.data.frame(cbind(as.factor(expression.quartile), as.numeric(head.tajimasD.mean), as.numeric(head.tajimasD.lowerCI), as.numeric(head.tajimasD.upperCI)))
+head.tajimasD.df$tissue = as.factor("head")
+head.tajimasD.df$hit = as.factor(rep(c("sig","non.sig"), each=6))
+colnames(head.tajimasD.df) = c("expression.quartile", "tajimasD.mean", "tajimasD.lowerCI", "tajimasD.upperCI", "tissue","hit")
+
+head.tajimasD.expression.plot = ggplot(head.tajimasD.df, aes(y = as.numeric(head.tajimasD.mean), x = as.factor(expression.quartile), colour = as.factor(hit))) +
+                                      geom_point(aes(x = as.factor(expression.quartile), y = as.numeric(head.tajimasD.mean), colour = as.factor(hit)),size = 10,
+                                      position = position_dodge(width = 0.5)) + scale_y_continuous(limits = c(-0.1, 0.1)) +
+                                      geom_errorbar(aes(ymin = head.tajimasD.lowerCI, ymax = head.tajimasD.upperCI, x = expression.quartile, colour=hit),
+                                      width = 0, position = position_dodge(width = 0.5)) + geom_hline(yintercept = 0) +
+                                      theme_bw() + scale_colour_manual(values = c("#7294D4", "#5B1A18")) +
+                                      theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
+                                            panel.border = element_rect(colour = "black", fill=NA, size=1),
+                                            axis.text = element_text(face="bold", color="black",size=40, family = "Helvetica"),
+                                            axis.title=element_blank(), legend.position = "none")
+
+pdf("/plas1/amardeep.singh/tmp/head.tajimasD.expression.plot.pdf")
+head.tajimasD.expression.plot
+dev.off()
+
+
+
+## Combined plots
+tajimasD.df = rbind(body.tajimasD.df, head.tajimasD.df)
+
+tajimasD.expression.plot = ggplot(tajimasD.df, aes(y = tajimasD.mean, x = expression.quartile, colour = hit)) +
+                                      geom_point(aes(x = expression.quartile, y = tajimasD.mean, colour = hit),size = 10,
+                                      position = position_dodge(width = 0.5)) + scale_y_continuous(limits = c(-0.1, 0.1)) +
+                                      geom_errorbar(aes(ymin = tajimasD.lowerCI, ymax = tajimasD.upperCI, x = expression.quartile, colour=hit),
+                                      width = 0.25, position = position_dodge(width = 0.5)) + geom_hline(yintercept = 0) +
+                                      #scale_colour_manual(values = c("#7294D4", "#5B1A18")) +
+                                      theme_bw()  +
+                                      theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
+                                            panel.border = element_rect(colour = "black", fill=NA, size=1),
+                                            axis.text = element_text(face="bold", color="black",size=20, family = "Helvetica"),
+                                            axis.title=element_blank(), legend.position = "none") +
+                                      facet_grid(tissue ~ .)
+
+pdf("/plas1/amardeep.singh/tmp/combined.tajimasD.expression.plot.pdf")
+tajimasD.expression.plot
 dev.off()
 
 

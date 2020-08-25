@@ -12,11 +12,9 @@
 
 ##
 # Path to sam files: /plas1/amardeep.singh/Ensembl.Dmel.Genome.Release/RAL.mapped.files.to.ensembl/bam.files/samtools.sort.out
-# PAth to gtf /plas1/amardeep.singh/Ensembl.Dmel.Genome.Release/gtf/Drosophila_melanogaster.BDGP6.28.99.gtf.gz
+# Path to gtf /plas1/amardeep.singh/Ensembl.Dmel.Genome.Release/gtf/Drosophila_melanogaster.BDGP6.28.99.gtf.gz
 
 # ---- R Script ----
-
-###### Whole Body Tissue   ######
 
 #####################################################################
 ###     Creating count matrices of each aligned transcriptome     ###
@@ -84,19 +82,23 @@ colData(sum_exp.head) = DataFrame(condition.table.head)
 
 # Whole Body
 dds_interaction.body = DESeqDataSet(sum_exp.body, design = ~ condition)
+# Filter out genes with fewer than 20 reads mapping across all samples (more stringent filtering is applied downstream)
+keep.body = rowSums(counts(dds_interaction.body)) >= 20
+dds_interaction.body = dds_interaction.body[keep.body,]
 #run DESeq2
 dds_interaction.body = DESeq(dds_interaction.body)
 #name results
 all_genes_interaction.body = results(dds_interaction.body, contrast=c("condition", "male", "female")) # This specifies the output such that the log2FC is male/female
-all_genes_interaction.alt.body = results(dds_interaction.body)
 
 # Head
 dds_interaction.head = DESeqDataSet(sum_exp.head, design = ~ condition)
+# Filter out genes with fewer than 20 reads mapping across all samples (more stringent filtering is applied downstream)
+keep.head = rowSums(counts(dds_interaction.head)) >= 20
+dds_interaction.head = dds_interaction.head[keep.head,]
 #run DESeq2
 dds_interaction.head = DESeq(dds_interaction.head)
 #name results
 all_genes_interaction.head = results(dds_interaction.head, contrast=c("condition", "male", "female")) # This specifies the output such that the log2FC is male/female
-all_genes_interaction.alt.head = results(dds_interaction.head)
 
 # Add FlyBase ID as first column
 all_genes_interaction.head$FlyBaseID= rownames(all_genes_interaction.head)
@@ -108,15 +110,16 @@ all_genes_interaction.body = all_genes_interaction.body[,c(7,1:6)]
 write.table(all_genes_interaction.body, file = "/plas1/amardeep.singh/RNA.Seq.Data/GeneExpression/RAL.DifferentialGeneExpression.body.txt", sep = "\t", row.names = FALSE, col.names = TRUE, quote = FALSE)
 write.table(all_genes_interaction.head, file = "/plas1/amardeep.singh/RNA.Seq.Data/GeneExpression/RAL.DifferentialGeneExpression.head.txt", sep = "\t", row.names = FALSE, col.names = TRUE, quote = FALSE)
 
-counts(dds_interaction.body)
-
 # Save DESeq2 RDS files
 saveRDS(dds_interaction.head, file = "/plas1/amardeep.singh/RNA.Seq.Data/GeneExpression/DESeq2.output.head.rds")
 saveRDS(dds_interaction.body, file = "/plas1/amardeep.singh/RNA.Seq.Data/GeneExpression/DESeq2.output.body.rds")
 
 
+counts(dds_interaction.body)
+
+
 ###########################################################################################
-###     Comparing Gene Expression at genes with SD in Exon uasage to those without      ###
+###     Comparing Gene Expression at genes with SD in Exon usage to those without       ###
 ###########################################################################################
 # --- R Code ---
 rm(list=ls())
@@ -132,8 +135,6 @@ junctionseq.results.head = read.table("/plas1/amardeep.singh/RNA.Seq.Data/Juncti
 ## Load in the differential gene expression data
 DGE.data.body = read.table("/plas1/amardeep.singh/RNA.Seq.Data/GeneExpression/RAL.DifferentialGeneExpression.body.txt", header = TRUE, sep = "\t")
 DGE.data.head = read.table("/plas1/amardeep.singh/RNA.Seq.Data/GeneExpression/RAL.DifferentialGeneExpression.head.txt", header = TRUE, sep = "\t")
-
-
 
 ## Cleaning up data files
 # Remove any sites that were not tested in the JunctionSeq output
@@ -157,13 +158,13 @@ junctionseq.results.filtered.head = junctionseq.results.filtered.head[,c(2,25:26
 junctionseq.results.body.unique = unique(junctionseq.results.filtered.body)
 junctionseq.results.head.unique = unique(junctionseq.results.filtered.head)
 
-# Merge Junctionseq/TajimasD data with DGE data
+# Merge Junctionseq data with DGE data
 junctionseq.results.body.merged.unique = merge(junctionseq.results.body.unique, DGE.data.body, by.x = "geneID", by.y = "FlyBaseID")
 junctionseq.results.head.merged.unique = merge(junctionseq.results.head.unique, DGE.data.head, by.x = "geneID", by.y = "FlyBaseID")
 
 # Subset out the columns of interest (i.e., gene ID, TajimasD, significant differences in exon usage, and log2FC)
-expression.data.body = junctionseq.results.body.merged.unique[, c(1:3,5,6)]
-expression.data.head = junctionseq.results.head.merged.unique[, c(1:3,6,7)]
+expression.data.body = junctionseq.results.body.merged.unique[, c(1:5)]
+expression.data.head = junctionseq.results.head.merged.unique[, c(1:5)]
 
 # Assign quartile bins for male and female biased gene expression
 male.biased.body = expression.data.body[expression.data.body$log2FoldChange > 0,]
@@ -178,14 +179,14 @@ male.biased.head = male.biased.head[!(is.na(male.biased.head$log2FoldChange)),]
 female.biased.head = female.biased.head[!(is.na(female.biased.head$log2FoldChange)),]
 
 # Assign quartiles for both MBG and FBG
-male.biased.body = male.biased.body %>% mutate(quantile = ntile(log2FoldChange, 4))
-female.biased.body = female.biased.body %>% mutate(quantile = ntile(log2FoldChange, 4))
-male.biased.head = male.biased.head %>% mutate(quantile = ntile(log2FoldChange, 4))
-female.biased.head = female.biased.head %>% mutate(quantile = ntile(log2FoldChange, 4))
+male.biased.body = male.biased.body %>% mutate(quantile = ntile(log2FoldChange, 3))
+female.biased.body = female.biased.body %>% mutate(quantile = ntile(log2FoldChange, 3))
+male.biased.head = male.biased.head %>% mutate(quantile = ntile(log2FoldChange, 3))
+female.biased.head = female.biased.head %>% mutate(quantile = ntile(log2FoldChange, 3))
 
 # For the male genes, lets add 4 to each quartile
-male.biased.body$quantile = male.biased.body$quantile + 4
-male.biased.head$quantile = male.biased.head$quantile + 4
+male.biased.body$quantile = male.biased.body$quantile + 3
+male.biased.head$quantile = male.biased.head$quantile + 3
 
 # Merge data back
 expression.data.body = rbind(male.biased.body,female.biased.body)
@@ -193,6 +194,120 @@ expression.data.body$tissue = "body"
 expression.data.head = rbind(male.biased.head,female.biased.head)
 expression.data.head$tissue = "head"
 expression.data=rbind(expression.data.body,expression.data.head)
+
+
+## Analysis ##
+
+## Comparing average log gene expression at exon dimorphic genes versus monomorphic genes
+expression.data$log.baseMean = log(expression.data$baseMean)
+expression.summary = summaryBy(log.baseMean ~ sig.hit + tissue, FUN = c(mean), data = expression.data)
+
+# Bootstrap means for each subset
+# Data frame to hold resampled results
+resample.data = as.data.frame(cbind(vector(mode="numeric", length = 10000 * nrow(expression.summary)),
+                                    vector(mode="numeric", length = 10000 * nrow(expression.summary)),
+                                    vector(mode="numeric", length = 10000 * nrow(expression.summary)),
+                                    vector(mode="numeric", length = 10000 * nrow(expression.summary))))
+
+## Loop to resample Expression data
+output.row.start = 1
+output.row.end = 4
+for (i in 1:10000){
+  resampled.df=rbind(sample_n(expression.data[expression.data$sig.hit == 1 & expression.data$tissue == "body", ], nrow(expression.data[expression.data$sig.hit == 1 & expression.data$tissue == "body", ]), replace = TRUE),
+                     sample_n(expression.data[expression.data$sig.hit == 0 & expression.data$tissue == "body", ], nrow(expression.data[expression.data$sig.hit == 0 & expression.data$tissue == "body", ]), replace = TRUE),
+                     sample_n(expression.data[expression.data$sig.hit == 1 & expression.data$tissue == "head", ], nrow(expression.data[expression.data$sig.hit == 1 & expression.data$tissue == "head", ]), replace = TRUE),
+                     sample_n(expression.data[expression.data$sig.hit == 0 & expression.data$tissue == "head", ], nrow(expression.data[expression.data$sig.hit == 0 & expression.data$tissue == "head", ]), replace = TRUE))
+
+                    # Output summary of resampled data to resample dataframe
+                    resample.data[output.row.start:output.row.end, ] = summaryBy(log.baseMean ~ sig.hit + tissue, FUN=c(mean, length), data = resampled.df)
+                    output.row.start = output.row.end  + 1
+                    output.row.end = output.row.end + 4
+                    print(i)
+}
+colnames(resample.data) = c("sig.hit","tissue","log.sex.averaged.expression","number.of.genes")
+write.table(resample.data, file = "/plas1/amardeep.singh/RNA.Seq.Data/GeneExpression/sex.averaged.gene.expression.resampled.txt", quote = FALSE, row.names = FALSE, col.names = TRUE, sep = "\t")
+
+resample.data = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/GeneExpression/sex.averaged.gene.expression.resampled.txt", header = TRUE)
+
+# Rename columns of resampled data
+gene.expression.data.summary = summaryBy(log.sex.averaged.expression ~ sig.hit + tissue, FUN = function(x) c(Mean = mean(x), lower.ci = quantile(x, probs = 0.05), upper.ci=quantile(x, probs = 0.95)), data = resample.data)
+colnames(gene.expression.data.summary)[3:5] = c("log.expression","lowerCI", "upperCI")
+
+# Replace resample.data.summary "median" with true observed median
+colnames(expression.summary) = c("sig.hit", "tissue", "log.expression")
+gene.expression.data.summary$log.expression = expression.summary$log.expression
+
+sex.averaged.expression.plot = ggplot(gene.expression.data.summary, aes(y = log.expression, x = as.factor(tissue), colour = as.factor(sig.hit))) +
+                                      geom_point(aes(y = log.expression, x = as.factor(tissue), colour = as.factor(sig.hit)),size = 10,
+                                      position = position_dodge(width = 0.5)) +
+                                      geom_errorbar(aes(ymin = lowerCI, ymax = upperCI, x = as.factor(tissue), colour=as.factor(sig.hit)),
+                                      width = 0, position = position_dodge(width = 0.5)) +
+                                      theme_bw()  + scale_colour_manual(values = c("#7294D4", "#5B1A18")) +
+                                      theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
+                                            panel.border = element_rect(colour = "black", fill=NA, size=1),
+                                            axis.text = element_text(face="bold", color="black",size=20, family = "Helvetica"),
+                                            axis.title=element_blank(), legend.position = "none")
+
+pdf("/plas1/amardeep.singh/tmp/Sex.averaged.expression.pdf", height = 10, width = 5)
+sex.averaged.expression.plot
+dev.off()
+
+
+## Comparing average log 2FC (i.e., sex-bias) in gene expression at exon dimorphic genes versus monomorphic genes
+expression.data$log.baseMean = log(expression.data$baseMean)
+expression.summary = summaryBy(log2FoldChange ~ sig.hit + tissue, FUN = c(mean), data = expression.data)
+
+# Bootstrap means for each subset
+# Data frame to hold resampled results
+resample.data = as.data.frame(cbind(vector(mode="numeric", length = 10000 * nrow(expression.summary)),
+                                    vector(mode="numeric", length = 10000 * nrow(expression.summary)),
+                                    vector(mode="numeric", length = 10000 * nrow(expression.summary)),
+                                    vector(mode="numeric", length = 10000 * nrow(expression.summary))))
+
+## Loop to resample Expression data
+output.row.start = 1
+output.row.end = 4
+for (i in 1:10000){
+  resampled.df=rbind(sample_n(expression.data[expression.data$sig.hit == 1 & expression.data$tissue == "body", ], nrow(expression.data[expression.data$sig.hit == 1 & expression.data$tissue == "body", ]), replace = TRUE),
+                     sample_n(expression.data[expression.data$sig.hit == 0 & expression.data$tissue == "body", ], nrow(expression.data[expression.data$sig.hit == 0 & expression.data$tissue == "body", ]), replace = TRUE),
+                     sample_n(expression.data[expression.data$sig.hit == 1 & expression.data$tissue == "head", ], nrow(expression.data[expression.data$sig.hit == 1 & expression.data$tissue == "head", ]), replace = TRUE),
+                     sample_n(expression.data[expression.data$sig.hit == 0 & expression.data$tissue == "head", ], nrow(expression.data[expression.data$sig.hit == 0 & expression.data$tissue == "head", ]), replace = TRUE))
+
+                    # Output summary of resampled data to resample dataframe
+                    resample.data[output.row.start:output.row.end, ] = summaryBy(log2FoldChange ~ sig.hit + tissue, FUN=c(mean, length), data = resampled.df)
+                    output.row.start = output.row.end  + 1
+                    output.row.end = output.row.end + 4
+                    print(i)
+}
+colnames(resample.data) = c("sig.hit","tissue","log.2FC.expression","number.of.genes")
+write.table(resample.data, file = "/plas1/amardeep.singh/RNA.Seq.Data/GeneExpression/sex.bias.gene.expression.resampled.txt", quote = FALSE, row.names = FALSE, col.names = TRUE, sep = "\t")
+
+resample.data = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/GeneExpression/sex.bias.gene.expression.resampled.txt", header = TRUE)
+
+# Rename columns of resampled data
+gene.expression.data.summary = summaryBy(log.2FC.expression ~ sig.hit + tissue, FUN = function(x) c(Mean = mean(x), lower.ci = quantile(x, probs = 0.05), upper.ci=quantile(x, probs = 0.95)), data = resample.data)
+colnames(gene.expression.data.summary)[3:5] = c("log.2FC.expression","lowerCI", "upperCI")
+
+# Replace resample.data.summary "median" with true observed median
+colnames(expression.summary) = c("sig.hit", "tissue", "log.2FC.expression")
+gene.expression.data.summary$log.2FC.expression = expression.summary$log.2FC.expression
+
+sex.averaged.expression.plot = ggplot(gene.expression.data.summary, aes(y = log.2FC.expression, x = as.factor(tissue), colour = as.factor(sig.hit))) +
+                                      geom_point(aes(y = log.2FC.expression, x = as.factor(tissue), colour = as.factor(sig.hit)),size = 10,
+                                      position = position_dodge(width = 0.5)) +
+                                      geom_errorbar(aes(ymin = lowerCI, ymax = upperCI, x = as.factor(tissue), colour=as.factor(sig.hit)),
+                                      width = 0, position = position_dodge(width = 0.5)) +
+                                      theme_bw()  + scale_colour_manual(values = c("#7294D4", "#5B1A18")) +
+                                      theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
+                                            panel.border = element_rect(colour = "black", fill=NA, size=1),
+                                            axis.text = element_text(face="bold", color="black",size=20, family = "Helvetica"),
+                                            axis.title=element_blank(), legend.position = "none")
+
+pdf("/plas1/amardeep.singh/tmp/Sex.bias.expression.pdf", height = 10, width = 5)
+sex.averaged.expression.plot
+dev.off()
+
+
 
 # Subset quantiles of gene expression
 body.quantile.bin.1 = expression.data.body[expression.data.body$quantile == 1, ]
@@ -219,18 +334,18 @@ body.df.fraction = c( (nrow(body.quantile.bin.1[body.quantile.bin.1$sig.hit == 1
                       (nrow(body.quantile.bin.3[body.quantile.bin.3$sig.hit == 1,])) / (nrow(body.quantile.bin.3[body.quantile.bin.3$sig.hit == 0,])),
                       (nrow(body.quantile.bin.4[body.quantile.bin.4$sig.hit == 1,])) / (nrow(body.quantile.bin.4[body.quantile.bin.4$sig.hit == 0,])),
                       (nrow(body.quantile.bin.5[body.quantile.bin.5$sig.hit == 1,])) / (nrow(body.quantile.bin.5[body.quantile.bin.5$sig.hit == 0,])),
-                      (nrow(body.quantile.bin.6[body.quantile.bin.6$sig.hit == 1,])) / (nrow(body.quantile.bin.6[body.quantile.bin.6$sig.hit == 0,])),
-                      (nrow(body.quantile.bin.7[body.quantile.bin.7$sig.hit == 1,])) / (nrow(body.quantile.bin.7[body.quantile.bin.7$sig.hit == 0,])),
-                      (nrow(body.quantile.bin.8[body.quantile.bin.8$sig.hit == 1,])) / (nrow(body.quantile.bin.8[body.quantile.bin.8$sig.hit == 0,])))
+                      (nrow(body.quantile.bin.6[body.quantile.bin.6$sig.hit == 1,])) / (nrow(body.quantile.bin.6[body.quantile.bin.6$sig.hit == 0,])))
+                      #(nrow(body.quantile.bin.7[body.quantile.bin.7$sig.hit == 1,])) / (nrow(body.quantile.bin.7[body.quantile.bin.7$sig.hit == 0,])),
+                      #(nrow(body.quantile.bin.8[body.quantile.bin.8$sig.hit == 1,])) / (nrow(body.quantile.bin.8[body.quantile.bin.8$sig.hit == 0,])))
 
 head.df.fraction = c( (nrow(head.quantile.bin.1[head.quantile.bin.1$sig.hit == 1,])) / (nrow(head.quantile.bin.1[head.quantile.bin.1$sig.hit == 0,])),
                       (nrow(head.quantile.bin.2[head.quantile.bin.2$sig.hit == 1,])) / (nrow(head.quantile.bin.2[head.quantile.bin.2$sig.hit == 0,])),
                       (nrow(head.quantile.bin.3[head.quantile.bin.3$sig.hit == 1,])) / (nrow(head.quantile.bin.3[head.quantile.bin.3$sig.hit == 0,])),
                       (nrow(head.quantile.bin.4[head.quantile.bin.4$sig.hit == 1,])) / (nrow(head.quantile.bin.4[head.quantile.bin.4$sig.hit == 0,])),
                       (nrow(head.quantile.bin.5[head.quantile.bin.5$sig.hit == 1,])) / (nrow(head.quantile.bin.5[head.quantile.bin.5$sig.hit == 0,])),
-                      (nrow(head.quantile.bin.6[head.quantile.bin.6$sig.hit == 1,])) / (nrow(head.quantile.bin.6[head.quantile.bin.6$sig.hit == 0,])),
-                      (nrow(head.quantile.bin.7[head.quantile.bin.7$sig.hit == 1,])) / (nrow(head.quantile.bin.7[head.quantile.bin.7$sig.hit == 0,])),
-                      (nrow(head.quantile.bin.8[head.quantile.bin.8$sig.hit == 1,])) / (nrow(head.quantile.bin.8[head.quantile.bin.8$sig.hit == 0,])))
+                      (nrow(head.quantile.bin.6[head.quantile.bin.6$sig.hit == 1,])) / (nrow(head.quantile.bin.6[head.quantile.bin.6$sig.hit == 0,])))
+                      #(nrow(head.quantile.bin.7[head.quantile.bin.7$sig.hit == 1,])) / (nrow(head.quantile.bin.7[head.quantile.bin.7$sig.hit == 0,])),
+                      #(nrow(head.quantile.bin.8[head.quantile.bin.8$sig.hit == 1,])) / (nrow(head.quantile.bin.8[head.quantile.bin.8$sig.hit == 0,])))
 
 ## Plotting ##
 # First plot will be the fraction of genes in gene expression quantiles that are significantly DEU or not
@@ -263,8 +378,8 @@ for (i in 1:10000){
   sample.body.quantile4 = sample(body.quantile.bin.4$sig.hit, nrow(body.quantile.bin.4), replace = TRUE)
   sample.body.quantile5 = sample(body.quantile.bin.5$sig.hit, nrow(body.quantile.bin.5), replace = TRUE)
   sample.body.quantile6 = sample(body.quantile.bin.6$sig.hit, nrow(body.quantile.bin.6), replace = TRUE)
-  sample.body.quantile7 = sample(body.quantile.bin.7$sig.hit, nrow(body.quantile.bin.7), replace = TRUE)
-  sample.body.quantile8 = sample(body.quantile.bin.8$sig.hit, nrow(body.quantile.bin.8), replace = TRUE)
+  #sample.body.quantile7 = sample(body.quantile.bin.7$sig.hit, nrow(body.quantile.bin.7), replace = TRUE)
+  #sample.body.quantile8 = sample(body.quantile.bin.8$sig.hit, nrow(body.quantile.bin.8), replace = TRUE)
 
   sample.head.quantile1 = sample(head.quantile.bin.1$sig.hit, nrow(head.quantile.bin.1), replace = TRUE)
   sample.head.quantile2 = sample(head.quantile.bin.2$sig.hit, nrow(head.quantile.bin.2), replace = TRUE)
@@ -272,8 +387,8 @@ for (i in 1:10000){
   sample.head.quantile4 = sample(head.quantile.bin.4$sig.hit, nrow(head.quantile.bin.4), replace = TRUE)
   sample.head.quantile5 = sample(head.quantile.bin.5$sig.hit, nrow(head.quantile.bin.5), replace = TRUE)
   sample.head.quantile6 = sample(head.quantile.bin.6$sig.hit, nrow(head.quantile.bin.6), replace = TRUE)
-  sample.head.quantile7 = sample(head.quantile.bin.7$sig.hit, nrow(head.quantile.bin.7), replace = TRUE)
-  sample.head.quantile8 = sample(head.quantile.bin.8$sig.hit, nrow(head.quantile.bin.8), replace = TRUE)
+  #sample.head.quantile7 = sample(head.quantile.bin.7$sig.hit, nrow(head.quantile.bin.7), replace = TRUE)
+  #sample.head.quantile8 = sample(head.quantile.bin.8$sig.hit, nrow(head.quantile.bin.8), replace = TRUE)
 
   body.quantile.1.fraction[i] = length(sample.body.quantile1[sample.body.quantile1 == 1]) / length(sample.body.quantile1[sample.body.quantile1 == 0])
   body.quantile.2.fraction[i] = length(sample.body.quantile2[sample.body.quantile2 == 1]) / length(sample.body.quantile2[sample.body.quantile2 == 0])
@@ -281,8 +396,8 @@ for (i in 1:10000){
   body.quantile.4.fraction[i] = length(sample.body.quantile4[sample.body.quantile4 == 1]) / length(sample.body.quantile4[sample.body.quantile4 == 0])
   body.quantile.5.fraction[i] = length(sample.body.quantile5[sample.body.quantile5 == 1]) / length(sample.body.quantile5[sample.body.quantile5 == 0])
   body.quantile.6.fraction[i] = length(sample.body.quantile6[sample.body.quantile6 == 1]) / length(sample.body.quantile6[sample.body.quantile6 == 0])
-  body.quantile.7.fraction[i] = length(sample.body.quantile7[sample.body.quantile7 == 1]) / length(sample.body.quantile7[sample.body.quantile7 == 0])
-  body.quantile.8.fraction[i] = length(sample.body.quantile8[sample.body.quantile8 == 1]) / length(sample.body.quantile8[sample.body.quantile8 == 0])
+  #body.quantile.7.fraction[i] = length(sample.body.quantile7[sample.body.quantile7 == 1]) / length(sample.body.quantile7[sample.body.quantile7 == 0])
+  #body.quantile.8.fraction[i] = length(sample.body.quantile8[sample.body.quantile8 == 1]) / length(sample.body.quantile8[sample.body.quantile8 == 0])
 
   head.quantile.1.fraction[i] = length(sample.head.quantile1[sample.head.quantile1 == 1]) / length(sample.head.quantile1[sample.head.quantile1 == 0])
   head.quantile.2.fraction[i] = length(sample.head.quantile2[sample.head.quantile2 == 1]) / length(sample.head.quantile2[sample.head.quantile2 == 0])
@@ -290,8 +405,8 @@ for (i in 1:10000){
   head.quantile.4.fraction[i] = length(sample.head.quantile4[sample.head.quantile4 == 1]) / length(sample.head.quantile4[sample.head.quantile4 == 0])
   head.quantile.5.fraction[i] = length(sample.head.quantile5[sample.head.quantile5 == 1]) / length(sample.head.quantile5[sample.head.quantile5 == 0])
   head.quantile.6.fraction[i] = length(sample.head.quantile6[sample.head.quantile6 == 1]) / length(sample.head.quantile6[sample.head.quantile6 == 0])
-  head.quantile.7.fraction[i] = length(sample.head.quantile7[sample.head.quantile7 == 1]) / length(sample.head.quantile7[sample.head.quantile7 == 0])
-  head.quantile.8.fraction[i] = length(sample.head.quantile8[sample.head.quantile8 == 1]) / length(sample.head.quantile8[sample.head.quantile8 == 0])
+  #head.quantile.7.fraction[i] = length(sample.head.quantile7[sample.head.quantile7 == 1]) / length(sample.head.quantile7[sample.head.quantile7 == 0])
+  #head.quantile.8.fraction[i] = length(sample.head.quantile8[sample.head.quantile8 == 1]) / length(sample.head.quantile8[sample.head.quantile8 == 0])
 
   print (i)
 }
@@ -301,49 +416,50 @@ body.lower.CI = as.vector( c( quantile(body.quantile.1.fraction, 0.05)[1],
                               quantile(body.quantile.3.fraction, 0.05)[1],
                               quantile(body.quantile.4.fraction, 0.05)[1],
                               quantile(body.quantile.5.fraction, 0.05)[1],
-                              quantile(body.quantile.6.fraction, 0.05)[1],
-                              quantile(body.quantile.7.fraction, 0.05)[1],
-                              quantile(body.quantile.8.fraction, 0.05)[1]))
+                              quantile(body.quantile.6.fraction, 0.05)[1]))
+                              #quantile(body.quantile.7.fraction, 0.05)[1],
+                              #quantile(body.quantile.8.fraction, 0.05)[1]
+
 
 body.high.CI = as.vector( c( quantile(body.quantile.1.fraction, 0.95)[1],
                               quantile(body.quantile.2.fraction, 0.95)[1],
                               quantile(body.quantile.3.fraction, 0.95)[1],
                               quantile(body.quantile.4.fraction, 0.95)[1],
                               quantile(body.quantile.5.fraction, 0.95)[1],
-                              quantile(body.quantile.6.fraction, 0.95)[1],
-                              quantile(body.quantile.7.fraction, 0.95)[1],
-                              quantile(body.quantile.8.fraction, 0.95)[1]))
+                              quantile(body.quantile.6.fraction, 0.95)[1]))
+                              #quantile(body.quantile.7.fraction, 0.95)[1],
+                              #quantile(body.quantile.8.fraction, 0.95)[1]))
 #
 head.lower.CI = as.vector( c( quantile(head.quantile.1.fraction, 0.05)[1],
                               quantile(head.quantile.2.fraction, 0.05)[1],
                               quantile(head.quantile.3.fraction, 0.05)[1],
                               quantile(head.quantile.4.fraction, 0.05)[1],
                               quantile(head.quantile.5.fraction, 0.05)[1],
-                              quantile(head.quantile.6.fraction, 0.05)[1],
-                              quantile(head.quantile.7.fraction, 0.05)[1],
-                              quantile(head.quantile.8.fraction, 0.05)[1]))
+                              quantile(head.quantile.6.fraction, 0.05)[1]))
+                              #quantile(head.quantile.7.fraction, 0.05)[1],
+                              #quantile(head.quantile.8.fraction, 0.05)[1]))
 
 head.high.CI = as.vector( c( quantile(head.quantile.1.fraction, 0.95)[1],
                               quantile(head.quantile.2.fraction, 0.95)[1],
                               quantile(head.quantile.3.fraction, 0.95)[1],
                               quantile(head.quantile.4.fraction, 0.95)[1],
                               quantile(head.quantile.5.fraction, 0.95)[1],
-                              quantile(head.quantile.6.fraction, 0.95)[1],
-                              quantile(head.quantile.7.fraction, 0.95)[1],
-                              quantile(head.quantile.8.fraction, 0.95)[1]))
+                              quantile(head.quantile.6.fraction, 0.95)[1]))
+                              #quantile(head.quantile.7.fraction, 0.95)[1],
+                              #quantile(head.quantile.8.fraction, 0.95)[1]))
 
 body.gene.expression.df = as.data.frame(cbind(body.df.fraction, body.lower.CI, body.high.CI))
-body.gene.expression.df$quantile = seq(1,8,1)
+body.gene.expression.df$quantile = seq(1,6,1)
 body.gene.expression.df$tissue = "body"
 colnames(body.gene.expression.df) = c("fraction", "lower.CI", "upper.CI", "quantile", "tissue")
 head.gene.expression.df = as.data.frame(cbind(head.df.fraction, head.lower.CI, head.high.CI))
-head.gene.expression.df$quantile = seq(1,8,1)
+head.gene.expression.df$quantile = seq(1,6,1)
 head.gene.expression.df$tissue = "head"
 colnames(head.gene.expression.df) = c("fraction", "lower.CI", "upper.CI", "quantile", "tissue")
 
 gene.expression.df = rbind(body.gene.expression.df,head.gene.expression.df)
 
-# Plotting fractions
+# Plotting fractions -- Plot with free y scale
 fraction.of.genes = ggplot(gene.expression.df, aes(y=fraction, x = as.factor(quantile))) +
                            geom_point(aes(x = as.factor(quantile), y=fraction), size = 10,
                            position = position_dodge(width = 0.5)) +
@@ -355,14 +471,30 @@ fraction.of.genes = ggplot(gene.expression.df, aes(y=fraction, x = as.factor(qua
                                  axis.text = element_text(face="bold", color="black",size=15, family = "Helvetica"),
                                  axis.title=element_blank(), legend.position = "none") +
                           facet_grid(tissue~., scales = "free") + theme(panel.spacing = unit(2, "lines"))
-pdf("/plas1/amardeep.singh/tmp/gene.expression.fractions.pdf")
+pdf("/plas1/amardeep.singh/tmp/gene.expression.fractions_free_scale.pdf")
 fraction.of.genes
+dev.off()
+
+# Plotting fractions -- Plot with fixed y scale
+fraction.of.genes.single.plot = ggplot(gene.expression.df, aes(y = fraction, x = as.factor(quantile), colour = as.factor(tissue))) +
+                           geom_point(aes(x = as.factor(quantile), y = fraction, colour = as.factor(tissue)), size = 10,
+                           position = position_dodge(width = 0.5)) +
+                           geom_errorbar(aes(ymin = lower.CI, ymax = upper.CI, x = as.factor(quantile)),
+                           width = 0, position = position_dodge(width = 0.5)) +
+                           theme_bw() + scale_colour_manual(values = c("#6361f2","#f29161")) +
+                           theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
+                                 panel.border = element_rect(colour = "black", fill=NA, size=1),
+                                 axis.text = element_text(face="bold", color="black",size=15, family = "Helvetica"),
+                                 axis.title=element_blank(), legend.position = "none")
+                          #facet_grid(tissue~., ) + theme(panel.spacing = unit(2, "lines"))
+pdf("/plas1/amardeep.singh/tmp/gene.expression.fractions_fixed_scale.pdf")
+fraction.of.genes.single.plot
 dev.off()
 
 
 # Plotting gene expression as an index
-sexbias.exonbias.plot = ggplot(expression.data, aes(y=baseMean, x=log2FoldChange, colour = as.factor(sig.hit))) +
-                           geom_point(aes(y=baseMean, x=log2FoldChange, colour = as.factor(sig.hit)), size = 2) + xlim(c(-15,15)) +
+sexbias.exonbias.plot = ggplot(expression.data, aes(y=log(baseMean), x=log2FoldChange, colour = as.factor(sig.hit))) +
+                           geom_point(aes(y=log(baseMean), x=log2FoldChange, colour = as.factor(sig.hit)), size = 1) + xlim(c(-15,15)) +
                            theme_bw() + scale_colour_manual(values = c("#7294D4", "#5B1A18")) + geom_vline(xintercept = 0, linetype = 2) +
                            theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
                                  panel.border = element_rect(colour = "black", fill=NA, size=1),
@@ -374,7 +506,55 @@ pdf("/plas1/amardeep.singh/tmp/gene.expression.continuous.pdf")
 sexbias.exonbias.plot
 dev.off()
 
+# Plotting gene expression bias in heads versus body in scatter plot
+# Reorganize data for easy plotting
+body.data = expression.data[expression.data$tissue == "body",]
+body.data = body.data[,c(1,3:5)]
+colnames(body.data)[2:4] = c("body.sig.hit", "body.average.expression", "body.log2FoldChange")
+head.data = expression.data[expression.data$tissue == "head",]
+head.data = head.data[,c(1,3:5)]
+colnames(head.data)[2:4] = c("head.sig.hit","head.average.expression", "head.log2FoldChange")
 
+# Bin genes as either significantly SD in exon usage in both, nbeither or one tissue
+expression.merge = merge(head.data,body.data, by = "geneID")
+expression.merge$grouping = NA
+expression.merge$grouping[expression.merge$body.sig.hit == 1 & expression.merge$head.sig.hit == 1] = "sig.both"
+expression.merge$grouping[expression.merge$body.sig.hit == 0 & expression.merge$head.sig.hit == 0] = "non.sig.both"
+expression.merge$grouping[expression.merge$body.sig.hit == 1 & expression.merge$head.sig.hit == 0] = "sig.body.only"
+expression.merge$grouping[expression.merge$body.sig.hit == 0 & expression.merge$head.sig.hit == 1] = "sig.head.only"
+
+#Filter data for three genes with very high log2FC expression
+expression.merge.filtered = expression.merge[expression.merge$head.log2FoldChange > -10,]
+
+# Plotting log2FC in expression 
+head.vs.body.expression.plot = ggplot(expression.merge, aes(y=head.log2FoldChange, x=body.log2FoldChange, colour = as.factor(grouping))) +
+                           geom_point(aes(y=head.log2FoldChange, x=body.log2FoldChange, colour = as.factor(grouping)), size = 2) +
+                           theme_bw() + scale_colour_manual(values = c("#dfb78e","#2ca1db", "#112047","#f44323")) +
+                           geom_vline(xintercept = 0, linetype = 1) + geom_hline(yintercept = 0, linetype = 1) +
+                           theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
+                                 panel.border = element_rect(colour = "black", fill=NA, size=1),
+                                 axis.text = element_text(face="bold", color="black",size=20, family = "Helvetica"),
+                                 axis.title=element_blank())
+                           #facet_wrap(tissue~.) #+ theme(panel.spacing = unit(1, "lines"))
+
+pdf("/plas1/amardeep.singh/tmp/head.vs.body.expression.sex.bias.gene.expression.freescales.pdf", height = 10, width = 10)
+head.vs.body.expression.plot
+dev.off()
+
+# Plotting sex-averaged gene expression
+head.vs.body.expression.plot = ggplot(expression.merge, aes(y=log(head.average.expression), x=log(body.average.expression), colour = as.factor(grouping))) +
+                           geom_point(aes(y=log(head.average.expression), x=log(body.average.expression), colour = as.factor(grouping)), size = 2) +
+                           theme_bw() + scale_colour_manual(values = c("#dfb78e","#2ca1db", "#112047","#f44323")) +
+                           geom_abline(slope = 1, intercept = 0) +
+                           theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
+                                 panel.border = element_rect(colour = "black", fill=NA, size=1),
+                                 axis.text = element_text(face="bold", color="black",size=20, family = "Helvetica"),
+                                 axis.title=element_blank())
+                           #facet_wrap(tissue~.) #+ theme(panel.spacing = unit(1, "lines"))
+
+pdf("/plas1/amardeep.singh/tmp/head.vs.body.average.gene.expression.freescales.pdf", height = 10, width = 10)
+head.vs.body.expression.plot
+dev.off()
 
 
 

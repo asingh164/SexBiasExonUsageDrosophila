@@ -348,8 +348,10 @@ write.table(nucleotide.diversity.per.gene, file = "/plas1/amardeep.singh/RNA.Seq
 ######    Calculating Synonymous and Nonsynonymous Nucleotide Diversity in the DGRP at DEU Significant and Nonsignificant Genes  ######
 #######################################################################################################################################
 
-###### There are two analyses I did here. First, was ignoring differential gene expression while the second parses piN/piS by sex-bias in gene expression
+###### There are three analyses I did here. First, was ignoring differential gene expression while the second parses piN/piS by sex-bias in gene expression
+######  The third was pasing out by both sex-bias in gene expression and by sex-averaged gene expression
 
+## Parsing out by sex-averaged gene expression
 #---- R CODE -----
 rm(list=ls())
 
@@ -379,8 +381,8 @@ junctionseq.results.head = junctionseq.results.head[junctionseq.results.head$exp
 junctionseq.results.body = junctionseq.results.body[, c(2,25)]
 junctionseq.results.head = junctionseq.results.head[, c(2,25)]
 # Clean out unnecessary columns in gene expression data
-expression.data.body = expression.data.body[,c(2,3,4)]
-expression.data.head = expression.data.head[,c(3,4,5)]
+expression.data.body = expression.data.body[,c(1:3)]
+expression.data.head = expression.data.head[,c(1:3)]
 
 ## Assign significant genes from JunctionSeq output
 # Assign significant hits
@@ -408,6 +410,10 @@ head.pin.pis = merge(head.pin.pis, expression.data.head, by.x = "geneID" , by.y 
 body.pin.pis = body.pin.pis[!(is.na(body.pin.pis$log2FoldChange)), ]
 head.pin.pis = head.pin.pis[!(is.na(head.pin.pis$log2FoldChange)), ]
 
+# Assign quantiles for sex-averaged mean expression
+body.pin.pis = body.pin.pis %>% mutate(sex.averaged.expression.quantile = ntile(baseMean, 3))
+head.pin.pis = head.pin.pis %>% mutate(sex.averaged.expression.quantile = ntile(baseMean, 3))
+
 ## Processing gene expression data
 # Assign quantiles bins for male and female biased gene expression
 male.biased.body = body.pin.pis[body.pin.pis$log2FoldChange > 0,]
@@ -416,37 +422,53 @@ male.biased.head = head.pin.pis[head.pin.pis$log2FoldChange > 0,]
 female.biased.head = head.pin.pis[head.pin.pis$log2FoldChange < 0,]
 
 # Assign quantiles for sex-averaged mean expression
-male.biased.body = male.biased.body %>% mutate(average.expression.quantile = ntile(baseMean, 3))
-male.biased.head = male.biased.body %>% mutate(average.expression.quantile = ntile(baseMean, 3))
-female.biased.body = female.biased.body %>% mutate(average.expression.quantile = ntile(baseMean, 3))
-female.biased.head = female.biased.head %>% mutate(average.expression.quantile = ntile(baseMean, 3))
+#male.biased.body = male.biased.body %>% mutate(sex.averaged.expression.quantile = ntile(baseMean, 3))
+#male.biased.head = male.biased.body %>% mutate(sex.averaged.expression.quantile = ntile(baseMean, 3))
+#female.biased.body = female.biased.body %>% mutate(sex.averaged.expression.quantile = ntile(baseMean, 3))
+#female.biased.head = female.biased.head %>% mutate(sex.averaged.expression.quantile = ntile(baseMean, 3))
 
-# Assign quantile for both MBG and FBG within each sex-averaged expression quantile
-male.biased.body.lowexp = male.biased.body[male.biased.body$average.expression.quantile == 1,] %>% mutate(log2FC.quantile = ntile(log2FoldChange, 3))
-male.biased.body.intermediateexp = male.biased.body[male.biased.body$average.expression.quantile == 2,] %>% mutate(log2FC.quantile = ntile(log2FoldChange, 3))
-male.biased.body.highexp = male.biased.body[male.biased.body$average.expression.quantile == 3,] %>% mutate(log2FC.quantile = ntile(log2FoldChange, 3))
-male.biased.head.lowexp = male.biased.head[male.biased.head$average.expression.quantile == 1,] %>% mutate(log2FC.quantile = ntile(log2FoldChange, 3))
-male.biased.head.intermediateexp = male.biased.head[male.biased.head$average.expression.quantile == 2,] %>% mutate(log2FC.quantile = ntile(log2FoldChange, 3))
-male.biased.head.highexp = male.biased.head[male.biased.head$average.expression.quantile == 3,] %>% mutate(log2FC.quantile = ntile(log2FoldChange, 3))
+# Assign quantile for both MBG and FBG within each sex-averaged expression quantile ## Careful in using this variable, it is only relevent when parsed by sex-averaged gene expression!
+male.biased.body.lowexp = male.biased.body[male.biased.body$sex.averaged.expression.quantile == 1,] %>% mutate(sex.averaged.log2FC.quantile = ntile(log2FoldChange, 3))
+male.biased.body.intermediateexp = male.biased.body[male.biased.body$sex.averaged.expression.quantile == 2,] %>% mutate(sex.averaged.log2FC.quantile = ntile(log2FoldChange, 3))
+male.biased.body.highexp = male.biased.body[male.biased.body$sex.averaged.expression.quantile == 3,] %>% mutate(sex.averaged.log2FC.quantile = ntile(log2FoldChange, 3))
+male.biased.head.lowexp = male.biased.head[male.biased.head$sex.averaged.expression.quantile == 1,] %>% mutate(sex.averaged.log2FC.quantile = ntile(log2FoldChange, 3))
+male.biased.head.intermediateexp = male.biased.head[male.biased.head$sex.averaged.expression.quantile == 2,] %>% mutate(sex.averaged.log2FC.quantile = ntile(log2FoldChange, 3))
+male.biased.head.highexp = male.biased.head[male.biased.head$sex.averaged.expression.quantile == 3,] %>% mutate(sex.averaged.log2FC.quantile = ntile(log2FoldChange, 3))
 
-female.biased.body.lowexp = female.biased.body[female.biased.body$average.expression.quantile == 1,] %>% mutate(log2FC.quantile = ntile(log2FoldChange, 3))
-female.biased.body.intermediateexp = female.biased.body[female.biased.body$average.expression.quantile == 2,] %>% mutate(log2FC.quantile = ntile(log2FoldChange, 3))
-female.biased.body.highexp = female.biased.body[female.biased.body$average.expression.quantile == 3,] %>% mutate(log2FC.quantile = ntile(log2FoldChange, 3))
-female.biased.head.lowexp = female.biased.head[female.biased.head$average.expression.quantile == 1,] %>% mutate(log2FC.quantile = ntile(log2FoldChange, 3))
-female.biased.head.intermediateexp = female.biased.head[female.biased.head$average.expression.quantile == 2,] %>% mutate(log2FC.quantile = ntile(log2FoldChange, 3))
-female.biased.head.highexp = female.biased.head[female.biased.head$average.expression.quantile == 3,] %>% mutate(log2FC.quantile = ntile(log2FoldChange, 3))
+female.biased.body.lowexp = female.biased.body[female.biased.body$sex.averaged.expression.quantile == 1,] %>% mutate(sex.averaged.log2FC.quantile = ntile(log2FoldChange, 3))
+female.biased.body.intermediateexp = female.biased.body[female.biased.body$sex.averaged.expression.quantile == 2,] %>% mutate(sex.averaged.log2FC.quantile = ntile(log2FoldChange, 3))
+female.biased.body.highexp = female.biased.body[female.biased.body$sex.averaged.expression.quantile == 3,] %>% mutate(sex.averaged.log2FC.quantile = ntile(log2FoldChange, 3))
+female.biased.head.lowexp = female.biased.head[female.biased.head$sex.averaged.expression.quantile == 1,] %>% mutate(sex.averaged.log2FC.quantile = ntile(log2FoldChange, 3))
+female.biased.head.intermediateexp = female.biased.head[female.biased.head$sex.averaged.expression.quantile == 2,] %>% mutate(sex.averaged.log2FC.quantile = ntile(log2FoldChange, 3))
+female.biased.head.highexp = female.biased.head[female.biased.head$sex.averaged.expression.quantile == 3,] %>% mutate(sex.averaged.log2FC.quantile = ntile(log2FoldChange, 3))
 
 # For the male genes, lets add 3 to each quantile
-male.biased.body.lowexp$log2FC.quantile = male.biased.body.lowexp$log2FC.quantile + 3
-male.biased.body.intermediateexp$log2FC.quantile = male.biased.body.intermediateexp$log2FC.quantile + 3
-male.biased.body.highexp$log2FC.quantile = male.biased.body.highexp$log2FC.quantile + 3
-male.biased.head.lowexp$log2FC.quantile = male.biased.head.lowexp$log2FC.quantile + 3
-male.biased.head.intermediateexp$log2FC.quantile = male.biased.head.intermediateexp$log2FC.quantile + 3
-male.biased.head.highexp$log2FC.quantile = male.biased.head.highexp$log2FC.quantile + 3
+male.biased.body.lowexp$sex.averaged.log2FC.quantile = male.biased.body.lowexp$sex.averaged.log2FC.quantile + 3
+male.biased.body.intermediateexp$sex.averaged.log2FC.quantile = male.biased.body.intermediateexp$sex.averaged.log2FC.quantile + 3
+male.biased.body.highexp$sex.averaged.log2FC.quantile = male.biased.body.highexp$sex.averaged.log2FC.quantile + 3
+male.biased.head.lowexp$sex.averaged.log2FC.quantile = male.biased.head.lowexp$sex.averaged.log2FC.quantile + 3
+male.biased.head.intermediateexp$sex.averaged.log2FC.quantile = male.biased.head.intermediateexp$sex.averaged.log2FC.quantile + 3
+male.biased.head.highexp$sex.averaged.log2FC.quantile = male.biased.head.highexp$sex.averaged.log2FC.quantile + 3
+
+# Combine back into male-biased and female-biased dataframes
+male.biased.body = rbind(male.biased.body.lowexp, male.biased.body.intermediateexp,male.biased.body.highexp)
+male.biased.head = rbind(male.biased.head.lowexp, male.biased.head.intermediateexp,male.biased.head.highexp)
+female.biased.body = rbind(female.biased.body.lowexp, female.biased.body.intermediateexp,female.biased.body.highexp)
+female.biased.head = rbind(female.biased.head.lowexp, female.biased.head.intermediateexp,female.biased.head.highexp)
+
+# Assign quantile for both MBG and FBG overall
+male.biased.body = male.biased.body %>% mutate(log2FC.quantile = ntile(log2FoldChange, 3))
+male.biased.head = male.biased.head %>% mutate(log2FC.quantile = ntile(log2FoldChange, 3))
+female.biased.body = female.biased.body %>% mutate(log2FC.quantile = ntile(log2FoldChange, 3))
+female.biased.head = female.biased.head %>% mutate(log2FC.quantile = ntile(log2FoldChange, 3))
+
+# For the male genes, lets add 3 to each quantile
+male.biased.body$log2FC.quantile = male.biased.body$log2FC.quantile + 3
+male.biased.head$log2FC.quantile = male.biased.head$log2FC.quantile + 3
 
 # Merge data back
-body.pin.pis = rbind(male.biased.body.lowexp,male.biased.body.intermediateexp,male.biased.body.highexp,female.biased.body.lowexp,female.biased.body.intermediateexp,female.biased.body.highexp)
-head.pin.pis = rbind(male.biased.head.lowexp,male.biased.head.intermediateexp,male.biased.head.highexp,female.biased.head.lowexp,female.biased.head.intermediateexp,female.biased.head.highexp)
+body.pin.pis = rbind(male.biased.body, female.biased.body)
+head.pin.pis = rbind(male.biased.head, female.biased.head)
 body.pin.pis$tissue = "body"
 head.pin.pis$tissue = "head"
 
@@ -458,8 +480,63 @@ pin.pis = rbind(body.pin.pis,head.pin.pis)
 ##    Ploting   ##
 ##################
 
-### First plot is without parsing out by sex-bias in gene expression
+### First plot is averaging across both sex-bias in gene expression and sex-averaged gene expression
+# Summarize true data
+piNpiS.summary = summaryBy(piN.piS ~ sig.hit + tissue, FUN=c(median, length), data = pin.pis)
+# Bootstrap means for each subset
+# Data frame to hold resampled results
+resample.data = as.data.frame(cbind(vector(mode="numeric", length = 10000 * nrow(piNpiS.summary)),
+                                    vector(mode="numeric", length = 10000 * nrow(piNpiS.summary)),
+                                    vector(mode="numeric", length = 10000 * nrow(piNpiS.summary)),
+                                    vector(mode="numeric", length = 10000 * nrow(piNpiS.summary))))
 
+## Loop to resample piNpiS data
+
+output.row.start = 1
+output.row.end = 4
+
+for (i in 1:10000){
+
+resampled.df=rbind( sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body", ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body", ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body", ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body", ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head", ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head", ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head", ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head", ]), replace = TRUE))
+
+# Output summary of resampled data to resample dataframe
+resample.data[output.row.start:output.row.end, ] = summaryBy(piN.piS ~ sig.hit + tissue, FUN=c(median, length), data = resampled.df)
+output.row.start = output.row.end  + 1
+output.row.end = output.row.end + 4
+print(i)
+}
+write.table(resample.data, file = "/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/piNpiS.resampled.overall.average.txt", quote = FALSE, row.names = FALSE, col.names = TRUE, sep = "\t")
+
+resample.data = read.table("/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/piNpiS.resampled.overall.average.txt", header = TRUE, sep = "\t")
+# Rename columns of resampled data
+colnames(resample.data) = c("sig.hit","tissue","piNpiS","Number.of.Genes")
+
+piNpiS.data.summary = summaryBy(piNpiS ~ sig.hit + tissue, FUN = function(x) c(Median = mean(x), lower.ci = quantile(x, probs = 0.05), upper.ci=quantile(x, probs = 0.95)), data = resample.data)
+colnames(piNpiS.data.summary)[4:5] = c("piNpiS.lowerCI","piNpiS.upperCI")
+
+# Replace resample.data.summary "mean" with true observed mean
+piNpiS.data.summary$piNpiS.Mean = piNpiS.summary$piN.piS.median
+
+piNpiS.summary.plot = ggplot(piNpiS.data.summary, aes(y = piNpiS.Mean, x = as.factor(tissue), colour = as.factor(sig.hit))) +
+                                      geom_point(aes(y = piNpiS.Mean, x = as.factor(tissue), colour = as.factor(sig.hit)),size = 10,
+                                      position = position_dodge(width = 0.5)) + ylim(0.08, 0.12) +
+                                      geom_errorbar(aes(ymin = piNpiS.lowerCI, ymax = piNpiS.upperCI, x = as.factor(tissue), colour=as.factor(sig.hit)),
+                                      width = 0, position = position_dodge(width = 0.5)) +
+                                      theme_bw()  + scale_colour_manual(values = c("#7294D4", "#5B1A18")) +
+                                      theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
+                                            panel.border = element_rect(colour = "black", fill=NA, size=1),
+                                            axis.text = element_text(face="bold", color="black",size=20, family = "Helvetica"),
+                                            axis.title=element_blank(), legend.position = "none")
+
+pdf("/plas1/amardeep.singh/tmp/piNpiS.summary.plot.pdf", height = 10, width = 5)
+piNpiS.summary.plot
+dev.off()
+
+
+### Second plot is without parsing out by sex-bias in gene expression but not sex-averaged expression
 #### Plotting by assessing piN/piS at genes showing DEU parsed by sex bias in gene expression
 
 # Summarize true data
@@ -512,23 +589,24 @@ output.row.start = output.row.end  + 1
 output.row.end = output.row.end + 24
 print(i)
 }
+write.table(resample.data, file = "/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/piNpiS.resampled.log2FC.averaged.across.abs.gene.expression.txt", quote = FALSE, row.names = FALSE, col.names = TRUE, sep = "\t")
 
+
+resample.data = read.table("/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/piNpiS.resampled.log2FC.averaged.across.abs.gene.expression.txt", header = TRUE, sep = "\t")
 colnames(resample.data) = c("log2FC.quantile","sig.hit","tissue","piNpiS","number.of.genes")
-write.table(resample.data, file = "/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/piNpiS.resampled.averaged.across.abs.gene.expression.txt", quote = FALSE, row.names = FALSE, col.names = TRUE, sep = "\t")
 
 # Rename columns of resampled data
-piNpiS.data.summary = summaryBy(piNpiS ~ log2FC.quantile + sig.hit + tissue, FUN = function(x) c(Median = median(x), lower.ci = quantile(x, probs = 0.05), upper.ci=quantile(x, probs = 0.95)), data = resample.data)
+piNpiS.data.summary = summaryBy(piNpiS ~ log2FC.quantile + sig.hit + tissue, FUN = function(x) c(Median = mean(x), lower.ci = quantile(x, probs = 0.05), upper.ci=quantile(x, probs = 0.95)), data = resample.data)
 
 # Replace resample.data.summary "mean" with true observed mean
 colnames(piNpiS.data.summary) = c("log2FC.quantile","sig.hit","tissue","piNpiS.Median","piNpiS.lowerCI","piNpiS.upperCI")
 piNpiS.data.summary$piNpiS.Median = pin.pis.summary$piN.piS.median
 
 
-## Plotting
-## Body/head piN/piS plot
+## Body/head piN/piS plot - Averaged across all levels of gene expression
 piN_piS.expression.plot = ggplot(piNpiS.data.summary, aes(y = piNpiS.Median, x = as.factor(log2FC.quantile), colour = as.factor(sig.hit))) +
-                                      geom_point(aes(y = piNpiS.Median, x = as.factor(log2FC.quantile), colour = as.factor(sig.hit)),size = 10,
-                                      position = position_dodge(width = 0.5)) + #scale_y_continuous(limits = c(-0.1, 0.1)) +
+                                      geom_point(aes(y = piNpiS.Median, x = as.factor(log2FC.quantile), colour = as.factor(sig.hit)), size = 10,
+                                      position = position_dodge(width = 0.5)) + ylim(0.05,0.15) +
                                       geom_errorbar(aes(ymin = piNpiS.lowerCI, ymax = piNpiS.upperCI, x = as.factor(log2FC.quantile), colour=as.factor(sig.hit)),
                                       width = 0, position = position_dodge(width = 0.5)) +
                                       theme_bw()  + scale_colour_manual(values = c("#7294D4", "#5B1A18")) +
@@ -544,10 +622,86 @@ dev.off()
 
 
 
+### Third plot is without parsing out by sex-averaged gene expression over all sex-bias in gene expression levels
+#### Plotting by assessing piN/piS at genes showing DEU parsed by sex bias in gene expression
+
+# Summarize true data
+pin.pis.summary = summaryBy(piN.piS ~ sex.averaged.expression.quantile + sig.hit + tissue, FUN=c(median, length), data = pin.pis)
+
+# Bootstrap means for each subset
+# Data frame to hold resampled results
+resample.data = as.data.frame(cbind(vector(mode="numeric", length = 10000 * nrow(pin.pis.summary)),
+                                    vector(mode="numeric", length = 10000 * nrow(pin.pis.summary)),
+                                    vector(mode="numeric", length = 10000 * nrow(pin.pis.summary)),
+                                    vector(mode="numeric", length = 10000 * nrow(pin.pis.summary)),
+                                    vector(mode="numeric", length = 10000 * nrow(pin.pis.summary))))
+
+## Loop to resample piNpiS data
+
+output.row.start = 1
+output.row.end = 12
+
+for (i in 1:10000){
+
+resampled.df=rbind( sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$sex.averaged.expression.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$sex.averaged.expression.quantile == 1, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$sex.averaged.expression.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$sex.averaged.expression.quantile == 1, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$sex.averaged.expression.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$sex.averaged.expression.quantile == 2, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$sex.averaged.expression.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$sex.averaged.expression.quantile == 2, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$sex.averaged.expression.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$sex.averaged.expression.quantile == 3, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$sex.averaged.expression.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$sex.averaged.expression.quantile == 3, ]), replace = TRUE),
+
+                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$sex.averaged.expression.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$sex.averaged.expression.quantile == 1, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$sex.averaged.expression.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$sex.averaged.expression.quantile == 1, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$sex.averaged.expression.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$sex.averaged.expression.quantile == 2, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$sex.averaged.expression.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$sex.averaged.expression.quantile == 2, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$sex.averaged.expression.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$sex.averaged.expression.quantile == 3, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$sex.averaged.expression.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$sex.averaged.expression.quantile == 3, ]), replace = TRUE))
+
+# Output summary of resampled data to resample dataframe
+resample.data[output.row.start:output.row.end, ] = summaryBy(piN.piS ~ sex.averaged.expression.quantile + sig.hit + tissue, FUN=c(median, length), data = resampled.df)
+output.row.start = output.row.end  + 1
+output.row.end = output.row.end + 12
+print(i)
+}
+write.table(resample.data, file = "/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/piNpiS.resampled.parsed.by.abs.gene.expression.txt", quote = FALSE, row.names = FALSE, col.names = TRUE, sep = "\t")
+
+
+resample.data = read.table("/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/piNpiS.resampled.parsed.by.abs.gene.expression.txt", header = TRUE, sep = "\t")
+colnames(resample.data) = c("sex.averaged.expression.quantile","sig.hit","tissue","piNpiS","number.of.genes")
+
+# Rename columns of resampled data
+piNpiS.data.summary = summaryBy(piNpiS ~ sex.averaged.expression.quantile + sig.hit + tissue, FUN = function(x) c(Median = mean(x), lower.ci = quantile(x, probs = 0.05), upper.ci=quantile(x, probs = 0.95)), data = resample.data)
+
+# Replace resample.data.summary "mean" with true observed mean
+colnames(piNpiS.data.summary) = c("average.expression","sig.hit","tissue","piNpiS.Median","piNpiS.lowerCI","piNpiS.upperCI")
+piNpiS.data.summary$piNpiS.Median = pin.pis.summary$piN.piS.median
+
+
+## Body/head piN/piS plot - Averaged across all levels of gene expression
+piN_piS.expression.plot = ggplot(piNpiS.data.summary, aes(y = piNpiS.Median, x = as.factor(average.expression), colour = as.factor(sig.hit))) +
+                                      geom_point(aes(y = piNpiS.Median, x = as.factor(average.expression), colour = as.factor(sig.hit)), size = 10,
+                                      position = position_dodge(width = 0.5)) + ylim(0.05,0.16) +
+                                      geom_errorbar(aes(ymin = piNpiS.lowerCI, ymax = piNpiS.upperCI, x = as.factor(average.expression), colour=as.factor(sig.hit)),
+                                      width = 0, position = position_dodge(width = 0.5)) +
+                                      theme_bw()  + scale_colour_manual(values = c("#7294D4", "#5B1A18")) +
+                                      theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
+                                            panel.border = element_rect(colour = "black", fill=NA, size=1),
+                                            axis.text = element_text(face="bold", color="black",size=20, family = "Helvetica"),
+                                            axis.title=element_blank(), legend.position = "none") +
+                                      facet_grid(tissue ~. )
+
+pdf("/plas1/amardeep.singh/tmp/piNpiS.by.average.expression.pdf", height = 10, width = 10)
+piN_piS.expression.plot
+dev.off()
+
+
+
+
+
 ### Plotting piN/piS against sex-bias in gene expression for three levels of sex-averaged gene expression
 
 # Summarize true data
-pin.pis.summary.by.abs.expression = summaryBy(piN.piS ~ log2FC.quantile + sig.hit + tissue + average.expression.quantile, FUN=c(median, length), data = pin.pis)
+pin.pis.summary.by.abs.expression = summaryBy(piN.piS ~  sex.averaged.expression.quantile + sex.averaged.log2FC.quantile + sig.hit + tissue, FUN=c(median, length), data = pin.pis)
 
 
 # Bootstrap means for each subset
@@ -566,118 +720,118 @@ output.row.end = 72
 
 for (i in 1:10000){
 
-resampled.df=rbind( sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 1 & pin.pis$average.expression.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 1 & pin.pis$average.expression.quantile == 1, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 1 & pin.pis$average.expression.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 1 & pin.pis$average.expression.quantile == 1, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 2 & pin.pis$average.expression.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 2 & pin.pis$average.expression.quantile == 1, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 2 & pin.pis$average.expression.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 2 & pin.pis$average.expression.quantile == 1, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 3 & pin.pis$average.expression.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 3 & pin.pis$average.expression.quantile == 1, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 3 & pin.pis$average.expression.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 3 & pin.pis$average.expression.quantile == 1, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 4 & pin.pis$average.expression.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 4 & pin.pis$average.expression.quantile == 1, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 4 & pin.pis$average.expression.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 4 & pin.pis$average.expression.quantile == 1, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 5 & pin.pis$average.expression.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 5 & pin.pis$average.expression.quantile == 1, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 5 & pin.pis$average.expression.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 5 & pin.pis$average.expression.quantile == 1, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 6 & pin.pis$average.expression.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 6 & pin.pis$average.expression.quantile == 1, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 6 & pin.pis$average.expression.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 6 & pin.pis$average.expression.quantile == 1, ]), replace = TRUE),
+resample.data.by.abs.expression=rbind( sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 1 & pin.pis$sex.averaged.expression.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 1 & pin.pis$sex.averaged.expression.quantile == 1, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 1 & pin.pis$sex.averaged.expression.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 1 & pin.pis$sex.averaged.expression.quantile == 1, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 2 & pin.pis$sex.averaged.expression.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 2 & pin.pis$sex.averaged.expression.quantile == 1, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 2 & pin.pis$sex.averaged.expression.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 2 & pin.pis$sex.averaged.expression.quantile == 1, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 3 & pin.pis$sex.averaged.expression.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 3 & pin.pis$sex.averaged.expression.quantile == 1, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 3 & pin.pis$sex.averaged.expression.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 3 & pin.pis$sex.averaged.expression.quantile == 1, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 4 & pin.pis$sex.averaged.expression.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 4 & pin.pis$sex.averaged.expression.quantile == 1, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 4 & pin.pis$sex.averaged.expression.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 4 & pin.pis$sex.averaged.expression.quantile == 1, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 5 & pin.pis$sex.averaged.expression.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 5 & pin.pis$sex.averaged.expression.quantile == 1, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 5 & pin.pis$sex.averaged.expression.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 5 & pin.pis$sex.averaged.expression.quantile == 1, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 6 & pin.pis$sex.averaged.expression.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 6 & pin.pis$sex.averaged.expression.quantile == 1, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 6 & pin.pis$sex.averaged.expression.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 6 & pin.pis$sex.averaged.expression.quantile == 1, ]), replace = TRUE),
 
-                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 1 & pin.pis$average.expression.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 1 & pin.pis$average.expression.quantile == 2, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 1 & pin.pis$average.expression.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 1 & pin.pis$average.expression.quantile == 2, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 2 & pin.pis$average.expression.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 2 & pin.pis$average.expression.quantile == 2, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 2 & pin.pis$average.expression.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 2 & pin.pis$average.expression.quantile == 2, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 3 & pin.pis$average.expression.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 3 & pin.pis$average.expression.quantile == 2, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 3 & pin.pis$average.expression.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 3 & pin.pis$average.expression.quantile == 2, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 4 & pin.pis$average.expression.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 4 & pin.pis$average.expression.quantile == 2, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 4 & pin.pis$average.expression.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 4 & pin.pis$average.expression.quantile == 2, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 5 & pin.pis$average.expression.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 5 & pin.pis$average.expression.quantile == 2, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 5 & pin.pis$average.expression.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 5 & pin.pis$average.expression.quantile == 2, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 6 & pin.pis$average.expression.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 6 & pin.pis$average.expression.quantile == 2, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 6 & pin.pis$average.expression.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 6 & pin.pis$average.expression.quantile == 2, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 1 & pin.pis$sex.averaged.expression.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 1 & pin.pis$sex.averaged.expression.quantile == 2, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 1 & pin.pis$sex.averaged.expression.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 1 & pin.pis$sex.averaged.expression.quantile == 2, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 2 & pin.pis$sex.averaged.expression.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 2 & pin.pis$sex.averaged.expression.quantile == 2, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 2 & pin.pis$sex.averaged.expression.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 2 & pin.pis$sex.averaged.expression.quantile == 2, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 3 & pin.pis$sex.averaged.expression.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 3 & pin.pis$sex.averaged.expression.quantile == 2, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 3 & pin.pis$sex.averaged.expression.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 3 & pin.pis$sex.averaged.expression.quantile == 2, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 4 & pin.pis$sex.averaged.expression.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 4 & pin.pis$sex.averaged.expression.quantile == 2, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 4 & pin.pis$sex.averaged.expression.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 4 & pin.pis$sex.averaged.expression.quantile == 2, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 5 & pin.pis$sex.averaged.expression.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 5 & pin.pis$sex.averaged.expression.quantile == 2, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 5 & pin.pis$sex.averaged.expression.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 5 & pin.pis$sex.averaged.expression.quantile == 2, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 6 & pin.pis$sex.averaged.expression.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 6 & pin.pis$sex.averaged.expression.quantile == 2, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 6 & pin.pis$sex.averaged.expression.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 6 & pin.pis$sex.averaged.expression.quantile == 2, ]), replace = TRUE),
 
-                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 1 & pin.pis$average.expression.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 1 & pin.pis$average.expression.quantile == 3, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 1 & pin.pis$average.expression.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 1 & pin.pis$average.expression.quantile == 3, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 2 & pin.pis$average.expression.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 2 & pin.pis$average.expression.quantile == 3, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 2 & pin.pis$average.expression.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 2 & pin.pis$average.expression.quantile == 3, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 3 & pin.pis$average.expression.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 3 & pin.pis$average.expression.quantile == 3, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 3 & pin.pis$average.expression.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 3 & pin.pis$average.expression.quantile == 3, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 4 & pin.pis$average.expression.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 4 & pin.pis$average.expression.quantile == 3, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 4 & pin.pis$average.expression.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 4 & pin.pis$average.expression.quantile == 3, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 5 & pin.pis$average.expression.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 5 & pin.pis$average.expression.quantile == 3, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 5 & pin.pis$average.expression.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 5 & pin.pis$average.expression.quantile == 3, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 6 & pin.pis$average.expression.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 6 & pin.pis$average.expression.quantile == 3, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 6 & pin.pis$average.expression.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 6 & pin.pis$average.expression.quantile == 3, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 1 & pin.pis$sex.averaged.expression.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 1 & pin.pis$sex.averaged.expression.quantile == 3, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 1 & pin.pis$sex.averaged.expression.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 1 & pin.pis$sex.averaged.expression.quantile == 3, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 2 & pin.pis$sex.averaged.expression.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 2 & pin.pis$sex.averaged.expression.quantile == 3, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 2 & pin.pis$sex.averaged.expression.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 2 & pin.pis$sex.averaged.expression.quantile == 3, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 3 & pin.pis$sex.averaged.expression.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 3 & pin.pis$sex.averaged.expression.quantile == 3, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 3 & pin.pis$sex.averaged.expression.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 3 & pin.pis$sex.averaged.expression.quantile == 3, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 4 & pin.pis$sex.averaged.expression.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 4 & pin.pis$sex.averaged.expression.quantile == 3, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 4 & pin.pis$sex.averaged.expression.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 4 & pin.pis$sex.averaged.expression.quantile == 3, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 5 & pin.pis$sex.averaged.expression.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 5 & pin.pis$sex.averaged.expression.quantile == 3, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 5 & pin.pis$sex.averaged.expression.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 5 & pin.pis$sex.averaged.expression.quantile == 3, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 6 & pin.pis$sex.averaged.expression.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 6 & pin.pis$sex.averaged.expression.quantile == 3, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 6 & pin.pis$sex.averaged.expression.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$sex.averaged.log2FC.quantile == 6 & pin.pis$sex.averaged.expression.quantile == 3, ]), replace = TRUE),
 
-                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 1 & pin.pis$average.expression.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 1 & pin.pis$average.expression.quantile == 1, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 1 & pin.pis$average.expression.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 1 & pin.pis$average.expression.quantile == 1, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 2 & pin.pis$average.expression.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 2 & pin.pis$average.expression.quantile == 1, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 2 & pin.pis$average.expression.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 2 & pin.pis$average.expression.quantile == 1, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 3 & pin.pis$average.expression.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 3 & pin.pis$average.expression.quantile == 1, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 3 & pin.pis$average.expression.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 3 & pin.pis$average.expression.quantile == 1, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 4 & pin.pis$average.expression.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 4 & pin.pis$average.expression.quantile == 1, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 4 & pin.pis$average.expression.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 4 & pin.pis$average.expression.quantile == 1, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 5 & pin.pis$average.expression.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 5 & pin.pis$average.expression.quantile == 1, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 5 & pin.pis$average.expression.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 5 & pin.pis$average.expression.quantile == 1, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 6 & pin.pis$average.expression.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 6 & pin.pis$average.expression.quantile == 1, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 6 & pin.pis$average.expression.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 6 & pin.pis$average.expression.quantile == 1, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 1 & pin.pis$sex.averaged.expression.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 1 & pin.pis$sex.averaged.expression.quantile == 1, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 1 & pin.pis$sex.averaged.expression.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 1 & pin.pis$sex.averaged.expression.quantile == 1, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 2 & pin.pis$sex.averaged.expression.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 2 & pin.pis$sex.averaged.expression.quantile == 1, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 2 & pin.pis$sex.averaged.expression.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 2 & pin.pis$sex.averaged.expression.quantile == 1, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 3 & pin.pis$sex.averaged.expression.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 3 & pin.pis$sex.averaged.expression.quantile == 1, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 3 & pin.pis$sex.averaged.expression.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 3 & pin.pis$sex.averaged.expression.quantile == 1, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 4 & pin.pis$sex.averaged.expression.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 4 & pin.pis$sex.averaged.expression.quantile == 1, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 4 & pin.pis$sex.averaged.expression.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 4 & pin.pis$sex.averaged.expression.quantile == 1, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 5 & pin.pis$sex.averaged.expression.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 5 & pin.pis$sex.averaged.expression.quantile == 1, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 5 & pin.pis$sex.averaged.expression.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 5 & pin.pis$sex.averaged.expression.quantile == 1, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 6 & pin.pis$sex.averaged.expression.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 6 & pin.pis$sex.averaged.expression.quantile == 1, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 6 & pin.pis$sex.averaged.expression.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 6 & pin.pis$sex.averaged.expression.quantile == 1, ]), replace = TRUE),
 
-                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 1 & pin.pis$average.expression.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 1 & pin.pis$average.expression.quantile == 2, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 1 & pin.pis$average.expression.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 1 & pin.pis$average.expression.quantile == 2, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 2 & pin.pis$average.expression.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 2 & pin.pis$average.expression.quantile == 2, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 2 & pin.pis$average.expression.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 2 & pin.pis$average.expression.quantile == 2, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 3 & pin.pis$average.expression.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 3 & pin.pis$average.expression.quantile == 2, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 3 & pin.pis$average.expression.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 3 & pin.pis$average.expression.quantile == 2, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 4 & pin.pis$average.expression.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 4 & pin.pis$average.expression.quantile == 2, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 4 & pin.pis$average.expression.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 4 & pin.pis$average.expression.quantile == 2, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 5 & pin.pis$average.expression.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 5 & pin.pis$average.expression.quantile == 2, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 5 & pin.pis$average.expression.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 5 & pin.pis$average.expression.quantile == 2, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 6 & pin.pis$average.expression.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 6 & pin.pis$average.expression.quantile == 2, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 6 & pin.pis$average.expression.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 6 & pin.pis$average.expression.quantile == 2, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 1 & pin.pis$sex.averaged.expression.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 1 & pin.pis$sex.averaged.expression.quantile == 2, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 1 & pin.pis$sex.averaged.expression.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 1 & pin.pis$sex.averaged.expression.quantile == 2, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 2 & pin.pis$sex.averaged.expression.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 2 & pin.pis$sex.averaged.expression.quantile == 2, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 2 & pin.pis$sex.averaged.expression.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 2 & pin.pis$sex.averaged.expression.quantile == 2, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 3 & pin.pis$sex.averaged.expression.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 3 & pin.pis$sex.averaged.expression.quantile == 2, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 3 & pin.pis$sex.averaged.expression.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 3 & pin.pis$sex.averaged.expression.quantile == 2, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 4 & pin.pis$sex.averaged.expression.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 4 & pin.pis$sex.averaged.expression.quantile == 2, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 4 & pin.pis$sex.averaged.expression.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 4 & pin.pis$sex.averaged.expression.quantile == 2, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 5 & pin.pis$sex.averaged.expression.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 5 & pin.pis$sex.averaged.expression.quantile == 2, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 5 & pin.pis$sex.averaged.expression.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 5 & pin.pis$sex.averaged.expression.quantile == 2, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 6 & pin.pis$sex.averaged.expression.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 6 & pin.pis$sex.averaged.expression.quantile == 2, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 6 & pin.pis$sex.averaged.expression.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 6 & pin.pis$sex.averaged.expression.quantile == 2, ]), replace = TRUE),
 
-                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 1 & pin.pis$average.expression.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 1 & pin.pis$average.expression.quantile == 3, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 1 & pin.pis$average.expression.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 1 & pin.pis$average.expression.quantile == 3, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 2 & pin.pis$average.expression.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 2 & pin.pis$average.expression.quantile == 3, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 2 & pin.pis$average.expression.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 2 & pin.pis$average.expression.quantile == 3, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 3 & pin.pis$average.expression.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 3 & pin.pis$average.expression.quantile == 3, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 3 & pin.pis$average.expression.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 3 & pin.pis$average.expression.quantile == 3, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 4 & pin.pis$average.expression.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 4 & pin.pis$average.expression.quantile == 3, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 4 & pin.pis$average.expression.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 4 & pin.pis$average.expression.quantile == 3, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 5 & pin.pis$average.expression.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 5 & pin.pis$average.expression.quantile == 3, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 5 & pin.pis$average.expression.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 5 & pin.pis$average.expression.quantile == 3, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 6 & pin.pis$average.expression.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 6 & pin.pis$average.expression.quantile == 3, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 6 & pin.pis$average.expression.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 6 & pin.pis$average.expression.quantile == 3, ]), replace = TRUE))
+                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 1 & pin.pis$sex.averaged.expression.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 1 & pin.pis$sex.averaged.expression.quantile == 3, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 1 & pin.pis$sex.averaged.expression.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 1 & pin.pis$sex.averaged.expression.quantile == 3, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 2 & pin.pis$sex.averaged.expression.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 2 & pin.pis$sex.averaged.expression.quantile == 3, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 2 & pin.pis$sex.averaged.expression.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 2 & pin.pis$sex.averaged.expression.quantile == 3, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 3 & pin.pis$sex.averaged.expression.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 3 & pin.pis$sex.averaged.expression.quantile == 3, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 3 & pin.pis$sex.averaged.expression.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 3 & pin.pis$sex.averaged.expression.quantile == 3, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 4 & pin.pis$sex.averaged.expression.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 4 & pin.pis$sex.averaged.expression.quantile == 3, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 4 & pin.pis$sex.averaged.expression.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 4 & pin.pis$sex.averaged.expression.quantile == 3, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 5 & pin.pis$sex.averaged.expression.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 5 & pin.pis$sex.averaged.expression.quantile == 3, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 5 & pin.pis$sex.averaged.expression.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 5 & pin.pis$sex.averaged.expression.quantile == 3, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 6 & pin.pis$sex.averaged.expression.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 6 & pin.pis$sex.averaged.expression.quantile == 3, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 6 & pin.pis$sex.averaged.expression.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$sex.averaged.log2FC.quantile == 6 & pin.pis$sex.averaged.expression.quantile == 3, ]), replace = TRUE))
 
 # Output summary of resampled data to resample dataframe
-resample.data.by.abs.expression[output.row.start:output.row.end, ] = summaryBy(piN.piS ~ log2FC.quantile + sig.hit + tissue + average.expression.quantile, FUN=c(median, length), data = resampled.df)
+resample.data[output.row.start:output.row.end, ] = summaryBy(piN.piS ~ sex.averaged.expression.quantile + sex.averaged.log2FC.quantile + sig.hit + tissue, FUN=c(median, length), data = resample.data.by.abs.expression)
 output.row.start = output.row.end  + 1
 output.row.end = output.row.end + 72
 print(i)
-
 }
-colnames(resample.data.by.abs.expression) = c("log2FC.quantile","sig.hit","tissue","averaged.expression.quantile","piNpiS","number.of.genes")
-write.table(resample.data.by.abs.expression, file = "/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/piNpiS.resampled.by.abs.expression.txt", quote = FALSE, row.names = FALSE, col.names = TRUE, sep = "\t")
+colnames(resample.data) = c("sex.averaged.expression.quantile", "sex.averagedlog2FC.quantile","sig.hit","tissue","piNpiS.median","number.of.genes")
+write.table(resample.data, file = "/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/piNpiS.parsed.by.abs.expression.txt", quote = FALSE, row.names = FALSE, col.names = TRUE, sep = "\t")
 
+resample.data = read.table("/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/piNpiS.parsed.by.abs.expression.txt", header = TRUE, sep = "\t")
 
 # Rename columns of resampled data
-piNpiS.data.summary.by.abs.expression = summaryBy(piNpiS ~ log2FC.quantile + sig.hit + tissue + averaged.expression.quantile, FUN = function(x) c(Median = median(x), lower.ci = quantile(x, probs = 0.05), upper.ci=quantile(x, probs = 0.95)), data = resample.data.by.abs.expression)
+piNpiS.data.summary.by.abs.expression = summaryBy(piNpiS.median ~ sex.averaged.expression.quantile + sex.averagedlog2FC.quantile + sig.hit + tissue, FUN = function(x) c(Median = median(x), lower.ci = quantile(x, probs = 0.05), upper.ci=quantile(x, probs = 0.95)), data = resample.data)
 
 # Replace resample.data.summary "mean" with true observed mean
-colnames(piNpiS.data.summary.by.abs.expression) = c("log2FC.quantile","sig.hit","tissue","average.expression.quantile","piNpiS.Median","piNpiS.lowerCI","piNpiS.upperCI")
+colnames(piNpiS.data.summary.by.abs.expression) = c("sex.averaged.expression.quantile", "sex.averagedlog2FC.quantile", "sig.hit", "tissue", "piNpiS.Median","piNpiS.lowerCI","piNpiS.upperCI")
 piNpiS.data.summary.by.abs.expression$piNpiS.Median = pin.pis.summary.by.abs.expression$piN.piS.median
 
 
 ## Plotting
-## Body/head piN/piS plot -- Seperate by
-piN_piS.expression.plot = ggplot(piNpiS.data.summary.by.abs.expression, aes(y = piNpiS.Median, x = as.factor(log2FC.quantile), colour = as.factor(sig.hit))) +
-                                      geom_point(aes(y = piNpiS.Median, x = as.factor(log2FC.quantile), colour = as.factor(sig.hit)),size = 10,
+## Body/head piN/piS plot -- Seperated by absolute gene expression (i.e., averaged across the sexes)
+piN_piS.expression.plot = ggplot(piNpiS.data.summary.by.abs.expression, aes(y = piNpiS.Median, x = as.factor(sex.averagedlog2FC.quantile), colour = as.factor(sig.hit))) +
+                                      geom_point(aes(y = piNpiS.Median, x = as.factor(sex.averagedlog2FC.quantile), colour = as.factor(sig.hit)),size = 5,
                                       position = position_dodge(width = 0.5)) + #scale_y_continuous(limits = c(-0.1, 0.1)) +
-                                      geom_errorbar(aes(ymin = piNpiS.lowerCI, ymax = piNpiS.upperCI, x = as.factor(log2FC.quantile), colour=as.factor(sig.hit)),
+                                      geom_errorbar(aes(ymin = piNpiS.lowerCI, ymax = piNpiS.upperCI, x = as.factor(sex.averagedlog2FC.quantile), colour=as.factor(sig.hit)),
                                       width = 0, position = position_dodge(width = 0.5)) +
                                       theme_bw()  + scale_colour_manual(values = c("#7294D4", "#5B1A18")) +
                                       theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
                                             panel.border = element_rect(colour = "black", fill=NA, size=1),
                                             axis.text = element_text(face="bold", color="black",size=20, family = "Helvetica"),
                                             axis.title=element_blank(), legend.position = "none") +
-                                      facet_grid(tissue ~ as.factor(average.expression.quantile))
+                                      facet_grid(tissue ~ as.factor(sex.averaged.expression.quantile), scale = "free")
 
-pdf("/plas1/amardeep.singh/tmp/piNpiS.by.log2FC.expression.by.abs.expression.pdf", width = 15, height = 15)
+pdf("/plas1/amardeep.singh/tmp/piNpiS.by.log2FC.expression.by.abs.expression.pdf", width = 10, height = 10)
 piN_piS.expression.plot
 dev.off()
 

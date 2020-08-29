@@ -230,20 +230,6 @@ tajimasD.summary$upperCI = c( quantile(body.nonsig.hits,0.95),quantile(body.sig.
                               quantile(head.nonsig.hits,0.95),quantile(head.sig.hits,0.95))
 
 
-
-
-## Plot
-boxplot[test2$Tajimas]
-boxplot = boxplot(tajimasD.data.sig.non.sig$TajimaD ~ tajimasD.data.sig.non.sig$hit)
-
-nonsig.tajimaD = tajimasD.data.sig.non.sig[tajimasD.data.sig.non.sig$hit == 0,]$TajimaD
-sig.tajimaD = tajimasD.data.sig.non.sig[tajimasD.data.sig.non.sig$hit == 1,]$TajimaD
-
-## Bootstrap tajimasD for both sig and nonsig
-nonsig.tajimaD.resamples = sample(nonsig.tajimaD, 10000, replace = TRUE)
-sig.tajimaD.resamples = sample(sig.tajimaD, 10000, replace = TRUE)
-
-
 #########################################################
 ###     Tajimas D and Sex-Bias in Gene expression     ###
 #########################################################
@@ -376,7 +362,14 @@ expression.data.head$tissue= "head"
 
 expression.data.tajimasD = rbind(expression.data.head, expression.data.body)
 
+###    Model Fitting    ###
+
+tajimasD.model.body = lm(TajimasD ~ baseMean*abs(log2FoldChange) + sig.hit, data = expression.data.tajimasD[expression.data.tajimasD$tissue == "body", ])
+tajimasD.model.head = lm(TajimasD ~ baseMean*abs(log2FoldChange) + sig.hit, data = expression.data.tajimasD[expression.data.tajimasD$tissue == "head", ])
+
+#################
 ### Plotting #### -- Three different plots
+#################
 
 # 1. First plot is just averaging Tajima's D among significant and non-significant genes
 tajimasD.summary = summaryBy(TajimasD ~ sig.hit + tissue, data = expression.data.tajimasD)
@@ -714,13 +707,6 @@ dev.off()
 
 
 ## Plotting TajimasD against expression as a continuous trait rather than in quantiles
-# Model fitting
-tajimasD.model.body = lm(TajimasD ~ baseMean*log2FoldChange + sig.hit, data = expression.data.tajimasD[expression.data.tajimasD$tissue == "body", ])
-tajimasD.model.head = lm(TajimasD ~ baseMean*log2FoldChange + sig.hit, data = expression.data.tajimasD[expression.data.tajimasD$tissue == "head", ])
-
-tajimasD.model.body = lm(TajimasD ~ baseMean*abs(log2FoldChange) + sig.hit, data = expression.data.tajimasD[expression.data.tajimasD$tissue == "body", ])
-tajimasD.model.head = lm(TajimasD ~ baseMean*abs(log2FoldChange) + sig.hit, data = expression.data.tajimasD[expression.data.tajimasD$tissue == "head", ])
-
 
 # TajimasD ~ log2FC expression
 

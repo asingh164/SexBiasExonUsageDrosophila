@@ -88,7 +88,6 @@ decoder.for.junctionseq <- decoder[!(grepl("head|replicate.2", decoder$unique.ID
 countFiles <- paste0("/plas1/amardeep.singh/Ensembl.Dmel.Genome.Release/JunctionSeq.files/count.files/body.only.replicate.1/", decoder.for.junctionseq$unique.ID, "/QC.spliceJunctionAndExonCounts.withNovel.forJunctionSeq.txt.gz")
 
 ###  Run the differential exon usage (DEU) analysis:
-
 # Creast a design dataframe which has a column for the condition you are testng (This will need to change when adding factors not sure how yet)
 design.df <- data.frame(condition = factor(decoder.for.junctionseq$sex))
 
@@ -110,7 +109,7 @@ count.set.object <- estimateJunctionSeqDispersions(count.set.object, nCores = 70
 count.set.object <- fitJunctionSeqDispersionFunction(count.set.object)
 
 # Perform the hypothesis tests to test for differential splice junction/exon usage (DEU)
-count.set.object <- testForDiffUsage(count.set.object, nCores = 60, )
+count.set.object <- testForDiffUsage(count.set.object, nCores = 60)
 
 # Calculate effect sizes and parameter estimates
 count.set.object <- estimateEffectSizes(count.set.object)
@@ -133,6 +132,8 @@ rm(list=ls())
 require(DESeq2)
 require(JunctionSeq)
 require(BiocParallel) # This is a package used for paralellization of jobs
+require(VennDiagram)
+require(grDevices)
 
 # Load in decoder files and add fields for conditions
 
@@ -191,7 +192,11 @@ writeCompleteResults(count.set.object, "/plas1/amardeep.singh/RNA.Seq.Data/Junct
                     verbose = TRUE)
 
 
-## Analyzing junctionseq output
+#########################################
+##    Analyzing junctionseq output    ###
+#########################################
+require(VennDiagram)
+require(grDevices)
 
 #jseq.allgenes.body = gzfile('/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/BodyOutput/Aug1.Body.OnlyallGenes.results.txt.gz', 'rt')
 #jseq.allgenes.head = gzfile('/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/HeadOutput/Aug1.Head.OnlyallGenes.results.txt.gz', 'rt')
@@ -228,6 +233,36 @@ length(unique((jseq.allgenes.body.remove.low.expression[jseq.allgenes.body.remov
 
 jseq.allgenes.head.remove.low.expression = jseq.allgenes.head[jseq.allgenes.head$expr_female > 50 | jseq.allgenes.head$expr_male > 50, ]
 length(unique((jseq.allgenes.head.remove.low.expression[jseq.allgenes.head.remove.low.expression$geneWisePadj < 0.01,])$geneID))
+
+
+# Venn Diagrams to present tissue specific data
+
+venndiagram = venn.diagram(x = list(sig.genes.body, sig.genes.head, nonsig.genes.body, nonsig.genes.head),
+                           category.names = c("Body Sig", "Head Sig", "Body NonSig", "Head NonSig"),
+                           filename = NULL,
+                            # Circles
+                            lwd = 2, lty = 'blank', fill = c("#7294d4", "#72D481", "#D4B272", "#D472C5"),
+                            # Numbers
+                            cex = 1.5, fontface = "bold", fontfamily = "Helvetica",
+                            )
+pdf(file="/plas1/amardeep.singh/tmp/VennDiagramHeadBody.pdf", height = 10, width = 10)
+    grid.draw(venndiagram)
+dev.off()
+
+
+grid.draw(venndiagram)
+/plas1/amardeep.singh/tmp/VennDiagramHeadBody.pdf
+
+temp <- venn.diagram(list(B = 1:1800, A = 1571:2020),
+    fill = c("red", "green"), alpha = c(0.5, 0.5), cex = 2,cat.fontface = 4,
+    lty =2, fontfamily =3, filename = NULL)
+grid.draw(temp)
+
+
+
+
+
+
 
 
 

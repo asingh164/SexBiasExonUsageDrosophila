@@ -476,6 +476,11 @@ head.pin.pis$tissue = "head"
 pin.pis = rbind(body.pin.pis,head.pin.pis)
 
 
+###     Model Fitting     ###
+pinpis.body.model = lm(piN.piS ~ baseMean*abs(log2FoldChange) + sig.hit, data = pin.pis[pin.pis$tissue == "body", ])
+pinpis.head.model = lm(piN.piS ~ baseMean*abs(log2FoldChange) + sig.hit, data = pin.pis[pin.pis$tissue == "head", ])
+summary(pinpis.body.model)
+
 ##################
 ##    Ploting   ##
 ##################

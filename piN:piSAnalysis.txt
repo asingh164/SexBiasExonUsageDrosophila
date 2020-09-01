@@ -477,9 +477,15 @@ pin.pis = rbind(body.pin.pis,head.pin.pis)
 
 
 ###     Model Fitting     ###
-pinpis.body.model = lm(piN.piS ~ baseMean*abs(log2FoldChange) + sig.hit, data = pin.pis[pin.pis$tissue == "body", ])
-pinpis.head.model = lm(piN.piS ~ baseMean*abs(log2FoldChange) + sig.hit, data = pin.pis[pin.pis$tissue == "head", ])
-summary(pinpis.body.model)
+pinpis.body.model = lm(piN.piS ~ baseMean + abs(log2FoldChange) + sig.hit, data = pin.pis[pin.pis$tissue == "body", ])
+pinpis.head.model = lm(piN.piS ~ baseMean + abs(log2FoldChange) + sig.hit, data = pin.pis[pin.pis$tissue == "head", ])
+
+pinpis.body.model.male.biased = lm(piN.piS ~ baseMean + abs(log2FoldChange) + sig.hit, data = pin.pis[pin.pis$tissue == "body" & pin.pis$log2FoldChange > 0, ])
+pinpis.body.model.female.biased = lm(piN.piS ~ baseMean + abs(log2FoldChange) + sig.hit, data = pin.pis[pin.pis$tissue == "body" & pin.pis$log2FoldChange < 0, ])
+pinpis.head.model.male.biased = lm(piN.piS ~ baseMean + abs(log2FoldChange) + sig.hit, data = pin.pis[pin.pis$tissue == "head" & pin.pis$log2FoldChange > 0, ])
+pinpis.head.model.female.biased = lm(piN.piS ~ baseMean + abs(log2FoldChange) + sig.hit, data = pin.pis[pin.pis$tissue == "head" & pin.pis$log2FoldChange < 0, ])
+
+
 
 ##################
 ##    Ploting   ##

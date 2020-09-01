@@ -364,8 +364,9 @@ expression.data.tajimasD = rbind(expression.data.head, expression.data.body)
 
 ###    Model Fitting    ###
 
-tajimasD.model.body = lm(TajimasD ~ baseMean*abs(log2FoldChange) + sig.hit, data = expression.data.tajimasD[expression.data.tajimasD$tissue == "body", ])
-tajimasD.model.head = lm(TajimasD ~ baseMean*abs(log2FoldChange) + sig.hit, data = expression.data.tajimasD[expression.data.tajimasD$tissue == "head", ])
+tajimasD.model.body = lm(TajimasD ~ baseMean +abs(log2FoldChange) + sig.hit, data = expression.data.tajimasD[expression.data.tajimasD$tissue == "body", ])
+tajimasD.model.head = lm(TajimasD ~ baseMean + abs(log2FoldChange) + sig.hit, data = expression.data.tajimasD[expression.data.tajimasD$tissue == "head", ])
+
 
 #################
 ### Plotting #### -- Three different plots

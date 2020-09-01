@@ -125,6 +125,9 @@ require(dplyr)
 require(doBy)
 require(ggplot2)
 require(grid)
+require(VennDiagram)
+require(grDevices)
+require(ggExtra)
 
 ## Loading in data files
 # Read in JunctionSeq results
@@ -168,6 +171,9 @@ expression.data.head = junctionseq.results.head.merged.unique[, c(1:5)]
 expression.data.body = expression.data.body %>% mutate(gene.expression.quantile = ntile(baseMean, 3))
 expression.data.head = expression.data.head %>% mutate(gene.expression.quantile = ntile(baseMean, 3))
 
+expression.data.head = expression.data.head %>% mutate(log2FC.quantile.all = ntile(log2FoldChange, 6))
+expression.data.body = expression.data.body %>% mutate(log2FC.quantile.all = ntile(log2FoldChange, 6))
+
 # Assign quartile bins for male and female biased gene expression
 male.biased.body = expression.data.body[expression.data.body$log2FoldChange > 0,]
 female.biased.body = expression.data.body[expression.data.body$log2FoldChange < 0,]
@@ -201,6 +207,7 @@ expression.data=rbind(expression.data.body,expression.data.head)
 ###################
 ###   Plotting  ###
 ###################
+
 
 ## Comparing average log gene expression at exon dimorphic genes versus monomorphic genes
 expression.data$log.baseMean = log(expression.data$baseMean)
@@ -251,6 +258,7 @@ sex.averaged.expression.plot = ggplot(gene.expression.data.summary, aes(y = log.
                                             panel.border = element_rect(colour = "black", fill=NA, size=1),
                                             axis.text = element_text(face="bold", color="black",size=20, family = "Helvetica"),
                                             axis.title=element_blank(), legend.position = "none")
+sex.averaged.expression.plot
 
 pdf("/plas1/amardeep.singh/tmp/Sex.averaged.expression.pdf", height = 10, width = 5)
 sex.averaged.expression.plot
@@ -841,10 +849,6 @@ dev.off()
 
 
 
-
-
-
-
 # Plotting gene expression bias in heads versus body in scatter plot
 # Reorganize data for easy plotting
 body.data = expression.data[expression.data$tissue == "body",]
@@ -863,35 +867,38 @@ expression.merge$grouping[expression.merge$body.sig.hit == 1 & expression.merge$
 expression.merge$grouping[expression.merge$body.sig.hit == 0 & expression.merge$head.sig.hit == 1] = "sig.head.only"
 
 #Filter data for three genes with very high log2FC expression
-expression.merge.filtered = expression.merge[expression.merge$head.log2FoldChange > -10,]
+expression.merge.filtered = expression.merge[expression.merge$head.log2FoldChange > -6,]
 
 # Plotting log2FC in expression
-head.vs.body.expression.plot = ggplot(expression.merge, aes(y=head.log2FoldChange, x=body.log2FoldChange, colour = as.factor(grouping))) +
+head.vs.body.expression.plot = ggplot(expression.merge.filtered, aes(y=head.log2FoldChange, x=body.log2FoldChange, colour = as.factor(grouping))) +
                            geom_point(aes(y=head.log2FoldChange, x=body.log2FoldChange, colour = as.factor(grouping)), size = 2) +
+                           ylim(-7,2) + xlim(-6,7) +
                            theme_bw() + scale_colour_manual(values = c("#dfb78e","#2ca1db", "#112047","#f44323")) +
-                           geom_vline(xintercept = 0, linetype = 1) + geom_hline(yintercept = 0, linetype = 1) + geom_abline(slope = 1, intercept = 0) +
+                           geom_vline(xintercept = 0, linetype = 1) + geom_hline(yintercept = 0, linetype = 1)  +
                            theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
                                  panel.border = element_rect(colour = "black", fill=NA, size=1),
                                  axis.text = element_text(face="bold", color="black",size=20, family = "Helvetica"),
-                                 axis.title=element_blank())
-                           #facet_wrap(tissue~.) #+ theme(panel.spacing = unit(1, "lines"))
+                                 axis.title=element_blank()) + theme(legend.position = "none")
+head.vs.body.expression.plot = ggMarginal(head.vs.body.expression.plot, groupColour = TRUE, groupFill = TRUE)
+head.vs.body.expression.plot
 
-pdf("/plas1/amardeep.singh/tmp/head.vs.body.expression.sex.bias.gene.expression.freescales.pdf", height = 10, width = 10)
+pdf("/plas1/amardeep.singh/tmp/head.vs.body.expression.sex.bias.gene.expression.freescales.with.density.filtered.pdf", height = 10, width = 10)
 head.vs.body.expression.plot
 dev.off()
 
 # Plotting sex-averaged gene expression
-head.vs.body.expression.plot = ggplot(expression.merge, aes(y=log(head.average.expression), x=log(body.average.expression), colour = as.factor(grouping))) +
-                           geom_point(aes(y=log(head.average.expression), x=log(body.average.expression), colour = as.factor(grouping)), size = 2) +
+head.vs.body.expression.plot = ggplot(expression.merge, aes(y=(head.average.expression), x=(body.average.expression), colour = as.factor(grouping))) +
+                           geom_point(aes(y=(head.average.expression), x=(body.average.expression), colour = as.factor(grouping)), size = 2) +
                            theme_bw() + scale_colour_manual(values = c("#dfb78e","#2ca1db", "#112047","#f44323")) +
                            geom_abline(slope = 1, intercept = 0) +
                            theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
                                  panel.border = element_rect(colour = "black", fill=NA, size=1),
                                  axis.text = element_text(face="bold", color="black",size=20, family = "Helvetica"),
-                                 axis.title=element_blank())
+                                 axis.title=element_blank()) + theme(legend.position = "none")
                            #facet_wrap(tissue~.) #+ theme(panel.spacing = unit(1, "lines"))
+head.vs.body.expression.plot = ggMarginal(head.vs.body.expression.plot, groupColour = TRUE, groupFill = TRUE)
 
-pdf("/plas1/amardeep.singh/tmp/head.vs.body.average.gene.expression.freescales.pdf", height = 10, width = 10)
+pdf("/plas1/amardeep.singh/tmp/head.vs.body.average.gene.expression.freescales.with.density.pdf", height = 10, width = 10)
 head.vs.body.expression.plot
 dev.off()
 

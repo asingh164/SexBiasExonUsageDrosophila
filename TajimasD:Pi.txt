@@ -1,0 +1,180 @@
+#
+#########################################################
+###     Tajimas D and Sex-Bias in Gene expression     ###
+#########################################################
+rm(list = ls())
+require(dplyr)
+require(doBy)
+require(ggplot2)
+require(lmPerm)
+require(car)
+
+# Load in Tajimas D data and intersect with JunctionSeq output
+
+# --- R Code ---
+
+
+############ Loading in data files ###############
+#
+# Read in JunctionSeq results
+junctionseq.results.body = read.table("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/BodyOutput/Aug1.Body.OnlyallGenes.results.txt", header = TRUE, sep = "\t")
+junctionseq.results.head = read.table("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/HeadOutput/Aug1.Head.OnlyallGenes.results.txt", header = TRUE, sep = "\t")
+
+# Read in Tajimas D per gene results
+tajimasD.per.gene = read.table("/plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.TajimasD.4fold.Per.Gene", header = TRUE, sep = "\t")
+# Load in pi calculations
+pi.output = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/nucleotide.diversity.per.gene.Aug10.txt", header = TRUE)
+
+## Load in the differential gene expression data
+DGE.data.body = read.table("/plas1/amardeep.singh/RNA.Seq.Data/GeneExpression/RAL.DifferentialGeneExpression.body.txt", header = TRUE, sep = "\t")
+DGE.data.head = read.table("/plas1/amardeep.singh/RNA.Seq.Data/GeneExpression/RAL.DifferentialGeneExpression.head.txt", header = TRUE, sep = "\t")
+
+
+
+############ Cleaning up data files ############
+
+### Tajima's D File
+# Rename the Tajima's D column
+colnames(tajimasD.per.gene)[2] = "TajimasD"
+
+### Pi File
+# Remove sites where piS is 0
+piNpiS.per.gene = pi.output[!(pi.output$piS == 0),]
+
+### Junctionseq files
+# Remove any sites that were not tested
+junctionseq.results.body = junctionseq.results.body[!(is.na(junctionseq.results.body$pvalue)),]
+junctionseq.results.head = junctionseq.results.head[!(is.na(junctionseq.results.head$pvalue)),]
+# Lets remove any rows where the expr in males or females is less than 10 in the junctionseq data
+junctionseq.results.filtered.body = junctionseq.results.body[junctionseq.results.body$expr_male > 50 & junctionseq.results.body$expr_female > 50,]
+junctionseq.results.filtered.head = junctionseq.results.head[junctionseq.results.head$expr_male > 50 & junctionseq.results.head$expr_female > 50,]
+
+
+
+############ Merge Datasets together ############
+
+# Merge the Junctionseq File with the Tajimas D files clean them up
+junctionseq.results.body.merged = merge(junctionseq.results.filtered.body, tajimasD.per.gene, by.x = "geneID", by.y = "geneID", sort = FALSE)
+junctionseq.results.body.merged = junctionseq.results.body.merged[, c(1,25:28)]
+junctionseq.results.body.merged = junctionseq.results.body.merged[!duplicated(junctionseq.results.body.merged[1:3]),]
+
+junctionseq.results.head.merged = merge(junctionseq.results.filtered.head, tajimasD.per.gene, by.x = "geneID", by.y = "geneID", sort = FALSE)
+junctionseq.results.head.merged = junctionseq.results.head.merged[, c(1,25:28)]
+junctionseq.results.head.merged = junctionseq.results.head.merged[!duplicated(junctionseq.results.head.merged[1:3]),]
+
+# Now, lets merge the Junctionseq/Tajima's D file with the pi file
+junctionseq.results.body.merged = merge(junctionseq.results.body.merged, piNpiS.per.gene, by.x = "geneID", by.y = "geneID", sort = FALSE)
+junctionseq.results.head.merged = merge(junctionseq.results.head.merged, piNpiS.per.gene, by.x = "geneID", by.y = "geneID", sort = FALSE)
+
+# Merge Junctionseq/TajimasD/Pi data with DGE data
+junctionseq.results.body.merged = merge(junctionseq.results.body.merged, DGE.data.body, by.x = "geneID", by.y = "FlyBaseID")
+junctionseq.results.head.merged = merge(junctionseq.results.head.merged, DGE.data.head, by.x = "geneID", by.y = "FlyBaseID")
+
+## Assign significant hits based on JunctionSeq output
+junctionseq.results.body.merged$sig.hit = NA
+junctionseq.results.body.merged$sig.hit[junctionseq.results.body.merged$geneWisePadj <= 0.01] = 1
+junctionseq.results.body.merged$sig.hit[!(junctionseq.results.body.merged$geneWisePadj <= 0.01)] = 0
+
+junctionseq.results.head.merged$sig.hit = NA
+junctionseq.results.head.merged$sig.hit[junctionseq.results.head.merged$geneWisePadj <= 0.01] = 1
+junctionseq.results.head.merged$sig.hit[!(junctionseq.results.head.merged$geneWisePadj <= 0.01)] = 0
+
+# Filter out genes with fewer than 30 segregating sites
+junctionseq.results.body.merged = junctionseq.results.body.merged[junctionseq.results.body.merged$numberOf4FoldSites >= 30, ]
+junctionseq.results.head.merged = junctionseq.results.head.merged[junctionseq.results.head.merged$numberOf4FoldSites >= 30, ]
+
+# Set up file for piNpiS analysis that filters any genes with fewer than 5 segregating sites
+
+more.head.sig = nrow(junctionseq.results.head.merged[junctionseq.results.head.merged$numberOfSegregatingSites <= 5 & junctionseq.results.head.merged$sig.hit == 1,]) 
+more.head.nonsig = nrow(junctionseq.results.head.merged[junctionseq.results.head.merged$numberOfSegregatingSites <= 5 & junctionseq.results.head.merged$sig.hit == 0,])
+
+one.head.sig = nrow(junctionseq.results.head.merged[junctionseq.results.head.merged$numberOfSegregatingSites == 1 & junctionseq.results.head.merged$sig.hit == 1,])
+one.head.nonsig = nrow(junctionseq.results.head.merged[junctionseq.results.head.merged$numberOfSegregatingSites == 1 & junctionseq.results.head.merged$sig.hit == 0,])
+
+two.head.sig = nrow(junctionseq.results.head.merged[junctionseq.results.head.merged$numberOfSegregatingSites == 2 & junctionseq.results.head.merged$sig.hit == 1,])
+two.head.nonsig = nrow(junctionseq.results.head.merged[junctionseq.results.head.merged$numberOfSegregatingSites == 2 & junctionseq.results.head.merged$sig.hit == 0,])
+
+three.head.sig = nrow(junctionseq.results.head.merged[junctionseq.results.head.merged$numberOfSegregatingSites == 3 & junctionseq.results.head.merged$sig.hit == 1,])
+three.head.nonsig = nrow(junctionseq.results.head.merged[junctionseq.results.head.merged$numberOfSegregatingSites == 3 & junctionseq.results.head.merged$sig.hit == 0,])
+
+four.head.sig = nrow(junctionseq.results.head.merged[junctionseq.results.head.merged$numberOfSegregatingSites == 4 & junctionseq.results.head.merged$sig.hit == 1,])
+four.head.nonsig = nrow(junctionseq.results.head.merged[junctionseq.results.head.merged$numberOfSegregatingSites == 4 & junctionseq.results.head.merged$sig.hit == 0,])
+
+five.head.sig = nrow(junctionseq.results.head.merged[junctionseq.results.head.merged$numberOfSegregatingSites == 5 & junctionseq.results.head.merged$sig.hit == 1,])
+five.head.nonsig = nrow(junctionseq.results.head.merged[junctionseq.results.head.merged$numberOfSegregatingSites == 5 & junctionseq.results.head.merged$sig.hit == 0,])
+
+# Subset out the columns of interest (i.e., gene ID, TajimasD, significant differences in exon usage, and log2FC)
+expression.data.body = junctionseq.results.body.merged.unique[, c(1,3:8)]
+expression.data.head = junctionseq.results.head.merged.unique[, c(1,3:8)]
+
+# Assign quantiles for sex-averaged mean expression
+expression.data.body = expression.data.body %>% mutate(sex.averaged.expression.quantile = ntile(baseMean, 3))
+expression.data.head = expression.data.head %>% mutate(sex.averaged.expression.quantile = ntile(baseMean, 3))
+
+# Seperate out genes into male and female biased gene expression
+male.biased.body = expression.data.body[expression.data.body$log2FoldChange > 0,]
+female.biased.body = expression.data.body[expression.data.body$log2FoldChange < 0,]
+male.biased.head = expression.data.head[expression.data.head$log2FoldChange > 0,]
+female.biased.head = expression.data.head[expression.data.head$log2FoldChange < 0,]
+
+# Remove any rows that have an NA added to them
+male.biased.body = male.biased.body[!(is.na(male.biased.body$log2FoldChange)),]
+female.biased.body = female.biased.body[!(is.na(female.biased.body$log2FoldChange)),]
+male.biased.head = male.biased.head[!(is.na(male.biased.head$log2FoldChange)),]
+female.biased.head = female.biased.head[!(is.na(female.biased.head$log2FoldChange)),]
+
+# Assign quantiles for sex-averaged mean expression
+#male.biased.body = male.biased.body %>% mutate(sex.averaged.expression.quantile = ntile(baseMean, 3))
+#male.biased.head = male.biased.body %>% mutate(sex.averaged.expression.quantile = ntile(baseMean, 3))
+#female.biased.body = female.biased.body %>% mutate(sex.averaged.expression.quantile = ntile(baseMean, 3))
+#female.biased.head = female.biased.head %>% mutate(sex.averaged.expression.quantile = ntile(baseMean, 3))
+
+# Assign quantile for both MBG and FBG within each sex-averaged expression quantile ## Careful in using this variable, it is only relevant when parsed by sex-averaged gene expression!
+male.biased.body.lowexp = male.biased.body[male.biased.body$sex.averaged.expression.quantile == 1,] %>% mutate(sex.averaged.log2FC.quantile = ntile(log2FoldChange, 3))
+male.biased.body.intermediateexp = male.biased.body[male.biased.body$sex.averaged.expression.quantile == 2,] %>% mutate(sex.averaged.log2FC.quantile = ntile(log2FoldChange, 3))
+male.biased.body.highexp = male.biased.body[male.biased.body$sex.averaged.expression.quantile == 3,] %>% mutate(sex.averaged.log2FC.quantile = ntile(log2FoldChange, 3))
+male.biased.head.lowexp = male.biased.head[male.biased.head$sex.averaged.expression.quantile == 1,] %>% mutate(sex.averaged.log2FC.quantile = ntile(log2FoldChange, 3))
+male.biased.head.intermediateexp = male.biased.head[male.biased.head$sex.averaged.expression.quantile == 2,] %>% mutate(sex.averaged.log2FC.quantile = ntile(log2FoldChange, 3))
+male.biased.head.highexp = male.biased.head[male.biased.head$sex.averaged.expression.quantile == 3,] %>% mutate(sex.averaged.log2FC.quantile = ntile(log2FoldChange, 3))
+
+female.biased.body.lowexp = female.biased.body[female.biased.body$sex.averaged.expression.quantile == 1,] %>% mutate(sex.averaged.log2FC.quantile = ntile(log2FoldChange, 3))
+female.biased.body.intermediateexp = female.biased.body[female.biased.body$sex.averaged.expression.quantile == 2,] %>% mutate(sex.averaged.log2FC.quantile = ntile(log2FoldChange, 3))
+female.biased.body.highexp = female.biased.body[female.biased.body$sex.averaged.expression.quantile == 3,] %>% mutate(sex.averaged.log2FC.quantile = ntile(log2FoldChange, 3))
+female.biased.head.lowexp = female.biased.head[female.biased.head$sex.averaged.expression.quantile == 1,] %>% mutate(sex.averaged.log2FC.quantile = ntile(log2FoldChange, 3))
+female.biased.head.intermediateexp = female.biased.head[female.biased.head$sex.averaged.expression.quantile == 2,] %>% mutate(sex.averaged.log2FC.quantile = ntile(log2FoldChange, 3))
+female.biased.head.highexp = female.biased.head[female.biased.head$sex.averaged.expression.quantile == 3,] %>% mutate(sex.averaged.log2FC.quantile = ntile(log2FoldChange, 3))
+
+# For the male genes, lets add 3 to each quantile
+male.biased.body.lowexp$sex.averaged.log2FC.quantile = male.biased.body.lowexp$sex.averaged.log2FC.quantile + 3
+male.biased.body.intermediateexp$sex.averaged.log2FC.quantile = male.biased.body.intermediateexp$sex.averaged.log2FC.quantile + 3
+male.biased.body.highexp$sex.averaged.log2FC.quantile = male.biased.body.highexp$sex.averaged.log2FC.quantile + 3
+male.biased.head.lowexp$sex.averaged.log2FC.quantile = male.biased.head.lowexp$sex.averaged.log2FC.quantile + 3
+male.biased.head.intermediateexp$sex.averaged.log2FC.quantile = male.biased.head.intermediateexp$sex.averaged.log2FC.quantile + 3
+male.biased.head.highexp$sex.averaged.log2FC.quantile = male.biased.head.highexp$sex.averaged.log2FC.quantile + 3
+
+# Combine back into male-biased and female-biased dataframes
+male.biased.body = rbind(male.biased.body.lowexp, male.biased.body.intermediateexp,male.biased.body.highexp)
+male.biased.head = rbind(male.biased.head.lowexp, male.biased.head.intermediateexp,male.biased.head.highexp)
+female.biased.body = rbind(female.biased.body.lowexp, female.biased.body.intermediateexp,female.biased.body.highexp)
+female.biased.head = rbind(female.biased.head.lowexp, female.biased.head.intermediateexp,female.biased.head.highexp)
+
+# Assign quantile for both MBG and FBG overall
+male.biased.body = male.biased.body %>% mutate(log2FC.quantile = ntile(log2FoldChange, 3))
+male.biased.head = male.biased.head %>% mutate(log2FC.quantile = ntile(log2FoldChange, 3))
+female.biased.body = female.biased.body %>% mutate(log2FC.quantile = ntile(log2FoldChange, 3))
+female.biased.head = female.biased.head %>% mutate(log2FC.quantile = ntile(log2FoldChange, 3))
+
+# For the male genes, lets add 3 to each quantile
+male.biased.body$log2FC.quantile = male.biased.body$log2FC.quantile + 3
+male.biased.head$log2FC.quantile = male.biased.head$log2FC.quantile + 3
+
+# Merge data back
+expression.data.body = rbind(male.biased.body,female.biased.body)
+expression.data.head = rbind(male.biased.head,female.biased.head)
+expression.data.body$tissue= "body"
+expression.data.head$tissue= "head"
+
+expression.data.tajimasD = rbind(expression.data.head, expression.data.body)
+
+
+body1.sig = nrow(expression.data.tajimasD[expression.data.tajimasD$numberOfSegregatingSites == 1 & expression.data.tajimasD$sig.hit == 1, ])

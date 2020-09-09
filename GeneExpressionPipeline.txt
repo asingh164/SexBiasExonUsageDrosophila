@@ -164,8 +164,14 @@ junctionseq.results.body.merged.unique = merge(junctionseq.results.body.unique, 
 junctionseq.results.head.merged.unique = merge(junctionseq.results.head.unique, DGE.data.head, by.x = "geneID", by.y = "FlyBaseID")
 
 # Subset out the columns of interest (i.e., gene ID, TajimasD, significant differences in exon usage, and log2FC)
-expression.data.body = junctionseq.results.body.merged.unique[, c(1:5)]
-expression.data.head = junctionseq.results.head.merged.unique[, c(1:5)]
+expression.data.body = junctionseq.results.body.merged.unique[, c(1:6)]
+expression.data.head = junctionseq.results.head.merged.unique[, c(1:6)]
+# Add upper and lower CIs for log2FC means
+expression.data.body$log2FC.upperCI = expression.data.body$log2FoldChange + expression.data.body$lfcSE * 2
+expression.data.body$log2FC.lowerCI = expression.data.body$log2FoldChange - expression.data.body$lfcSE * 2
+
+expression.data.head$log2FC.upperCI = expression.data.head$log2FoldChange + expression.data.head$lfcSE * 2
+expression.data.head$log2FC.lowerCI = expression.data.head$log2FoldChange - expression.data.head$lfcSE * 2
 
 # Assign quantile bins for sex-averaged gene expression
 expression.data.body = expression.data.body %>% mutate(gene.expression.quantile = ntile(baseMean, 3))
@@ -196,18 +202,31 @@ female.biased.head = female.biased.head %>% mutate(log2FC.quantile = ntile(log2F
 male.biased.body$log2FC.quantile = male.biased.body$log2FC.quantile + 3
 male.biased.head$log2FC.quantile = male.biased.head$log2FC.quantile + 3
 
-# Merge data back
+
+# Merge data back within each tissue type
 expression.data.body = rbind(male.biased.body,female.biased.body)
 expression.data.body$tissue = "body"
 expression.data.head = rbind(male.biased.head,female.biased.head)
 expression.data.head$tissue = "head"
-expression.data=rbind(expression.data.body,expression.data.head)
 
+# Assign to bins of log2FC based on CIs within tissue types ## This bins genes into 5 bins
+expression.data.body$log2FC.quantile.CIs[expression.data.body$log2FC.upperCI < -2 ] = 1
+expression.data.body$log2FC.quantile.CIs[expression.data.body$log2FC.lowerCI >= -2 & expression.data.body$log2FC.upperCI <= -0.5 ] = 2
+expression.data.body$log2FC.quantile.CIs[expression.data.body$log2FC.lowerCI > -0.5 & expression.data.body$log2FC.upperCI < 0.5 ] = 3
+expression.data.body$log2FC.quantile.CIs[expression.data.body$log2FC.lowerCI >= 0.5 & expression.data.body$log2FC.upperCI <= 2 ] = 4
+expression.data.body$log2FC.quantile.CIs[expression.data.body$log2FC.lowerCI > 2 ] = 5
+
+expression.data.head$log2FC.quantile.CIs[expression.data.head$log2FC.upperCI < -2 ] = 1
+expression.data.head$log2FC.quantile.CIs[expression.data.head$log2FC.lowerCI >= -2 & expression.data.head$log2FC.upperCI <= -0.5 ] = 2
+expression.data.head$log2FC.quantile.CIs[expression.data.head$log2FC.lowerCI > -0.5 & expression.data.head$log2FC.upperCI < 0.5 ] = 3
+expression.data.head$log2FC.quantile.CIs[expression.data.head$log2FC.lowerCI >= 0.5 & expression.data.head$log2FC.upperCI <= 2 ] = 4
+expression.data.head$log2FC.quantile.CIs[expression.data.head$log2FC.lowerCI > 2 ] = 5
+
+expression.data=rbind(expression.data.body,expression.data.head)
 
 ###################
 ###   Plotting  ###
 ###################
-
 
 ## Comparing average log gene expression at exon dimorphic genes versus monomorphic genes
 expression.data$log.baseMean = log(expression.data$baseMean)
@@ -322,44 +341,45 @@ dev.off()
 
 ##   Plotting Fractions of sig to non-sig genes   ##
 # First plot will be the fraction of genes in gene expression quantiles that are significantly DEU or not regardless of average gene expression
-
+# I'm doing this using three different "sub method" ways of defining quantiles.
+# First sub method is simply dividing by equal quantiles
 # Subset quantiles of gene expression
-body.quantile.bin.1 = expression.data.body[expression.data.body$quantile == 1, ]
-body.quantile.bin.2 = expression.data.body[expression.data.body$quantile == 2, ]
-body.quantile.bin.3 = expression.data.body[expression.data.body$quantile == 3, ]
-body.quantile.bin.4 = expression.data.body[expression.data.body$quantile == 4, ]
-body.quantile.bin.5 = expression.data.body[expression.data.body$quantile == 5, ]
-body.quantile.bin.6 = expression.data.body[expression.data.body$quantile == 6, ]
-body.quantile.bin.7 = expression.data.body[expression.data.body$quantile == 7, ]
-body.quantile.bin.8 = expression.data.body[expression.data.body$quantile == 8, ]
+body.quantile.bin.1 = expression.data.body[expression.data.body$log2FC.quantile == 1, ]
+body.quantile.bin.2 = expression.data.body[expression.data.body$log2FC.quantile == 2, ]
+body.quantile.bin.3 = expression.data.body[expression.data.body$log2FC.quantile == 3, ]
+body.quantile.bin.4 = expression.data.body[expression.data.body$log2FC.quantile == 4, ]
+body.quantile.bin.5 = expression.data.body[expression.data.body$log2FC.quantile == 5, ]
+body.quantile.bin.6 = expression.data.body[expression.data.body$log2FC.quantile == 6, ]
+body.quantile.bin.7 = expression.data.body[expression.data.body$log2FC.quantile == 7, ]
+body.quantile.bin.8 = expression.data.body[expression.data.body$log2FC.quantile == 8, ]
 
-head.quantile.bin.1 = expression.data.head[expression.data.head$quantile == 1, ]
-head.quantile.bin.2 = expression.data.head[expression.data.head$quantile == 2, ]
-head.quantile.bin.3 = expression.data.head[expression.data.head$quantile == 3, ]
-head.quantile.bin.4 = expression.data.head[expression.data.head$quantile == 4, ]
-head.quantile.bin.5 = expression.data.head[expression.data.head$quantile == 5, ]
-head.quantile.bin.6 = expression.data.head[expression.data.head$quantile == 6, ]
-head.quantile.bin.7 = expression.data.head[expression.data.head$quantile == 7, ]
-head.quantile.bin.8 = expression.data.head[expression.data.head$quantile == 8, ]
+head.quantile.bin.1 = expression.data.head[expression.data.head$log2FC.quantile == 1, ]
+head.quantile.bin.2 = expression.data.head[expression.data.head$log2FC.quantile == 2, ]
+head.quantile.bin.3 = expression.data.head[expression.data.head$log2FC.quantile == 3, ]
+head.quantile.bin.4 = expression.data.head[expression.data.head$log2FC.quantile == 4, ]
+head.quantile.bin.5 = expression.data.head[expression.data.head$log2FC.quantile == 5, ]
+head.quantile.bin.6 = expression.data.head[expression.data.head$log2FC.quantile == 6, ]
+head.quantile.bin.7 = expression.data.head[expression.data.head$log2FC.quantile == 7, ]
+head.quantile.bin.8 = expression.data.head[expression.data.head$log2FC.quantile == 8, ]
 
 # Fractions in each quantile
-body.df.fraction = c( (nrow(body.quantile.bin.1[body.quantile.bin.1$sig.hit == 1,])) / (nrow(body.quantile.bin.1[body.quantile.bin.1$sig.hit == 0,])),
-                      (nrow(body.quantile.bin.2[body.quantile.bin.2$sig.hit == 1,])) / (nrow(body.quantile.bin.2[body.quantile.bin.2$sig.hit == 0,])),
-                      (nrow(body.quantile.bin.3[body.quantile.bin.3$sig.hit == 1,])) / (nrow(body.quantile.bin.3[body.quantile.bin.3$sig.hit == 0,])),
-                      (nrow(body.quantile.bin.4[body.quantile.bin.4$sig.hit == 1,])) / (nrow(body.quantile.bin.4[body.quantile.bin.4$sig.hit == 0,])),
-                      (nrow(body.quantile.bin.5[body.quantile.bin.5$sig.hit == 1,])) / (nrow(body.quantile.bin.5[body.quantile.bin.5$sig.hit == 0,])),
-                      (nrow(body.quantile.bin.6[body.quantile.bin.6$sig.hit == 1,])) / (nrow(body.quantile.bin.6[body.quantile.bin.6$sig.hit == 0,])))
-                      #(nrow(body.quantile.bin.7[body.quantile.bin.7$sig.hit == 1,])) / (nrow(body.quantile.bin.7[body.quantile.bin.7$sig.hit == 0,])),
-                      #(nrow(body.quantile.bin.8[body.quantile.bin.8$sig.hit == 1,])) / (nrow(body.quantile.bin.8[body.quantile.bin.8$sig.hit == 0,])))
+body.df.fraction = c( (nrow(body.quantile.bin.1[body.quantile.bin.1$sig.hit == 1,])) / ( nrow(body.quantile.bin.1[body.quantile.bin.1$sig.hit == 0,]) + nrow(body.quantile.bin.1[body.quantile.bin.1$sig.hit == 1,])),
+                      (nrow(body.quantile.bin.2[body.quantile.bin.2$sig.hit == 1,])) / ( nrow(body.quantile.bin.2[body.quantile.bin.2$sig.hit == 0,]) + nrow(body.quantile.bin.2[body.quantile.bin.2$sig.hit == 1,])),
+                      (nrow(body.quantile.bin.3[body.quantile.bin.3$sig.hit == 1,])) / ( nrow(body.quantile.bin.3[body.quantile.bin.3$sig.hit == 0,]) + nrow(body.quantile.bin.3[body.quantile.bin.3$sig.hit == 1,])),
+                      (nrow(body.quantile.bin.4[body.quantile.bin.4$sig.hit == 1,])) / ( nrow(body.quantile.bin.4[body.quantile.bin.4$sig.hit == 0,]) + nrow(body.quantile.bin.4[body.quantile.bin.4$sig.hit == 1,])),
+                      (nrow(body.quantile.bin.5[body.quantile.bin.5$sig.hit == 1,])) / ( nrow(body.quantile.bin.5[body.quantile.bin.5$sig.hit == 0,]) + nrow(body.quantile.bin.5[body.quantile.bin.5$sig.hit == 1,])),
+                      (nrow(body.quantile.bin.6[body.quantile.bin.6$sig.hit == 1,])) / ( nrow(body.quantile.bin.6[body.quantile.bin.6$sig.hit == 0,]) + nrow(body.quantile.bin.6[body.quantile.bin.6$sig.hit == 1,])))
+                      #(nrow(body.quantile.bin.7[body.quantile.bin.7$sig.hit == 1,])) / ( nrow(body.quantile.bin.7[body.quantile.bin.7$sig.hit == 0,] + )),
+                      #(nrow(body.quantile.bin.8[body.quantile.bin.8$sig.hit == 1,])) / ( nrow(body.quantile.bin.8[body.quantile.bin.8$sig.hit == 0,] + )))
 
-head.df.fraction = c( (nrow(head.quantile.bin.1[head.quantile.bin.1$sig.hit == 1,])) / (nrow(head.quantile.bin.1[head.quantile.bin.1$sig.hit == 0,])),
-                      (nrow(head.quantile.bin.2[head.quantile.bin.2$sig.hit == 1,])) / (nrow(head.quantile.bin.2[head.quantile.bin.2$sig.hit == 0,])),
-                      (nrow(head.quantile.bin.3[head.quantile.bin.3$sig.hit == 1,])) / (nrow(head.quantile.bin.3[head.quantile.bin.3$sig.hit == 0,])),
-                      (nrow(head.quantile.bin.4[head.quantile.bin.4$sig.hit == 1,])) / (nrow(head.quantile.bin.4[head.quantile.bin.4$sig.hit == 0,])),
-                      (nrow(head.quantile.bin.5[head.quantile.bin.5$sig.hit == 1,])) / (nrow(head.quantile.bin.5[head.quantile.bin.5$sig.hit == 0,])),
-                      (nrow(head.quantile.bin.6[head.quantile.bin.6$sig.hit == 1,])) / (nrow(head.quantile.bin.6[head.quantile.bin.6$sig.hit == 0,])))
-                      #(nrow(head.quantile.bin.7[head.quantile.bin.7$sig.hit == 1,])) / (nrow(head.quantile.bin.7[head.quantile.bin.7$sig.hit == 0,])),
-                      #(nrow(head.quantile.bin.8[head.quantile.bin.8$sig.hit == 1,])) / (nrow(head.quantile.bin.8[head.quantile.bin.8$sig.hit == 0,])))
+head.df.fraction = c( (nrow(head.quantile.bin.1[head.quantile.bin.1$sig.hit == 1,])) / ( nrow(head.quantile.bin.1[head.quantile.bin.1$sig.hit == 0,]) + nrow(head.quantile.bin.1[head.quantile.bin.1$sig.hit == 1,])),
+                      (nrow(head.quantile.bin.2[head.quantile.bin.2$sig.hit == 1,])) / ( nrow(head.quantile.bin.2[head.quantile.bin.2$sig.hit == 0,]) + nrow(head.quantile.bin.2[head.quantile.bin.2$sig.hit == 1,])),
+                      (nrow(head.quantile.bin.3[head.quantile.bin.3$sig.hit == 1,])) / ( nrow(head.quantile.bin.3[head.quantile.bin.3$sig.hit == 0,]) + nrow(head.quantile.bin.3[head.quantile.bin.3$sig.hit == 1,])),
+                      (nrow(head.quantile.bin.4[head.quantile.bin.4$sig.hit == 1,])) / ( nrow(head.quantile.bin.4[head.quantile.bin.4$sig.hit == 0,]) + nrow(head.quantile.bin.4[head.quantile.bin.4$sig.hit == 1,])),
+                      (nrow(head.quantile.bin.5[head.quantile.bin.5$sig.hit == 1,])) / ( nrow(head.quantile.bin.5[head.quantile.bin.5$sig.hit == 0,]) + nrow(head.quantile.bin.5[head.quantile.bin.5$sig.hit == 1,])),
+                      (nrow(head.quantile.bin.6[head.quantile.bin.6$sig.hit == 1,])) / ( nrow(head.quantile.bin.6[head.quantile.bin.6$sig.hit == 0,]) + nrow(head.quantile.bin.6[head.quantile.bin.6$sig.hit == 1,])))
+                      #(nrow(head.quantile.bin.7[head.quantile.bin.7$sig.hit == 1,])) / ( nrow(head.quantile.bin.7[head.quantile.bin.7$sig.hit == 0,])),
+                      #(nrow(head.quantile.bin.8[head.quantile.bin.8$sig.hit == 1,])) / ( nrow(head.quantile.bin.8[head.quantile.bin.8$sig.hit == 0,])))
 
 
 body.quantile.1.fraction = vector(mode = "numeric", length = 10000)
@@ -402,23 +422,23 @@ for (i in 1:10000){
   #sample.head.quantile7 = sample(head.quantile.bin.7$sig.hit, nrow(head.quantile.bin.7), replace = TRUE)
   #sample.head.quantile8 = sample(head.quantile.bin.8$sig.hit, nrow(head.quantile.bin.8), replace = TRUE)
 
-  body.quantile.1.fraction[i] = length(sample.body.quantile1[sample.body.quantile1 == 1]) / length(sample.body.quantile1[sample.body.quantile1 == 0])
-  body.quantile.2.fraction[i] = length(sample.body.quantile2[sample.body.quantile2 == 1]) / length(sample.body.quantile2[sample.body.quantile2 == 0])
-  body.quantile.3.fraction[i] = length(sample.body.quantile3[sample.body.quantile3 == 1]) / length(sample.body.quantile3[sample.body.quantile3 == 0])
-  body.quantile.4.fraction[i] = length(sample.body.quantile4[sample.body.quantile4 == 1]) / length(sample.body.quantile4[sample.body.quantile4 == 0])
-  body.quantile.5.fraction[i] = length(sample.body.quantile5[sample.body.quantile5 == 1]) / length(sample.body.quantile5[sample.body.quantile5 == 0])
-  body.quantile.6.fraction[i] = length(sample.body.quantile6[sample.body.quantile6 == 1]) / length(sample.body.quantile6[sample.body.quantile6 == 0])
-  #body.quantile.7.fraction[i] = length(sample.body.quantile7[sample.body.quantile7 == 1]) / length(sample.body.quantile7[sample.body.quantile7 == 0])
-  #body.quantile.8.fraction[i] = length(sample.body.quantile8[sample.body.quantile8 == 1]) / length(sample.body.quantile8[sample.body.quantile8 == 0])
+  body.quantile.1.fraction[i] = length(sample.body.quantile1[sample.body.quantile1 == 1]) / (length(sample.body.quantile1[sample.body.quantile1 == 0]) + length(sample.body.quantile1[sample.body.quantile1 == 1]))
+  body.quantile.2.fraction[i] = length(sample.body.quantile2[sample.body.quantile2 == 1]) / (length(sample.body.quantile2[sample.body.quantile2 == 0]) + length(sample.body.quantile2[sample.body.quantile2 == 1]))
+  body.quantile.3.fraction[i] = length(sample.body.quantile3[sample.body.quantile3 == 1]) / (length(sample.body.quantile3[sample.body.quantile3 == 0]) + length(sample.body.quantile3[sample.body.quantile3 == 1]))
+  body.quantile.4.fraction[i] = length(sample.body.quantile4[sample.body.quantile4 == 1]) / (length(sample.body.quantile4[sample.body.quantile4 == 0]) + length(sample.body.quantile4[sample.body.quantile4 == 1]))
+  body.quantile.5.fraction[i] = length(sample.body.quantile5[sample.body.quantile5 == 1]) / (length(sample.body.quantile5[sample.body.quantile5 == 0]) + length(sample.body.quantile5[sample.body.quantile5 == 1]))
+  body.quantile.6.fraction[i] = length(sample.body.quantile6[sample.body.quantile6 == 1]) / (length(sample.body.quantile6[sample.body.quantile6 == 0]) + length(sample.body.quantile6[sample.body.quantile6 == 1]))
+  #body.quantile.7.fraction[i] = length(sample.body.quantile7[sample.body.quantile7 == 1]) / (length(sample.body.quantile7[sample.body.quantile7 == 0]) + length(sample.body.quantile7[sample.body.quantile7 == 1]))
+  #body.quantile.8.fraction[i] = length(sample.body.quantile8[sample.body.quantile8 == 1]) / (length(sample.body.quantile8[sample.body.quantile8 == 0]) + length(sample.body.quantile8[sample.body.quantile8 == 1]))
 
-  head.quantile.1.fraction[i] = length(sample.head.quantile1[sample.head.quantile1 == 1]) / length(sample.head.quantile1[sample.head.quantile1 == 0])
-  head.quantile.2.fraction[i] = length(sample.head.quantile2[sample.head.quantile2 == 1]) / length(sample.head.quantile2[sample.head.quantile2 == 0])
-  head.quantile.3.fraction[i] = length(sample.head.quantile3[sample.head.quantile3 == 1]) / length(sample.head.quantile3[sample.head.quantile3 == 0])
-  head.quantile.4.fraction[i] = length(sample.head.quantile4[sample.head.quantile4 == 1]) / length(sample.head.quantile4[sample.head.quantile4 == 0])
-  head.quantile.5.fraction[i] = length(sample.head.quantile5[sample.head.quantile5 == 1]) / length(sample.head.quantile5[sample.head.quantile5 == 0])
-  head.quantile.6.fraction[i] = length(sample.head.quantile6[sample.head.quantile6 == 1]) / length(sample.head.quantile6[sample.head.quantile6 == 0])
-  #head.quantile.7.fraction[i] = length(sample.head.quantile7[sample.head.quantile7 == 1]) / length(sample.head.quantile7[sample.head.quantile7 == 0])
-  #head.quantile.8.fraction[i] = length(sample.head.quantile8[sample.head.quantile8 == 1]) / length(sample.head.quantile8[sample.head.quantile8 == 0])
+  head.quantile.1.fraction[i] = length(sample.head.quantile1[sample.head.quantile1 == 1]) / (length(sample.head.quantile1[sample.head.quantile1 == 0]) + length(sample.head.quantile1[sample.head.quantile1 == 1]))
+  head.quantile.2.fraction[i] = length(sample.head.quantile2[sample.head.quantile2 == 1]) / (length(sample.head.quantile2[sample.head.quantile2 == 0]) + length(sample.head.quantile2[sample.head.quantile2 == 1]))
+  head.quantile.3.fraction[i] = length(sample.head.quantile3[sample.head.quantile3 == 1]) / (length(sample.head.quantile3[sample.head.quantile3 == 0]) + length(sample.head.quantile3[sample.head.quantile3 == 1]))
+  head.quantile.4.fraction[i] = length(sample.head.quantile4[sample.head.quantile4 == 1]) / (length(sample.head.quantile4[sample.head.quantile4 == 0]) + length(sample.head.quantile4[sample.head.quantile4 == 1]))
+  head.quantile.5.fraction[i] = length(sample.head.quantile5[sample.head.quantile5 == 1]) / (length(sample.head.quantile5[sample.head.quantile5 == 0]) + length(sample.head.quantile5[sample.head.quantile5 == 1]))
+  head.quantile.6.fraction[i] = length(sample.head.quantile6[sample.head.quantile6 == 1]) / (length(sample.head.quantile6[sample.head.quantile6 == 0]) + length(sample.head.quantile6[sample.head.quantile6 == 1]))
+  #head.quantile.7.fraction[i] = length(sample.head.quantile7[sample.head.quantile7 == 1]) / (length(sample.head.quantile7[sample.head.quantile7 == 0]) + length(sample.head.quantile7[sample.head.quantile7 == 1]))
+  #head.quantile.8.fraction[i] = length(sample.head.quantile8[sample.head.quantile8 == 1]) / (length(sample.head.quantile8[sample.head.quantile8 == 0]) + length(sample.head.quantile8[sample.head.quantile8 == 1]))
 
   print (i)
 }
@@ -462,22 +482,24 @@ head.high.CI = as.vector( c( quantile(head.quantile.1.fraction, 0.95)[1],
 
 body.gene.expression.df = as.data.frame(cbind(body.df.fraction, body.lower.CI, body.high.CI))
 body.gene.expression.df$quantile = seq(1,6,1)
+body.gene.expression.df$expbias = c(rep("FB",3), rep("MB",3))
 body.gene.expression.df$tissue = "body"
-colnames(body.gene.expression.df) = c("fraction", "lower.CI", "upper.CI", "quantile", "tissue")
+colnames(body.gene.expression.df) = c("fraction", "lower.CI", "upper.CI", "quantile", "expbias", "tissue")
 head.gene.expression.df = as.data.frame(cbind(head.df.fraction, head.lower.CI, head.high.CI))
 head.gene.expression.df$quantile = seq(1,6,1)
+head.gene.expression.df$expbias = c(rep("FB",3), rep("MB",3))
 head.gene.expression.df$tissue = "head"
-colnames(head.gene.expression.df) = c("fraction", "lower.CI", "upper.CI", "quantile", "tissue")
+colnames(head.gene.expression.df) = c("fraction", "lower.CI", "upper.CI", "quantile", "expbias", "tissue")
 
 gene.expression.df = rbind(body.gene.expression.df,head.gene.expression.df)
 
 # Plotting fractions -- Plot with free y scale
-fraction.of.genes = ggplot(gene.expression.df, aes(y=fraction, x = as.factor(quantile))) +
-                           geom_point(aes(x = as.factor(quantile), y=fraction), size = 10,
-                           position = position_dodge(width = 0.5)) +
+fraction.of.genes = ggplot(gene.expression.df, aes(y=fraction, x = as.factor(quantile), colour = expbias)) +
+                           geom_point(aes(x = as.factor(quantile), y = fraction,  colour = expbias), size = 10,
+                           position = position_dodge(width = 0.5)) + #ylim(0,0.75) +
                            geom_errorbar(aes(ymin = lower.CI, ymax = upper.CI, x = as.factor(quantile)),
                            width = 0, position = position_dodge(width = 0.5)) +
-                           theme_bw()  + scale_colour_manual(values = c("#E74C3C")) +
+                           theme_bw()  + scale_colour_manual(values = c("#6361f2","#f29161")) +
                            theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
                                  panel.border = element_rect(colour = "black", fill=NA, size=1),
                                  axis.text = element_text(face="bold", color="black",size=15, family = "Helvetica"),
@@ -487,40 +509,237 @@ pdf("/plas1/amardeep.singh/tmp/gene.expression.fractions_free_scale.pdf")
 fraction.of.genes
 dev.off()
 
-# Plotting fractions -- Plot with fixed y scale
-fraction.of.genes.single.plot = ggplot(gene.expression.df, aes(y = fraction, x = as.factor(quantile), colour = as.factor(tissue))) +
-                           geom_point(aes(x = as.factor(quantile), y = fraction, colour = as.factor(tissue)), size = 10,
-                           position = position_dodge(width = 0.5)) +
+
+# Second sub method is simply dividing by 5 predefined bins based on confidence interavals quantiles
+# Subset quantiles of gene expression
+# Remove any row with an NA in the quantile column
+expression.data.body = expression.data.body[!is.na(expression.data.body$log2FC.quantile.CIs), ]
+expression.data.head = expression.data.head[!is.na(expression.data.head$log2FC.quantile.CIs), ]
+
+body.quantile.bin.1 = expression.data.body[expression.data.body$log2FC.quantile.CIs == 1, ]
+body.quantile.bin.2 = expression.data.body[expression.data.body$log2FC.quantile.CIs == 2, ]
+body.quantile.bin.3 = expression.data.body[expression.data.body$log2FC.quantile.CIs == 3, ]
+body.quantile.bin.4 = expression.data.body[expression.data.body$log2FC.quantile.CIs == 4, ]
+body.quantile.bin.5 = expression.data.body[expression.data.body$log2FC.quantile.CIs == 5, ]
+
+
+head.quantile.bin.1 = expression.data.head[expression.data.head$log2FC.quantile.CIs == 1, ]
+head.quantile.bin.2 = expression.data.head[expression.data.head$log2FC.quantile.CIs == 2, ]
+head.quantile.bin.3 = expression.data.head[expression.data.head$log2FC.quantile.CIs == 3, ]
+head.quantile.bin.4 = expression.data.head[expression.data.head$log2FC.quantile.CIs == 4, ]
+head.quantile.bin.5 = expression.data.head[expression.data.head$log2FC.quantile.CIs == 5, ]
+
+
+# Fractions in each quantile
+body.df.fraction = c( (nrow(body.quantile.bin.1[body.quantile.bin.1$sig.hit == 1,])) / ( nrow(body.quantile.bin.1[body.quantile.bin.1$sig.hit == 0,]) + nrow(body.quantile.bin.1[body.quantile.bin.1$sig.hit == 1,])),
+                      (nrow(body.quantile.bin.2[body.quantile.bin.2$sig.hit == 1,])) / ( nrow(body.quantile.bin.2[body.quantile.bin.2$sig.hit == 0,]) + nrow(body.quantile.bin.2[body.quantile.bin.2$sig.hit == 1,])),
+                      (nrow(body.quantile.bin.3[body.quantile.bin.3$sig.hit == 1,])) / ( nrow(body.quantile.bin.3[body.quantile.bin.3$sig.hit == 0,]) + nrow(body.quantile.bin.3[body.quantile.bin.3$sig.hit == 1,])),
+                      (nrow(body.quantile.bin.4[body.quantile.bin.4$sig.hit == 1,])) / ( nrow(body.quantile.bin.4[body.quantile.bin.4$sig.hit == 0,]) + nrow(body.quantile.bin.4[body.quantile.bin.4$sig.hit == 1,])),
+                      (nrow(body.quantile.bin.5[body.quantile.bin.5$sig.hit == 1,])) / ( nrow(body.quantile.bin.5[body.quantile.bin.5$sig.hit == 0,]) + nrow(body.quantile.bin.5[body.quantile.bin.5$sig.hit == 1,])))
+
+head.df.fraction = c( (nrow(head.quantile.bin.1[head.quantile.bin.1$sig.hit == 1,])) / ( nrow(head.quantile.bin.1[head.quantile.bin.1$sig.hit == 0,]) + nrow(head.quantile.bin.1[head.quantile.bin.1$sig.hit == 1,])),
+                      (nrow(head.quantile.bin.2[head.quantile.bin.2$sig.hit == 1,])) / ( nrow(head.quantile.bin.2[head.quantile.bin.2$sig.hit == 0,]) + nrow(head.quantile.bin.2[head.quantile.bin.2$sig.hit == 1,])),
+                      (nrow(head.quantile.bin.3[head.quantile.bin.3$sig.hit == 1,])) / ( nrow(head.quantile.bin.3[head.quantile.bin.3$sig.hit == 0,]) + nrow(head.quantile.bin.3[head.quantile.bin.3$sig.hit == 1,])),
+                      (nrow(head.quantile.bin.4[head.quantile.bin.4$sig.hit == 1,])) / ( nrow(head.quantile.bin.4[head.quantile.bin.4$sig.hit == 0,]) + nrow(head.quantile.bin.4[head.quantile.bin.4$sig.hit == 1,])),
+                      (nrow(head.quantile.bin.5[head.quantile.bin.5$sig.hit == 1,])) / ( nrow(head.quantile.bin.5[head.quantile.bin.5$sig.hit == 0,]) + nrow(head.quantile.bin.5[head.quantile.bin.5$sig.hit == 1,])))
+
+
+body.quantile.1.fraction = vector(mode = "numeric", length = 10000)
+body.quantile.2.fraction = vector(mode = "numeric", length = 10000)
+body.quantile.3.fraction = vector(mode = "numeric", length = 10000)
+body.quantile.4.fraction = vector(mode = "numeric", length = 10000)
+body.quantile.5.fraction = vector(mode = "numeric", length = 10000)
+
+# Head Data
+head.quantile.1.fraction = vector(mode = "numeric", length = 10000)
+head.quantile.2.fraction = vector(mode = "numeric", length = 10000)
+head.quantile.3.fraction = vector(mode = "numeric", length = 10000)
+head.quantile.4.fraction = vector(mode = "numeric", length = 10000)
+head.quantile.5.fraction = vector(mode = "numeric", length = 10000)
+
+# Resampling
+for (i in 1:10000){
+
+  sample.body.quantile1 = sample(body.quantile.bin.1$sig.hit, nrow(body.quantile.bin.1), replace = TRUE)
+  sample.body.quantile2 = sample(body.quantile.bin.2$sig.hit, nrow(body.quantile.bin.2), replace = TRUE)
+  sample.body.quantile3 = sample(body.quantile.bin.3$sig.hit, nrow(body.quantile.bin.3), replace = TRUE)
+  sample.body.quantile4 = sample(body.quantile.bin.4$sig.hit, nrow(body.quantile.bin.4), replace = TRUE)
+  sample.body.quantile5 = sample(body.quantile.bin.5$sig.hit, nrow(body.quantile.bin.5), replace = TRUE)
+
+  sample.head.quantile1 = sample(head.quantile.bin.1$sig.hit, nrow(head.quantile.bin.1), replace = TRUE)
+  sample.head.quantile2 = sample(head.quantile.bin.2$sig.hit, nrow(head.quantile.bin.2), replace = TRUE)
+  sample.head.quantile3 = sample(head.quantile.bin.3$sig.hit, nrow(head.quantile.bin.3), replace = TRUE)
+  sample.head.quantile4 = sample(head.quantile.bin.4$sig.hit, nrow(head.quantile.bin.4), replace = TRUE)
+  sample.head.quantile5 = sample(head.quantile.bin.5$sig.hit, nrow(head.quantile.bin.5), replace = TRUE)
+
+  body.quantile.1.fraction[i] = length(sample.body.quantile1[sample.body.quantile1 == 1]) / (length(sample.body.quantile1[sample.body.quantile1 == 0]) + length(sample.body.quantile1[sample.body.quantile1 == 1]))
+  body.quantile.2.fraction[i] = length(sample.body.quantile2[sample.body.quantile2 == 1]) / (length(sample.body.quantile2[sample.body.quantile2 == 0]) + length(sample.body.quantile2[sample.body.quantile2 == 1]))
+  body.quantile.3.fraction[i] = length(sample.body.quantile3[sample.body.quantile3 == 1]) / (length(sample.body.quantile3[sample.body.quantile3 == 0]) + length(sample.body.quantile3[sample.body.quantile3 == 1]))
+  body.quantile.4.fraction[i] = length(sample.body.quantile4[sample.body.quantile4 == 1]) / (length(sample.body.quantile4[sample.body.quantile4 == 0]) + length(sample.body.quantile4[sample.body.quantile4 == 1]))
+  body.quantile.5.fraction[i] = length(sample.body.quantile5[sample.body.quantile5 == 1]) / (length(sample.body.quantile5[sample.body.quantile5 == 0]) + length(sample.body.quantile5[sample.body.quantile5 == 1]))
+
+  head.quantile.1.fraction[i] = length(sample.head.quantile1[sample.head.quantile1 == 1]) / (length(sample.head.quantile1[sample.head.quantile1 == 0]) + length(sample.head.quantile1[sample.head.quantile1 == 1]))
+  head.quantile.2.fraction[i] = length(sample.head.quantile2[sample.head.quantile2 == 1]) / (length(sample.head.quantile2[sample.head.quantile2 == 0]) + length(sample.head.quantile2[sample.head.quantile2 == 1]))
+  head.quantile.3.fraction[i] = length(sample.head.quantile3[sample.head.quantile3 == 1]) / (length(sample.head.quantile3[sample.head.quantile3 == 0]) + length(sample.head.quantile3[sample.head.quantile3 == 1]))
+  head.quantile.4.fraction[i] = length(sample.head.quantile4[sample.head.quantile4 == 1]) / (length(sample.head.quantile4[sample.head.quantile4 == 0]) + length(sample.head.quantile4[sample.head.quantile4 == 1]))
+  head.quantile.5.fraction[i] = length(sample.head.quantile5[sample.head.quantile5 == 1]) / (length(sample.head.quantile5[sample.head.quantile5 == 0]) + length(sample.head.quantile5[sample.head.quantile5 == 1]))
+
+  print (i)
+}
+
+body.lower.CI = as.vector( c( quantile(body.quantile.1.fraction, 0.05)[1],
+                              quantile(body.quantile.2.fraction, 0.05)[1],
+                              quantile(body.quantile.3.fraction, 0.05)[1],
+                              quantile(body.quantile.4.fraction, 0.05)[1],
+                              quantile(body.quantile.5.fraction, 0.05)[1]))
+
+
+body.high.CI = as.vector( c( quantile(body.quantile.1.fraction, 0.95)[1],
+                              quantile(body.quantile.2.fraction, 0.95)[1],
+                              quantile(body.quantile.3.fraction, 0.95)[1],
+                              quantile(body.quantile.4.fraction, 0.95)[1],
+                              quantile(body.quantile.5.fraction, 0.95)[1]))
+
+#
+head.lower.CI = as.vector( c( quantile(head.quantile.1.fraction, 0.05)[1],
+                              quantile(head.quantile.2.fraction, 0.05)[1],
+                              quantile(head.quantile.3.fraction, 0.05)[1],
+                              quantile(head.quantile.4.fraction, 0.05)[1],
+                              quantile(head.quantile.5.fraction, 0.05)[1]))
+
+head.high.CI = as.vector( c( quantile(head.quantile.1.fraction, 0.95)[1],
+                              quantile(head.quantile.2.fraction, 0.95)[1],
+                              quantile(head.quantile.3.fraction, 0.95)[1],
+                              quantile(head.quantile.4.fraction, 0.95)[1],
+                              quantile(head.quantile.5.fraction, 0.95)[1]))
+
+body.gene.expression.df = as.data.frame(cbind(body.df.fraction, body.lower.CI, body.high.CI))
+body.gene.expression.df$quantile = seq(1,5,1)
+body.gene.expression.df$expbias = c(rep("FB",2),"UB",rep("MB",2))
+body.gene.expression.df$tissue = "body"
+colnames(body.gene.expression.df) = c("fraction", "lower.CI", "upper.CI", "quantile", "expbias", "tissue")
+head.gene.expression.df = as.data.frame(cbind(head.df.fraction, head.lower.CI, head.high.CI))
+head.gene.expression.df$quantile = seq(1,5,1)
+head.gene.expression.df$expbias = c(rep("FB",2),"UB",rep("MB",2))
+head.gene.expression.df$tissue = "head"
+colnames(head.gene.expression.df) = c("fraction", "lower.CI", "upper.CI", "quantile", "expbias", "tissue")
+
+gene.expression.df = rbind(body.gene.expression.df,head.gene.expression.df)
+# add a column to shade out the two points in the head data that have very few genes
+gene.expression.df$shade = c("full","full","full","full","full","shaded","full","full","full","shaded")
+gene.expression.df$plotting.dummyvariable = paste(gene.expression.df$expbias, gene.expression.df$shade, sep = "")
+gene.expression.df
+# Plotting fractions -- Plot with free y scale
+fraction.of.genes = ggplot(gene.expression.df, aes(y=fraction, x = as.factor(quantile), colour = plotting.dummyvariable)) +
+                           geom_point(aes(x = as.factor(quantile), y = fraction,  colour = plotting.dummyvariable), size = 10,
+                           position = position_dodge(width = 0.5)) + #ylim(-0.1,0.75) +
                            geom_errorbar(aes(ymin = lower.CI, ymax = upper.CI, x = as.factor(quantile)),
                            width = 0, position = position_dodge(width = 0.5)) +
-                           theme_bw() + scale_colour_manual(values = c("#6361f2","#f29161")) +
+                           theme_bw()  + scale_colour_manual(values = c("#6361f2","#D0CFFB","#f29161", "#FBDECF","#000000")) +
                            theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
                                  panel.border = element_rect(colour = "black", fill=NA, size=1),
                                  axis.text = element_text(face="bold", color="black",size=15, family = "Helvetica"),
-                                 axis.title=element_blank(), legend.position = "none")
-                          #facet_grid(tissue~., ) + theme(panel.spacing = unit(2, "lines"))
-pdf("/plas1/amardeep.singh/tmp/gene.expression.fractions_fixed_scale.pdf")
-fraction.of.genes.single.plot
-dev.off()
-
-
-# Plotting gene expression as an index
-sexbias.exonbias.plot = ggplot(expression.data, aes(y=log(baseMean), x=log2FoldChange, colour = as.factor(sig.hit))) +
-                           geom_point(aes(y=log(baseMean), x=log2FoldChange, colour = as.factor(sig.hit)), size = 1) + xlim(c(-15,15)) +
-                           theme_bw() + scale_colour_manual(values = c("#7294D4", "#5B1A18")) + geom_vline(xintercept = 0, linetype = 2) +
-                           theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
-                                 panel.border = element_rect(colour = "black", fill=NA, size=1),
-                                 axis.text = element_text(face="bold", color="black",size=10, family = "Helvetica"),
                                  axis.title=element_blank(), legend.position = "none") +
-                           facet_wrap(tissue~., scales = "free_y") #+ theme(panel.spacing = unit(1, "lines"))
-
-pdf("/plas1/amardeep.singh/tmp/gene.expression.continuous.pdf")
-sexbias.exonbias.plot
+                          facet_grid(tissue~., scales = "free") + theme(panel.spacing = unit(2, "lines"))
+pdf("/plas1/amardeep.singh/tmp/gene.expression.fractions.predefined.bins_free_scale.pdf")
+fraction.of.genes
 dev.off()
+
+## Plotting difference between biased and unbiased bins
+# Remove any row with an NA in the quantile column
+expression.data.body = expression.data.body[!is.na(expression.data.body$log2FC.quantile.CIs), ]
+expression.data.head = expression.data.head[!is.na(expression.data.head$log2FC.quantile.CIs), ]
+
+body.quantile.bin.1 = expression.data.body[expression.data.body$log2FC.quantile.CIs == 1, ]
+body.quantile.bin.2 = expression.data.body[expression.data.body$log2FC.quantile.CIs == 2, ]
+body.quantile.bin.3 = expression.data.body[expression.data.body$log2FC.quantile.CIs == 3, ]
+body.quantile.bin.4 = expression.data.body[expression.data.body$log2FC.quantile.CIs == 4, ]
+body.quantile.bin.5 = expression.data.body[expression.data.body$log2FC.quantile.CIs == 5, ]
+
+
+head.quantile.bin.1 = expression.data.head[expression.data.head$log2FC.quantile.CIs == 1, ]
+head.quantile.bin.2 = expression.data.head[expression.data.head$log2FC.quantile.CIs == 2, ]
+head.quantile.bin.3 = expression.data.head[expression.data.head$log2FC.quantile.CIs == 3, ]
+head.quantile.bin.4 = expression.data.head[expression.data.head$log2FC.quantile.CIs == 4, ]
+head.quantile.bin.5 = expression.data.head[expression.data.head$log2FC.quantile.CIs == 5, ]
+
+
+# Difference between biased and unbiased bins
+
+# Fractions in each quantile
+body.bin1fraction = (nrow(body.quantile.bin.1[body.quantile.bin.1$sig.hit == 1,])) / ( nrow(body.quantile.bin.1[body.quantile.bin.1$sig.hit == 0,]) + nrow(body.quantile.bin.1[body.quantile.bin.1$sig.hit == 1,]))
+body.bin2fraction = (nrow(body.quantile.bin.2[body.quantile.bin.2$sig.hit == 1,])) / ( nrow(body.quantile.bin.2[body.quantile.bin.2$sig.hit == 0,]) + nrow(body.quantile.bin.2[body.quantile.bin.2$sig.hit == 1,]))
+body.bin3fraction = (nrow(body.quantile.bin.3[body.quantile.bin.3$sig.hit == 1,])) / ( nrow(body.quantile.bin.3[body.quantile.bin.3$sig.hit == 0,]) + nrow(body.quantile.bin.3[body.quantile.bin.3$sig.hit == 1,]))
+body.bin4fraction = (nrow(body.quantile.bin.4[body.quantile.bin.4$sig.hit == 1,])) / ( nrow(body.quantile.bin.4[body.quantile.bin.4$sig.hit == 0,]) + nrow(body.quantile.bin.4[body.quantile.bin.4$sig.hit == 1,]))
+body.bin5fraction = (nrow(body.quantile.bin.5[body.quantile.bin.5$sig.hit == 1,])) / ( nrow(body.quantile.bin.5[body.quantile.bin.5$sig.hit == 0,]) + nrow(body.quantile.bin.5[body.quantile.bin.5$sig.hit == 1,]))
+
+head.bin1fraction = (nrow(head.quantile.bin.1[head.quantile.bin.1$sig.hit == 1,])) / ( nrow(head.quantile.bin.1[head.quantile.bin.1$sig.hit == 0,]) + nrow(head.quantile.bin.1[head.quantile.bin.1$sig.hit == 1,]))
+head.bin2fraction = (nrow(head.quantile.bin.2[head.quantile.bin.2$sig.hit == 1,])) / ( nrow(head.quantile.bin.2[head.quantile.bin.2$sig.hit == 0,]) + nrow(head.quantile.bin.2[head.quantile.bin.2$sig.hit == 1,]))
+head.bin3fraction = (nrow(head.quantile.bin.3[head.quantile.bin.3$sig.hit == 1,])) / ( nrow(head.quantile.bin.3[head.quantile.bin.3$sig.hit == 0,]) + nrow(head.quantile.bin.3[head.quantile.bin.3$sig.hit == 1,]))
+head.bin4fraction = (nrow(head.quantile.bin.4[head.quantile.bin.4$sig.hit == 1,])) / ( nrow(head.quantile.bin.4[head.quantile.bin.4$sig.hit == 0,]) + nrow(head.quantile.bin.4[head.quantile.bin.4$sig.hit == 1,]))
+head.bin5fraction = (nrow(head.quantile.bin.5[head.quantile.bin.5$sig.hit == 1,])) / ( nrow(head.quantile.bin.5[head.quantile.bin.5$sig.hit == 0,]) + nrow(head.quantile.bin.5[head.quantile.bin.5$sig.hit == 1,]))
+
+
+body.df.fraction.difference = c( (body.bin1fraction - body.bin3fraction), (body.bin2fraction - body.bin3fraction), (body.bin4fraction - body.bin3fraction), (body.bin5fraction - body.bin3fraction) )
+head.df.fraction.difference = c( (head.bin1fraction - head.bin3fraction), (head.bin2fraction - head.bin3fraction), (head.bin4fraction - head.bin3fraction), (head.bin5fraction - head.bin3fraction) )
+
+# Body
+body.fraction.difference.1.3 = vector(mode = "numeric", length = 10000)
+body.fraction.difference.2.3 = vector(mode = "numeric", length = 10000)
+body.fraction.difference.4.3 = vector(mode = "numeric", length = 10000)
+body.fraction.difference.5.3 = vector(mode = "numeric", length = 10000)
+
+# Body
+head.fraction.difference.1.3 = vector(mode = "numeric", length = 10000)
+head.fraction.difference.2.3 = vector(mode = "numeric", length = 10000)
+head.fraction.difference.4.3 = vector(mode = "numeric", length = 10000)
+head.fraction.difference.5.3 = vector(mode = "numeric", length = 10000)
+
+
+# Resampling
+for (i in 1:10000){
+
+  sample.body.quantile1 = sample(body.quantile.bin.1$sig.hit, nrow(body.quantile.bin.1), replace = TRUE)
+  sample.body.quantile2 = sample(body.quantile.bin.2$sig.hit, nrow(body.quantile.bin.2), replace = TRUE)
+  sample.body.quantile3 = sample(body.quantile.bin.3$sig.hit, nrow(body.quantile.bin.3), replace = TRUE)
+  sample.body.quantile4 = sample(body.quantile.bin.4$sig.hit, nrow(body.quantile.bin.4), replace = TRUE)
+  sample.body.quantile5 = sample(body.quantile.bin.5$sig.hit, nrow(body.quantile.bin.5), replace = TRUE)
+
+  sample.head.quantile1 = sample(head.quantile.bin.1$sig.hit, nrow(head.quantile.bin.1), replace = TRUE)
+  sample.head.quantile2 = sample(head.quantile.bin.2$sig.hit, nrow(head.quantile.bin.2), replace = TRUE)
+  sample.head.quantile3 = sample(head.quantile.bin.3$sig.hit, nrow(head.quantile.bin.3), replace = TRUE)
+  sample.head.quantile4 = sample(head.quantile.bin.4$sig.hit, nrow(head.quantile.bin.4), replace = TRUE)
+  sample.head.quantile5 = sample(head.quantile.bin.5$sig.hit, nrow(head.quantile.bin.5), replace = TRUE)
+
+  body.quantile.1.fraction = length(sample.body.quantile1[sample.body.quantile1 == 1]) / (length(sample.body.quantile1[sample.body.quantile1 == 0]) + length(sample.body.quantile1[sample.body.quantile1 == 1]))
+  body.quantile.2.fraction = length(sample.body.quantile2[sample.body.quantile2 == 1]) / (length(sample.body.quantile2[sample.body.quantile2 == 0]) + length(sample.body.quantile2[sample.body.quantile2 == 1]))
+  body.quantile.3.fraction = length(sample.body.quantile3[sample.body.quantile3 == 1]) / (length(sample.body.quantile3[sample.body.quantile3 == 0]) + length(sample.body.quantile3[sample.body.quantile3 == 1]))
+  body.quantile.4.fraction = length(sample.body.quantile4[sample.body.quantile4 == 1]) / (length(sample.body.quantile4[sample.body.quantile4 == 0]) + length(sample.body.quantile4[sample.body.quantile4 == 1]))
+  body.quantile.5.fraction = length(sample.body.quantile5[sample.body.quantile5 == 1]) / (length(sample.body.quantile5[sample.body.quantile5 == 0]) + length(sample.body.quantile5[sample.body.quantile5 == 1]))
+
+  head.quantile.1.fraction = length(sample.head.quantile1[sample.head.quantile1 == 1]) / (length(sample.head.quantile1[sample.head.quantile1 == 0]) + length(sample.head.quantile1[sample.head.quantile1 == 1]))
+  head.quantile.2.fraction = length(sample.head.quantile2[sample.head.quantile2 == 1]) / (length(sample.head.quantile2[sample.head.quantile2 == 0]) + length(sample.head.quantile2[sample.head.quantile2 == 1]))
+  head.quantile.3.fraction = length(sample.head.quantile3[sample.head.quantile3 == 1]) / (length(sample.head.quantile3[sample.head.quantile3 == 0]) + length(sample.head.quantile3[sample.head.quantile3 == 1]))
+  head.quantile.4.fraction = length(sample.head.quantile4[sample.head.quantile4 == 1]) / (length(sample.head.quantile4[sample.head.quantile4 == 0]) + length(sample.head.quantile4[sample.head.quantile4 == 1]))
+  head.quantile.5.fraction = length(sample.head.quantile5[sample.head.quantile5 == 1]) / (length(sample.head.quantile5[sample.head.quantile5 == 0]) + length(sample.head.quantile5[sample.head.quantile5 == 1]))
+
+  body.fraction.difference.1.3[i] = body.quantile.1.fraction - body.quantile.3.fraction
+  body.fraction.difference.2.3[i] = body.quantile.2.fraction - body.quantile.3.fraction
+  body.fraction.difference.4.3[i] = body.quantile.4.fraction - body.quantile.3.fraction
+  body.fraction.difference.5.3[i] = body.quantile.5.fraction - body.quantile.3.fraction
+
+  head.fraction.difference.1.3[i] = head.quantile.1.fraction - head.quantile.3.fraction
+  head.fraction.difference.2.3[i] = head.quantile.2.fraction - head.quantile.3.fraction
+  head.fraction.difference.4.3[i] = head.quantile.4.fraction - head.quantile.3.fraction
+  head.fraction.difference.5.3[i] = head.quantile.5.fraction - head.quantile.3.fraction
+
+  print (i)
+}
+
 
 
 ###
-# Second plot will be the fraction of genes in gene expression quantiles that are significantly DEU or not regardless of average gene expression
+# Second plot will be the fraction of genes in gene expression quantiles that are significantly DEU or split by  average gene expression
 
 # Subset quantiles of gene expression
 body.quantile.bin.1.lowexp = expression.data.body[expression.data.body$log2FC.quantile == 1 & expression.data.body$gene.expression.quantile == 1, ]
@@ -567,47 +786,47 @@ head.quantile.bin.6.highexp = expression.data.head[expression.data.head$log2FC.q
 
 
 # Fractions in each quantile
-body.df.fraction = c( (nrow(body.quantile.bin.1.lowexp[body.quantile.bin.1.lowexp$sig.hit == 1,])) / (nrow(body.quantile.bin.1.lowexp[body.quantile.bin.1.lowexp$sig.hit == 0,])),
-                      (nrow(body.quantile.bin.2.lowexp[body.quantile.bin.2.lowexp$sig.hit == 1,])) / (nrow(body.quantile.bin.2.lowexp[body.quantile.bin.2.lowexp$sig.hit == 0,])),
-                      (nrow(body.quantile.bin.3.lowexp[body.quantile.bin.3.lowexp$sig.hit == 1,])) / (nrow(body.quantile.bin.3.lowexp[body.quantile.bin.3.lowexp$sig.hit == 0,])),
-                      (nrow(body.quantile.bin.4.lowexp[body.quantile.bin.4.lowexp$sig.hit == 1,])) / (nrow(body.quantile.bin.4.lowexp[body.quantile.bin.4.lowexp$sig.hit == 0,])),
-                      (nrow(body.quantile.bin.5.lowexp[body.quantile.bin.5.lowexp$sig.hit == 1,])) / (nrow(body.quantile.bin.5.lowexp[body.quantile.bin.5.lowexp$sig.hit == 0,])),
-                      (nrow(body.quantile.bin.6.lowexp[body.quantile.bin.6.lowexp$sig.hit == 1,])) / (nrow(body.quantile.bin.6.lowexp[body.quantile.bin.6.lowexp$sig.hit == 0,])),
+body.df.fraction = c( (nrow(body.quantile.bin.1.lowexp[body.quantile.bin.1.lowexp$sig.hit == 1,])) / (nrow(body.quantile.bin.1.lowexp[body.quantile.bin.1.lowexp$sig.hit == 0,]) + nrow(body.quantile.bin.1.lowexp[body.quantile.bin.1.lowexp$sig.hit == 1,])),
+                      (nrow(body.quantile.bin.2.lowexp[body.quantile.bin.2.lowexp$sig.hit == 1,])) / (nrow(body.quantile.bin.2.lowexp[body.quantile.bin.2.lowexp$sig.hit == 0,]) + nrow(body.quantile.bin.2.lowexp[body.quantile.bin.2.lowexp$sig.hit == 1,])),
+                      (nrow(body.quantile.bin.3.lowexp[body.quantile.bin.3.lowexp$sig.hit == 1,])) / (nrow(body.quantile.bin.3.lowexp[body.quantile.bin.3.lowexp$sig.hit == 0,]) + nrow(body.quantile.bin.3.lowexp[body.quantile.bin.3.lowexp$sig.hit == 1,])),
+                      (nrow(body.quantile.bin.4.lowexp[body.quantile.bin.4.lowexp$sig.hit == 1,])) / (nrow(body.quantile.bin.4.lowexp[body.quantile.bin.4.lowexp$sig.hit == 0,]) + nrow(body.quantile.bin.4.lowexp[body.quantile.bin.4.lowexp$sig.hit == 1,])),
+                      (nrow(body.quantile.bin.5.lowexp[body.quantile.bin.5.lowexp$sig.hit == 1,])) / (nrow(body.quantile.bin.5.lowexp[body.quantile.bin.5.lowexp$sig.hit == 0,]) + nrow(body.quantile.bin.5.lowexp[body.quantile.bin.5.lowexp$sig.hit == 1,])),
+                      (nrow(body.quantile.bin.6.lowexp[body.quantile.bin.6.lowexp$sig.hit == 1,])) / (nrow(body.quantile.bin.6.lowexp[body.quantile.bin.6.lowexp$sig.hit == 0,]) + nrow(body.quantile.bin.6.lowexp[body.quantile.bin.6.lowexp$sig.hit == 1,])),
 
-                      (nrow(body.quantile.bin.1.interexp[body.quantile.bin.1.interexp$sig.hit == 1,])) / (nrow(body.quantile.bin.1.interexp[body.quantile.bin.1.interexp$sig.hit == 0,])),
-                      (nrow(body.quantile.bin.2.interexp[body.quantile.bin.2.interexp$sig.hit == 1,])) / (nrow(body.quantile.bin.2.interexp[body.quantile.bin.2.interexp$sig.hit == 0,])),
-                      (nrow(body.quantile.bin.3.interexp[body.quantile.bin.3.interexp$sig.hit == 1,])) / (nrow(body.quantile.bin.3.interexp[body.quantile.bin.3.interexp$sig.hit == 0,])),
-                      (nrow(body.quantile.bin.4.interexp[body.quantile.bin.4.interexp$sig.hit == 1,])) / (nrow(body.quantile.bin.4.interexp[body.quantile.bin.4.interexp$sig.hit == 0,])),
-                      (nrow(body.quantile.bin.5.interexp[body.quantile.bin.5.interexp$sig.hit == 1,])) / (nrow(body.quantile.bin.5.interexp[body.quantile.bin.5.interexp$sig.hit == 0,])),
-                      (nrow(body.quantile.bin.6.interexp[body.quantile.bin.6.interexp$sig.hit == 1,])) / (nrow(body.quantile.bin.6.interexp[body.quantile.bin.6.interexp$sig.hit == 0,])),
+                      (nrow(body.quantile.bin.1.interexp[body.quantile.bin.1.interexp$sig.hit == 1,])) / (nrow(body.quantile.bin.1.interexp[body.quantile.bin.1.interexp$sig.hit == 0,]) + nrow(body.quantile.bin.1.interexp[body.quantile.bin.1.interexp$sig.hit == 1,])),
+                      (nrow(body.quantile.bin.2.interexp[body.quantile.bin.2.interexp$sig.hit == 1,])) / (nrow(body.quantile.bin.2.interexp[body.quantile.bin.2.interexp$sig.hit == 0,]) + nrow(body.quantile.bin.2.interexp[body.quantile.bin.2.interexp$sig.hit == 1,])),
+                      (nrow(body.quantile.bin.3.interexp[body.quantile.bin.3.interexp$sig.hit == 1,])) / (nrow(body.quantile.bin.3.interexp[body.quantile.bin.3.interexp$sig.hit == 0,]) + nrow(body.quantile.bin.3.interexp[body.quantile.bin.3.interexp$sig.hit == 1,])),
+                      (nrow(body.quantile.bin.4.interexp[body.quantile.bin.4.interexp$sig.hit == 1,])) / (nrow(body.quantile.bin.4.interexp[body.quantile.bin.4.interexp$sig.hit == 0,]) + nrow(body.quantile.bin.4.interexp[body.quantile.bin.4.interexp$sig.hit == 1,])),
+                      (nrow(body.quantile.bin.5.interexp[body.quantile.bin.5.interexp$sig.hit == 1,])) / (nrow(body.quantile.bin.5.interexp[body.quantile.bin.5.interexp$sig.hit == 0,]) + nrow(body.quantile.bin.5.interexp[body.quantile.bin.5.interexp$sig.hit == 1,])),
+                      (nrow(body.quantile.bin.6.interexp[body.quantile.bin.6.interexp$sig.hit == 1,])) / (nrow(body.quantile.bin.6.interexp[body.quantile.bin.6.interexp$sig.hit == 0,]) + nrow(body.quantile.bin.6.interexp[body.quantile.bin.6.interexp$sig.hit == 1,])),
 
-                      (nrow(body.quantile.bin.1.highexp[body.quantile.bin.1.highexp$sig.hit == 1,])) / (nrow(body.quantile.bin.1.highexp[body.quantile.bin.1.highexp$sig.hit == 0,])),
-                      (nrow(body.quantile.bin.2.highexp[body.quantile.bin.2.highexp$sig.hit == 1,])) / (nrow(body.quantile.bin.2.highexp[body.quantile.bin.2.highexp$sig.hit == 0,])),
-                      (nrow(body.quantile.bin.3.highexp[body.quantile.bin.3.highexp$sig.hit == 1,])) / (nrow(body.quantile.bin.3.highexp[body.quantile.bin.3.highexp$sig.hit == 0,])),
-                      (nrow(body.quantile.bin.4.highexp[body.quantile.bin.4.highexp$sig.hit == 1,])) / (nrow(body.quantile.bin.4.highexp[body.quantile.bin.4.highexp$sig.hit == 0,])),
-                      (nrow(body.quantile.bin.5.highexp[body.quantile.bin.5.highexp$sig.hit == 1,])) / (nrow(body.quantile.bin.5.highexp[body.quantile.bin.5.highexp$sig.hit == 0,])),
-                      (nrow(body.quantile.bin.6.highexp[body.quantile.bin.6.highexp$sig.hit == 1,])) / (nrow(body.quantile.bin.6.highexp[body.quantile.bin.6.highexp$sig.hit == 0,])))
+                      (nrow(body.quantile.bin.1.highexp[body.quantile.bin.1.highexp$sig.hit == 1,])) / (nrow(body.quantile.bin.1.highexp[body.quantile.bin.1.highexp$sig.hit == 0,]) + nrow(body.quantile.bin.1.highexp[body.quantile.bin.1.highexp$sig.hit == 1,])),
+                      (nrow(body.quantile.bin.2.highexp[body.quantile.bin.2.highexp$sig.hit == 1,])) / (nrow(body.quantile.bin.2.highexp[body.quantile.bin.2.highexp$sig.hit == 0,]) + nrow(body.quantile.bin.2.highexp[body.quantile.bin.2.highexp$sig.hit == 1,])),
+                      (nrow(body.quantile.bin.3.highexp[body.quantile.bin.3.highexp$sig.hit == 1,])) / (nrow(body.quantile.bin.3.highexp[body.quantile.bin.3.highexp$sig.hit == 0,]) + nrow(body.quantile.bin.3.highexp[body.quantile.bin.3.highexp$sig.hit == 1,])),
+                      (nrow(body.quantile.bin.4.highexp[body.quantile.bin.4.highexp$sig.hit == 1,])) / (nrow(body.quantile.bin.4.highexp[body.quantile.bin.4.highexp$sig.hit == 0,]) + nrow(body.quantile.bin.4.highexp[body.quantile.bin.4.highexp$sig.hit == 1,])),
+                      (nrow(body.quantile.bin.5.highexp[body.quantile.bin.5.highexp$sig.hit == 1,])) / (nrow(body.quantile.bin.5.highexp[body.quantile.bin.5.highexp$sig.hit == 0,]) + nrow(body.quantile.bin.5.highexp[body.quantile.bin.5.highexp$sig.hit == 1,])),
+                      (nrow(body.quantile.bin.6.highexp[body.quantile.bin.6.highexp$sig.hit == 1,])) / (nrow(body.quantile.bin.6.highexp[body.quantile.bin.6.highexp$sig.hit == 0,]) + nrow(body.quantile.bin.6.highexp[body.quantile.bin.6.highexp$sig.hit == 1,])))
 
-head.df.fraction = c( (nrow(head.quantile.bin.1.lowexp[head.quantile.bin.1.lowexp$sig.hit == 1,])) / (nrow(head.quantile.bin.1.lowexp[head.quantile.bin.1.lowexp$sig.hit == 0,])),
-                      (nrow(head.quantile.bin.2.lowexp[head.quantile.bin.2.lowexp$sig.hit == 1,])) / (nrow(head.quantile.bin.2.lowexp[head.quantile.bin.2.lowexp$sig.hit == 0,])),
-                      (nrow(head.quantile.bin.3.lowexp[head.quantile.bin.3.lowexp$sig.hit == 1,])) / (nrow(head.quantile.bin.3.lowexp[head.quantile.bin.3.lowexp$sig.hit == 0,])),
-                      (nrow(head.quantile.bin.4.lowexp[head.quantile.bin.4.lowexp$sig.hit == 1,])) / (nrow(head.quantile.bin.4.lowexp[head.quantile.bin.4.lowexp$sig.hit == 0,])),
-                      (nrow(head.quantile.bin.5.lowexp[head.quantile.bin.5.lowexp$sig.hit == 1,])) / (nrow(head.quantile.bin.5.lowexp[head.quantile.bin.5.lowexp$sig.hit == 0,])),
-                      (nrow(head.quantile.bin.6.lowexp[head.quantile.bin.6.lowexp$sig.hit == 1,])) / (nrow(head.quantile.bin.6.lowexp[head.quantile.bin.6.lowexp$sig.hit == 0,])),
+head.df.fraction = c( (nrow(head.quantile.bin.1.lowexp[head.quantile.bin.1.lowexp$sig.hit == 1,])) / (nrow(head.quantile.bin.1.lowexp[head.quantile.bin.1.lowexp$sig.hit == 0,]) + nrow(head.quantile.bin.1.lowexp[head.quantile.bin.1.lowexp$sig.hit == 1,])),
+                      (nrow(head.quantile.bin.2.lowexp[head.quantile.bin.2.lowexp$sig.hit == 1,])) / (nrow(head.quantile.bin.2.lowexp[head.quantile.bin.2.lowexp$sig.hit == 0,]) + nrow(head.quantile.bin.2.lowexp[head.quantile.bin.2.lowexp$sig.hit == 1,])),
+                      (nrow(head.quantile.bin.3.lowexp[head.quantile.bin.3.lowexp$sig.hit == 1,])) / (nrow(head.quantile.bin.3.lowexp[head.quantile.bin.3.lowexp$sig.hit == 0,]) + nrow(head.quantile.bin.3.lowexp[head.quantile.bin.3.lowexp$sig.hit == 1,])),
+                      (nrow(head.quantile.bin.4.lowexp[head.quantile.bin.4.lowexp$sig.hit == 1,])) / (nrow(head.quantile.bin.4.lowexp[head.quantile.bin.4.lowexp$sig.hit == 0,]) + nrow(head.quantile.bin.4.lowexp[head.quantile.bin.4.lowexp$sig.hit == 1,])),
+                      (nrow(head.quantile.bin.5.lowexp[head.quantile.bin.5.lowexp$sig.hit == 1,])) / (nrow(head.quantile.bin.5.lowexp[head.quantile.bin.5.lowexp$sig.hit == 0,]) + nrow(head.quantile.bin.5.lowexp[head.quantile.bin.5.lowexp$sig.hit == 1,])),
+                      (nrow(head.quantile.bin.6.lowexp[head.quantile.bin.6.lowexp$sig.hit == 1,])) / (nrow(head.quantile.bin.6.lowexp[head.quantile.bin.6.lowexp$sig.hit == 0,]) + nrow(head.quantile.bin.6.lowexp[head.quantile.bin.6.lowexp$sig.hit == 1,])),
 
-                      (nrow(head.quantile.bin.1.interexp[head.quantile.bin.1.interexp$sig.hit == 1,])) / (nrow(head.quantile.bin.1.interexp[head.quantile.bin.1.interexp$sig.hit == 0,])),
-                      (nrow(head.quantile.bin.2.interexp[head.quantile.bin.2.interexp$sig.hit == 1,])) / (nrow(head.quantile.bin.2.interexp[head.quantile.bin.2.interexp$sig.hit == 0,])),
-                      (nrow(head.quantile.bin.3.interexp[head.quantile.bin.3.interexp$sig.hit == 1,])) / (nrow(head.quantile.bin.3.interexp[head.quantile.bin.3.interexp$sig.hit == 0,])),
-                      (nrow(head.quantile.bin.4.interexp[head.quantile.bin.4.interexp$sig.hit == 1,])) / (nrow(head.quantile.bin.4.interexp[head.quantile.bin.4.interexp$sig.hit == 0,])),
-                      (nrow(head.quantile.bin.5.interexp[head.quantile.bin.5.interexp$sig.hit == 1,])) / (nrow(head.quantile.bin.5.interexp[head.quantile.bin.5.interexp$sig.hit == 0,])),
-                      (nrow(head.quantile.bin.6.interexp[head.quantile.bin.6.interexp$sig.hit == 1,])) / (nrow(head.quantile.bin.6.interexp[head.quantile.bin.6.interexp$sig.hit == 0,])),
+                      (nrow(head.quantile.bin.1.interexp[head.quantile.bin.1.interexp$sig.hit == 1,])) / (nrow(head.quantile.bin.1.interexp[head.quantile.bin.1.interexp$sig.hit == 0,]) + nrow(head.quantile.bin.1.interexp[head.quantile.bin.1.interexp$sig.hit == 1,])),
+                      (nrow(head.quantile.bin.2.interexp[head.quantile.bin.2.interexp$sig.hit == 1,])) / (nrow(head.quantile.bin.2.interexp[head.quantile.bin.2.interexp$sig.hit == 0,]) + nrow(head.quantile.bin.2.interexp[head.quantile.bin.2.interexp$sig.hit == 1,])),
+                      (nrow(head.quantile.bin.3.interexp[head.quantile.bin.3.interexp$sig.hit == 1,])) / (nrow(head.quantile.bin.3.interexp[head.quantile.bin.3.interexp$sig.hit == 0,]) + nrow(head.quantile.bin.3.interexp[head.quantile.bin.3.interexp$sig.hit == 1,])),
+                      (nrow(head.quantile.bin.4.interexp[head.quantile.bin.4.interexp$sig.hit == 1,])) / (nrow(head.quantile.bin.4.interexp[head.quantile.bin.4.interexp$sig.hit == 0,]) + nrow(head.quantile.bin.4.interexp[head.quantile.bin.4.interexp$sig.hit == 1,])),
+                      (nrow(head.quantile.bin.5.interexp[head.quantile.bin.5.interexp$sig.hit == 1,])) / (nrow(head.quantile.bin.5.interexp[head.quantile.bin.5.interexp$sig.hit == 0,]) + nrow(head.quantile.bin.5.interexp[head.quantile.bin.5.interexp$sig.hit == 1,])),
+                      (nrow(head.quantile.bin.6.interexp[head.quantile.bin.6.interexp$sig.hit == 1,])) / (nrow(head.quantile.bin.6.interexp[head.quantile.bin.6.interexp$sig.hit == 0,]) + nrow(head.quantile.bin.6.interexp[head.quantile.bin.6.interexp$sig.hit == 1,])),
 
-                      (nrow(head.quantile.bin.1.highexp[head.quantile.bin.1.highexp$sig.hit == 1,])) / (nrow(head.quantile.bin.1.highexp[head.quantile.bin.1.highexp$sig.hit == 0,])),
-                      (nrow(head.quantile.bin.2.highexp[head.quantile.bin.2.highexp$sig.hit == 1,])) / (nrow(head.quantile.bin.2.highexp[head.quantile.bin.2.highexp$sig.hit == 0,])),
-                      (nrow(head.quantile.bin.3.highexp[head.quantile.bin.3.highexp$sig.hit == 1,])) / (nrow(head.quantile.bin.3.highexp[head.quantile.bin.3.highexp$sig.hit == 0,])),
-                      (nrow(head.quantile.bin.4.highexp[head.quantile.bin.4.highexp$sig.hit == 1,])) / (nrow(head.quantile.bin.4.highexp[head.quantile.bin.4.highexp$sig.hit == 0,])),
-                      (nrow(head.quantile.bin.5.highexp[head.quantile.bin.5.highexp$sig.hit == 1,])) / (nrow(head.quantile.bin.5.highexp[head.quantile.bin.5.highexp$sig.hit == 0,])),
-                      (nrow(head.quantile.bin.6.highexp[head.quantile.bin.6.highexp$sig.hit == 1,])) / (nrow(head.quantile.bin.6.highexp[head.quantile.bin.6.highexp$sig.hit == 0,])))
+                      (nrow(head.quantile.bin.1.highexp[head.quantile.bin.1.highexp$sig.hit == 1,])) / (nrow(head.quantile.bin.1.highexp[head.quantile.bin.1.highexp$sig.hit == 0,]) + nrow(head.quantile.bin.1.highexp[head.quantile.bin.1.highexp$sig.hit == 1,])),
+                      (nrow(head.quantile.bin.2.highexp[head.quantile.bin.2.highexp$sig.hit == 1,])) / (nrow(head.quantile.bin.2.highexp[head.quantile.bin.2.highexp$sig.hit == 0,]) + nrow(head.quantile.bin.2.highexp[head.quantile.bin.2.highexp$sig.hit == 1,])),
+                      (nrow(head.quantile.bin.3.highexp[head.quantile.bin.3.highexp$sig.hit == 1,])) / (nrow(head.quantile.bin.3.highexp[head.quantile.bin.3.highexp$sig.hit == 0,]) + nrow(head.quantile.bin.3.highexp[head.quantile.bin.3.highexp$sig.hit == 1,])),
+                      (nrow(head.quantile.bin.4.highexp[head.quantile.bin.4.highexp$sig.hit == 1,])) / (nrow(head.quantile.bin.4.highexp[head.quantile.bin.4.highexp$sig.hit == 0,]) + nrow(head.quantile.bin.4.highexp[head.quantile.bin.4.highexp$sig.hit == 1,])),
+                      (nrow(head.quantile.bin.5.highexp[head.quantile.bin.5.highexp$sig.hit == 1,])) / (nrow(head.quantile.bin.5.highexp[head.quantile.bin.5.highexp$sig.hit == 0,]) + nrow(head.quantile.bin.5.highexp[head.quantile.bin.5.highexp$sig.hit == 1,])),
+                      (nrow(head.quantile.bin.6.highexp[head.quantile.bin.6.highexp$sig.hit == 1,])) / (nrow(head.quantile.bin.6.highexp[head.quantile.bin.6.highexp$sig.hit == 0,]) + nrow(head.quantile.bin.6.highexp[head.quantile.bin.6.highexp$sig.hit == 1,])))
 
 # Body Data
 body.quantile.1.fraction.lowexp = vector(mode = "numeric", length = 10000)
@@ -690,47 +909,47 @@ for (i in 1:10000){
   sample.head.quantile5.highexp = sample(head.quantile.bin.5.highexp$sig.hit, nrow(head.quantile.bin.5.highexp), replace = TRUE)
   sample.head.quantile6.highexp = sample(head.quantile.bin.6.highexp$sig.hit, nrow(head.quantile.bin.6.highexp), replace = TRUE)
 
-  body.quantile.1.fraction.lowexp[i] = length(sample.body.quantile1.lowexp[sample.body.quantile1.lowexp == 1]) / length(sample.body.quantile1.lowexp[sample.body.quantile1.lowexp == 0])
-  body.quantile.2.fraction.lowexp[i] = length(sample.body.quantile2.lowexp[sample.body.quantile2.lowexp == 1]) / length(sample.body.quantile2.lowexp[sample.body.quantile2.lowexp == 0])
-  body.quantile.3.fraction.lowexp[i] = length(sample.body.quantile3.lowexp[sample.body.quantile3.lowexp == 1]) / length(sample.body.quantile3.lowexp[sample.body.quantile3.lowexp == 0])
-  body.quantile.4.fraction.lowexp[i] = length(sample.body.quantile4.lowexp[sample.body.quantile4.lowexp == 1]) / length(sample.body.quantile4.lowexp[sample.body.quantile4.lowexp == 0])
-  body.quantile.5.fraction.lowexp[i] = length(sample.body.quantile5.lowexp[sample.body.quantile5.lowexp == 1]) / length(sample.body.quantile5.lowexp[sample.body.quantile5.lowexp == 0])
-  body.quantile.6.fraction.lowexp[i] = length(sample.body.quantile6.lowexp[sample.body.quantile6.lowexp == 1]) / length(sample.body.quantile6.lowexp[sample.body.quantile6.lowexp == 0])
+  body.quantile.1.fraction.lowexp[i] = length(sample.body.quantile1.lowexp[sample.body.quantile1.lowexp == 1]) / (length(sample.body.quantile1.lowexp[sample.body.quantile1.lowexp == 0]) + length(sample.body.quantile1.lowexp[sample.body.quantile1.lowexp == 1]))
+  body.quantile.2.fraction.lowexp[i] = length(sample.body.quantile2.lowexp[sample.body.quantile2.lowexp == 1]) / (length(sample.body.quantile2.lowexp[sample.body.quantile2.lowexp == 0]) + length(sample.body.quantile2.lowexp[sample.body.quantile2.lowexp == 1]))
+  body.quantile.3.fraction.lowexp[i] = length(sample.body.quantile3.lowexp[sample.body.quantile3.lowexp == 1]) / (length(sample.body.quantile3.lowexp[sample.body.quantile3.lowexp == 0]) + length(sample.body.quantile3.lowexp[sample.body.quantile3.lowexp == 1]))
+  body.quantile.4.fraction.lowexp[i] = length(sample.body.quantile4.lowexp[sample.body.quantile4.lowexp == 1]) / (length(sample.body.quantile4.lowexp[sample.body.quantile4.lowexp == 0]) + length(sample.body.quantile4.lowexp[sample.body.quantile4.lowexp == 1]))
+  body.quantile.5.fraction.lowexp[i] = length(sample.body.quantile5.lowexp[sample.body.quantile5.lowexp == 1]) / (length(sample.body.quantile5.lowexp[sample.body.quantile5.lowexp == 0]) + length(sample.body.quantile5.lowexp[sample.body.quantile5.lowexp == 1]))
+  body.quantile.6.fraction.lowexp[i] = length(sample.body.quantile6.lowexp[sample.body.quantile6.lowexp == 1]) / (length(sample.body.quantile6.lowexp[sample.body.quantile6.lowexp == 0]) + length(sample.body.quantile6.lowexp[sample.body.quantile6.lowexp == 1]))
 
-  body.quantile.1.fraction.interexp[i] = length(sample.body.quantile1.interexp[sample.body.quantile1.interexp == 1]) / length(sample.body.quantile1.interexp[sample.body.quantile1.interexp == 0])
-  body.quantile.2.fraction.interexp[i] = length(sample.body.quantile2.interexp[sample.body.quantile2.interexp == 1]) / length(sample.body.quantile2.interexp[sample.body.quantile2.interexp == 0])
-  body.quantile.3.fraction.interexp[i] = length(sample.body.quantile3.interexp[sample.body.quantile3.interexp == 1]) / length(sample.body.quantile3.interexp[sample.body.quantile3.interexp == 0])
-  body.quantile.4.fraction.interexp[i] = length(sample.body.quantile4.interexp[sample.body.quantile4.interexp == 1]) / length(sample.body.quantile4.interexp[sample.body.quantile4.interexp == 0])
-  body.quantile.5.fraction.interexp[i] = length(sample.body.quantile5.interexp[sample.body.quantile5.interexp == 1]) / length(sample.body.quantile5.interexp[sample.body.quantile5.interexp == 0])
-  body.quantile.6.fraction.interexp[i] = length(sample.body.quantile6.interexp[sample.body.quantile6.interexp == 1]) / length(sample.body.quantile6.interexp[sample.body.quantile6.interexp == 0])
+  body.quantile.1.fraction.interexp[i] = length(sample.body.quantile1.interexp[sample.body.quantile1.interexp == 1]) / (length(sample.body.quantile1.interexp[sample.body.quantile1.interexp == 0]) + length(sample.body.quantile1.interexp[sample.body.quantile1.interexp == 1]))
+  body.quantile.2.fraction.interexp[i] = length(sample.body.quantile2.interexp[sample.body.quantile2.interexp == 1]) / (length(sample.body.quantile2.interexp[sample.body.quantile2.interexp == 0]) + length(sample.body.quantile2.interexp[sample.body.quantile2.interexp == 1]))
+  body.quantile.3.fraction.interexp[i] = length(sample.body.quantile3.interexp[sample.body.quantile3.interexp == 1]) / (length(sample.body.quantile3.interexp[sample.body.quantile3.interexp == 0]) + length(sample.body.quantile3.interexp[sample.body.quantile3.interexp == 1]))
+  body.quantile.4.fraction.interexp[i] = length(sample.body.quantile4.interexp[sample.body.quantile4.interexp == 1]) / (length(sample.body.quantile4.interexp[sample.body.quantile4.interexp == 0]) + length(sample.body.quantile4.interexp[sample.body.quantile4.interexp == 1]))
+  body.quantile.5.fraction.interexp[i] = length(sample.body.quantile5.interexp[sample.body.quantile5.interexp == 1]) / (length(sample.body.quantile5.interexp[sample.body.quantile5.interexp == 0]) + length(sample.body.quantile5.interexp[sample.body.quantile5.interexp == 1]))
+  body.quantile.6.fraction.interexp[i] = length(sample.body.quantile6.interexp[sample.body.quantile6.interexp == 1]) / (length(sample.body.quantile6.interexp[sample.body.quantile6.interexp == 0]) + length(sample.body.quantile6.interexp[sample.body.quantile6.interexp == 1]))
 
-  body.quantile.1.fraction.highexp[i] = length(sample.body.quantile1.highexp[sample.body.quantile1.highexp == 1]) / length(sample.body.quantile1.highexp[sample.body.quantile1.highexp == 0])
-  body.quantile.2.fraction.highexp[i] = length(sample.body.quantile2.highexp[sample.body.quantile2.highexp == 1]) / length(sample.body.quantile2.highexp[sample.body.quantile2.highexp == 0])
-  body.quantile.3.fraction.highexp[i] = length(sample.body.quantile3.highexp[sample.body.quantile3.highexp == 1]) / length(sample.body.quantile3.highexp[sample.body.quantile3.highexp == 0])
-  body.quantile.4.fraction.highexp[i] = length(sample.body.quantile4.highexp[sample.body.quantile4.highexp == 1]) / length(sample.body.quantile4.highexp[sample.body.quantile4.highexp == 0])
-  body.quantile.5.fraction.highexp[i] = length(sample.body.quantile5.highexp[sample.body.quantile5.highexp == 1]) / length(sample.body.quantile5.highexp[sample.body.quantile5.highexp == 0])
-  body.quantile.6.fraction.highexp[i] = length(sample.body.quantile6.highexp[sample.body.quantile6.highexp == 1]) / length(sample.body.quantile6.highexp[sample.body.quantile6.highexp == 0])
+  body.quantile.1.fraction.highexp[i] = length(sample.body.quantile1.highexp[sample.body.quantile1.highexp == 1]) / (length(sample.body.quantile1.highexp[sample.body.quantile1.highexp == 0]) + length(sample.body.quantile1.highexp[sample.body.quantile1.highexp == 1]))
+  body.quantile.2.fraction.highexp[i] = length(sample.body.quantile2.highexp[sample.body.quantile2.highexp == 1]) / (length(sample.body.quantile2.highexp[sample.body.quantile2.highexp == 0]) + length(sample.body.quantile2.highexp[sample.body.quantile2.highexp == 1]))
+  body.quantile.3.fraction.highexp[i] = length(sample.body.quantile3.highexp[sample.body.quantile3.highexp == 1]) / (length(sample.body.quantile3.highexp[sample.body.quantile3.highexp == 0]) + length(sample.body.quantile3.highexp[sample.body.quantile3.highexp == 1]))
+  body.quantile.4.fraction.highexp[i] = length(sample.body.quantile4.highexp[sample.body.quantile4.highexp == 1]) / (length(sample.body.quantile4.highexp[sample.body.quantile4.highexp == 0]) + length(sample.body.quantile4.highexp[sample.body.quantile4.highexp == 1]))
+  body.quantile.5.fraction.highexp[i] = length(sample.body.quantile5.highexp[sample.body.quantile5.highexp == 1]) / (length(sample.body.quantile5.highexp[sample.body.quantile5.highexp == 0]) + length(sample.body.quantile5.highexp[sample.body.quantile5.highexp == 1]))
+  body.quantile.6.fraction.highexp[i] = length(sample.body.quantile6.highexp[sample.body.quantile6.highexp == 1]) / (length(sample.body.quantile6.highexp[sample.body.quantile6.highexp == 0]) + length(sample.body.quantile6.highexp[sample.body.quantile6.highexp == 1]))
 
-  head.quantile.1.fraction.lowexp[i] = length(sample.head.quantile1.lowexp[sample.head.quantile1.lowexp == 1]) / length(sample.head.quantile1.lowexp[sample.head.quantile1.lowexp == 0])
-  head.quantile.2.fraction.lowexp[i] = length(sample.head.quantile2.lowexp[sample.head.quantile2.lowexp == 1]) / length(sample.head.quantile2.lowexp[sample.head.quantile2.lowexp == 0])
-  head.quantile.3.fraction.lowexp[i] = length(sample.head.quantile3.lowexp[sample.head.quantile3.lowexp == 1]) / length(sample.head.quantile3.lowexp[sample.head.quantile3.lowexp == 0])
-  head.quantile.4.fraction.lowexp[i] = length(sample.head.quantile4.lowexp[sample.head.quantile4.lowexp == 1]) / length(sample.head.quantile4.lowexp[sample.head.quantile4.lowexp == 0])
-  head.quantile.5.fraction.lowexp[i] = length(sample.head.quantile5.lowexp[sample.head.quantile5.lowexp == 1]) / length(sample.head.quantile5.lowexp[sample.head.quantile5.lowexp == 0])
-  head.quantile.6.fraction.lowexp[i] = length(sample.head.quantile6.lowexp[sample.head.quantile6.lowexp == 1]) / length(sample.head.quantile6.lowexp[sample.head.quantile6.lowexp == 0])
+  head.quantile.1.fraction.lowexp[i] = length(sample.head.quantile1.lowexp[sample.head.quantile1.lowexp == 1]) / (length(sample.head.quantile1.lowexp[sample.head.quantile1.lowexp == 0]) + length(sample.head.quantile1.lowexp[sample.head.quantile1.lowexp == 1]))
+  head.quantile.2.fraction.lowexp[i] = length(sample.head.quantile2.lowexp[sample.head.quantile2.lowexp == 1]) / (length(sample.head.quantile2.lowexp[sample.head.quantile2.lowexp == 0]) + length(sample.head.quantile2.lowexp[sample.head.quantile2.lowexp == 1]))
+  head.quantile.3.fraction.lowexp[i] = length(sample.head.quantile3.lowexp[sample.head.quantile3.lowexp == 1]) / (length(sample.head.quantile3.lowexp[sample.head.quantile3.lowexp == 0]) + length(sample.head.quantile3.lowexp[sample.head.quantile3.lowexp == 1]))
+  head.quantile.4.fraction.lowexp[i] = length(sample.head.quantile4.lowexp[sample.head.quantile4.lowexp == 1]) / (length(sample.head.quantile4.lowexp[sample.head.quantile4.lowexp == 0]) + length(sample.head.quantile4.lowexp[sample.head.quantile4.lowexp == 1]))
+  head.quantile.5.fraction.lowexp[i] = length(sample.head.quantile5.lowexp[sample.head.quantile5.lowexp == 1]) / (length(sample.head.quantile5.lowexp[sample.head.quantile5.lowexp == 0]) + length(sample.head.quantile5.lowexp[sample.head.quantile5.lowexp == 1]))
+  head.quantile.6.fraction.lowexp[i] = length(sample.head.quantile6.lowexp[sample.head.quantile6.lowexp == 1]) / (length(sample.head.quantile6.lowexp[sample.head.quantile6.lowexp == 0]) + length(sample.head.quantile6.lowexp[sample.head.quantile6.lowexp == 1]))
 
-  head.quantile.1.fraction.interexp[i] = length(sample.head.quantile1.interexp[sample.head.quantile1.interexp == 1]) / length(sample.head.quantile1.interexp[sample.head.quantile1.interexp == 0])
-  head.quantile.2.fraction.interexp[i] = length(sample.head.quantile2.interexp[sample.head.quantile2.interexp == 1]) / length(sample.head.quantile2.interexp[sample.head.quantile2.interexp == 0])
-  head.quantile.3.fraction.interexp[i] = length(sample.head.quantile3.interexp[sample.head.quantile3.interexp == 1]) / length(sample.head.quantile3.interexp[sample.head.quantile3.interexp == 0])
-  head.quantile.4.fraction.interexp[i] = length(sample.head.quantile4.interexp[sample.head.quantile4.interexp == 1]) / length(sample.head.quantile4.interexp[sample.head.quantile4.interexp == 0])
-  head.quantile.5.fraction.interexp[i] = length(sample.head.quantile5.interexp[sample.head.quantile5.interexp == 1]) / length(sample.head.quantile5.interexp[sample.head.quantile5.interexp == 0])
-  head.quantile.6.fraction.interexp[i] = length(sample.head.quantile6.interexp[sample.head.quantile6.interexp == 1]) / length(sample.head.quantile6.interexp[sample.head.quantile6.interexp == 0])
+  head.quantile.1.fraction.interexp[i] = length(sample.head.quantile1.interexp[sample.head.quantile1.interexp == 1]) / (length(sample.head.quantile1.interexp[sample.head.quantile1.interexp == 0]) + length(sample.head.quantile1.interexp[sample.head.quantile1.interexp == 1]))
+  head.quantile.2.fraction.interexp[i] = length(sample.head.quantile2.interexp[sample.head.quantile2.interexp == 1]) / (length(sample.head.quantile2.interexp[sample.head.quantile2.interexp == 0]) + length(sample.head.quantile2.interexp[sample.head.quantile2.interexp == 1]))
+  head.quantile.3.fraction.interexp[i] = length(sample.head.quantile3.interexp[sample.head.quantile3.interexp == 1]) / (length(sample.head.quantile3.interexp[sample.head.quantile3.interexp == 0]) + length(sample.head.quantile3.interexp[sample.head.quantile3.interexp == 1]))
+  head.quantile.4.fraction.interexp[i] = length(sample.head.quantile4.interexp[sample.head.quantile4.interexp == 1]) / (length(sample.head.quantile4.interexp[sample.head.quantile4.interexp == 0]) + length(sample.head.quantile4.interexp[sample.head.quantile4.interexp == 1]))
+  head.quantile.5.fraction.interexp[i] = length(sample.head.quantile5.interexp[sample.head.quantile5.interexp == 1]) / (length(sample.head.quantile5.interexp[sample.head.quantile5.interexp == 0]) + length(sample.head.quantile5.interexp[sample.head.quantile5.interexp == 1]))
+  head.quantile.6.fraction.interexp[i] = length(sample.head.quantile6.interexp[sample.head.quantile6.interexp == 1]) / (length(sample.head.quantile6.interexp[sample.head.quantile6.interexp == 0]) + length(sample.head.quantile6.interexp[sample.head.quantile6.interexp == 1]))
 
-  head.quantile.1.fraction.highexp[i] = length(sample.head.quantile1.highexp[sample.head.quantile1.highexp == 1]) / length(sample.head.quantile1.highexp[sample.head.quantile1.highexp == 0])
-  head.quantile.2.fraction.highexp[i] = length(sample.head.quantile2.highexp[sample.head.quantile2.highexp == 1]) / length(sample.head.quantile2.highexp[sample.head.quantile2.highexp == 0])
-  head.quantile.3.fraction.highexp[i] = length(sample.head.quantile3.highexp[sample.head.quantile3.highexp == 1]) / length(sample.head.quantile3.highexp[sample.head.quantile3.highexp == 0])
-  head.quantile.4.fraction.highexp[i] = length(sample.head.quantile4.highexp[sample.head.quantile4.highexp == 1]) / length(sample.head.quantile4.highexp[sample.head.quantile4.highexp == 0])
-  head.quantile.5.fraction.highexp[i] = length(sample.head.quantile5.highexp[sample.head.quantile5.highexp == 1]) / length(sample.head.quantile5.highexp[sample.head.quantile5.highexp == 0])
-  head.quantile.6.fraction.highexp[i] = length(sample.head.quantile6.highexp[sample.head.quantile6.highexp == 1]) / length(sample.head.quantile6.highexp[sample.head.quantile6.highexp == 0])
+  head.quantile.1.fraction.highexp[i] = length(sample.head.quantile1.highexp[sample.head.quantile1.highexp == 1]) / (length(sample.head.quantile1.highexp[sample.head.quantile1.highexp == 0]) + length(sample.head.quantile1.highexp[sample.head.quantile1.highexp == 1]))
+  head.quantile.2.fraction.highexp[i] = length(sample.head.quantile2.highexp[sample.head.quantile2.highexp == 1]) / (length(sample.head.quantile2.highexp[sample.head.quantile2.highexp == 0]) + length(sample.head.quantile2.highexp[sample.head.quantile2.highexp == 1]))
+  head.quantile.3.fraction.highexp[i] = length(sample.head.quantile3.highexp[sample.head.quantile3.highexp == 1]) / (length(sample.head.quantile3.highexp[sample.head.quantile3.highexp == 0]) + length(sample.head.quantile3.highexp[sample.head.quantile3.highexp == 1]))
+  head.quantile.4.fraction.highexp[i] = length(sample.head.quantile4.highexp[sample.head.quantile4.highexp == 1]) / (length(sample.head.quantile4.highexp[sample.head.quantile4.highexp == 0]) + length(sample.head.quantile4.highexp[sample.head.quantile4.highexp == 1]))
+  head.quantile.5.fraction.highexp[i] = length(sample.head.quantile5.highexp[sample.head.quantile5.highexp == 1]) / (length(sample.head.quantile5.highexp[sample.head.quantile5.highexp == 0]) + length(sample.head.quantile5.highexp[sample.head.quantile5.highexp == 1]))
+  head.quantile.6.fraction.highexp[i] = length(sample.head.quantile6.highexp[sample.head.quantile6.highexp == 1]) / (length(sample.head.quantile6.highexp[sample.head.quantile6.highexp == 0]) + length(sample.head.quantile6.highexp[sample.head.quantile6.highexp == 1]))
 
   print (i)
 
@@ -820,22 +1039,24 @@ body.gene.expression.df = as.data.frame(cbind(body.df.fraction, body.lower.CI, b
 body.gene.expression.df$log2FCquantile = (rep(seq(1,6,1), 3))
 body.gene.expression.df$expression.quantile = rep(1:3, each = 6)
 body.gene.expression.df$tissue = "body"
-colnames(body.gene.expression.df) = c("fraction", "lower.CI", "upper.CI", "log2F.quantile", "average.expression.quantile", "tissue")
+body.gene.expression.df$expbias = c(rep("FB",3), rep("MB",3))
+colnames(body.gene.expression.df) = c("fraction", "lower.CI", "upper.CI", "log2F.quantile", "average.expression.quantile", "tissue", "expbias")
 head.gene.expression.df = as.data.frame(cbind(head.df.fraction, head.lower.CI, head.upper.CI))
 head.gene.expression.df$quantile = (rep(seq(1,6,1), 3))
 head.gene.expression.df$expression.quantile = rep(1:3, each = 6)
 head.gene.expression.df$tissue = "head"
-colnames(head.gene.expression.df) = c("fraction", "lower.CI", "upper.CI", "log2F.quantile", "average.expression.quantile", "tissue")
+head.gene.expression.df$expbias = c(rep("FB",3), rep("MB",3))
+colnames(head.gene.expression.df) = c("fraction", "lower.CI", "upper.CI", "log2F.quantile", "average.expression.quantile", "tissue","expbias")
 
 gene.expression.df = rbind(body.gene.expression.df,head.gene.expression.df)
 
 # Plotting fractions -- Plot with free y scale
-fraction.of.genes = ggplot(gene.expression.df, aes(y=fraction, x = as.factor(log2F.quantile), colour = as.factor(average.expression.quantile))) +
-                           geom_point(aes(x = as.factor(log2F.quantile), y=fraction, colour = as.factor(average.expression.quantile)), size = 3,
+fraction.of.genes = ggplot(gene.expression.df, aes(y=fraction, x = as.factor(log2F.quantile), colour = expbias, shape = as.factor(average.expression.quantile))) +
+                           geom_point(aes(x = as.factor(log2F.quantile), y=fraction, colour = expbias, shape = as.factor(average.expression.quantile)), size = 5,
                            position = position_dodge(width = 0.5)) +
                            geom_errorbar(aes(ymin = lower.CI, ymax = upper.CI, x = as.factor(log2F.quantile)),
                            width = 0, position = position_dodge(width = 0.5)) +
-                           theme_bw()  + scale_colour_manual(values = c("#2ca1db", "#f44323", "#112047")) +
+                           theme_bw()  + scale_colour_manual(values = c("#6361f2","#f29161")) +
                            theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
                                  panel.border = element_rect(colour = "black", fill=NA, size=1),
                                  axis.text = element_text(face="bold", color="black",size=15, family = "Helvetica"),
@@ -844,8 +1065,6 @@ fraction.of.genes = ggplot(gene.expression.df, aes(y=fraction, x = as.factor(log
 pdf("/plas1/amardeep.singh/tmp/gene.expression.fractions_free_scale.parsed.by.sexbias.average.expression_twopanel.pdf")
 fraction.of.genes
 dev.off()
-
-
 
 
 
@@ -867,12 +1086,12 @@ expression.merge$grouping[expression.merge$body.sig.hit == 1 & expression.merge$
 expression.merge$grouping[expression.merge$body.sig.hit == 0 & expression.merge$head.sig.hit == 1] = "sig.head.only"
 
 #Filter data for three genes with very high log2FC expression
-expression.merge.filtered = expression.merge[expression.merge$head.log2FoldChange > -6,]
+expression.merge.filtered = expression.merge[expression.merge$head.log2FoldChange > -4,]
 
 # Plotting log2FC in expression
 head.vs.body.expression.plot = ggplot(expression.merge.filtered, aes(y=head.log2FoldChange, x=body.log2FoldChange, colour = as.factor(grouping))) +
                            geom_point(aes(y=head.log2FoldChange, x=body.log2FoldChange, colour = as.factor(grouping)), size = 2) +
-                           ylim(-7,2) + xlim(-6,7) +
+                           ylim(-3.5,2) + xlim(-5.5,6) +
                            theme_bw() + scale_colour_manual(values = c("#dfb78e","#2ca1db", "#112047","#f44323")) +
                            geom_vline(xintercept = 0, linetype = 1) + geom_hline(yintercept = 0, linetype = 1)  +
                            theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
@@ -880,7 +1099,6 @@ head.vs.body.expression.plot = ggplot(expression.merge.filtered, aes(y=head.log2
                                  axis.text = element_text(face="bold", color="black",size=20, family = "Helvetica"),
                                  axis.title=element_blank()) + theme(legend.position = "none")
 head.vs.body.expression.plot = ggMarginal(head.vs.body.expression.plot, groupColour = TRUE, groupFill = TRUE)
-head.vs.body.expression.plot
 
 pdf("/plas1/amardeep.singh/tmp/head.vs.body.expression.sex.bias.gene.expression.freescales.with.density.filtered.pdf", height = 10, width = 10)
 head.vs.body.expression.plot

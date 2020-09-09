@@ -33,7 +33,7 @@ fourfoldbedout='/plas1/amardeep.singh/Ensembl.Dmel.Genome.Release/Os_degenerate'
 ###################################
 
 #bash gff2bed.sh <(zcat ${gff}) CDS | awk -f gffphaseshift.awk - > ${CDSbedout}
-bash gff2bed.sh <(cat Drosophila_melanogaster.BDGP6.28.99.chr.gtf) CDS | awk -f gffphaseshift.awk - > testaug8
+bash gff2bed.sh <(zcat Drosophila_melanogaster.BDGP6.28.99.chr.gtf) CDS | awk -f gffphaseshift.awk - > testaug8
 ## I didn't spend the effort to figure out what the issue is, but this code seems to have some mistake. Specifically,
 ## two rows had the start site coordinates > end site coordinates. I changed these manually, but otherwise the getFasta
 ## command below will fail
@@ -71,10 +71,11 @@ bedtools2 getfasta -s -tab -name -fi /plas1/amardeep.singh/Ensembl.Dmel.Genome.R
 ###################################
 
 #python degeneracy.py -i ${fastaCDSout} -o ${fourfoldbedout}
-python3 degeneracy.py -i SplitByChrom/DGRP.fastaCDSout.2L -o DGRP.2L.bedout &
-python3 degeneracy.py -i SplitByChrom/DGRP.fastaCDSout.2R -o DGRP.2R.bedout &
-python3 degeneracy.py -i SplitByChrom/DGRP.fastaCDSout.3L -o DGRP.3L.bedout &
-python3 degeneracy.py -i SplitByChrom/DGRP.fastaCDSout.3R -o DGRP.3R.bedout &
+python3 Degeneracy.py -i SplitByChrom/DGRP.fastaCDSout.2L -o DGRP.2L.bedout.sept7 &
+python3 Degeneracy.py -i SplitByChrom/DGRP.fastaCDSout.2R -o DGRP.2R.bedout.sept7 &
+python3 Degeneracy.py -i SplitByChrom/DGRP.fastaCDSout.3L -o DGRP.3L.bedout.sept7 &
+python3 Degeneracy.py -i SplitByChrom/DGRP.fastaCDSout.3R -o DGRP.3R.bedout.sept7 &
+python3 Degeneracy.py -i SplitByChrom/DGRP.fastaCDSout.X -o DGRP.X.bedout.sept7 &
 
 
 ###################################

@@ -1,0 +1,8 @@
+#gff='/plas1/amardeep.singh/Ensembl.Dmel.Genome.Release/gtf/Drosophila_melanogaster.BDGP6.28.99.chr.gtf.gz'
+#fasta='/plas1/amardeep.singh/Ensembl.Dmel.Genome.Release/fasta/Drosophila_melanogaster.BDGP6.28.dna.toplevel.fa.gz'
+
+python2.7 NewAnnotateRef.py /plas1/amardeep.singh/Ensembl.Dmel.Genome.Release/fasta/Drosophila_melanogaster.BDGP6.28.dna.toplevel.fa /plas1/amardeep.singh/Ensembl.Dmel.Genome.Release/gtf/Drosophila_melanogaster.BDGP6.28.99.chr.gtf.gz > AnnotatedSites.Sept7.txt &
+
+python2.7 NewAnnotateRef.py /plas1/amardeep.singh/Ensembl.Dmel.Genome.Release/gtf/Drosophila_melanogaster.BDGP6.28.99.chr.gtf.gz /plas1/amardeep.singh/Ensembl.Dmel.Genome.Release/fasta/Drosophila_melanogaster.BDGP6.28.dna.toplevel.fa > AnnotatedSites.Sept7ALT.txt &
+
+python2.7 NewAnnotateRef.py /plas1/amardeep.singh/Flybase.Dmel.Genome.Release/fasta/dmel-all-aligned-r6.32.fasta /plas1/amardeep.singh/Flybase.Dmel.Genome.Release/gff/dmel-all-filtered-r6.32.gff  > Annotation.out.txt

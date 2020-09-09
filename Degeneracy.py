@@ -414,16 +414,17 @@ def define_sites():
 			"GCT","GCC","GCA","GCG","GGT","GGC","GGA","GGG"
 		},
 
-		"0fold_1":{"TGA","TAG","TAA","TCA"
+		"0fold_1":{"TAA",
 		},
 
-		"0fold_2":{"AGG","AGA","CGA","CGG","CGC","CGT","CTG","CTC","CTA","CTT","TTG","TTA"
+		"0fold_2":{"CGA","CGG","AGA","AGG","TTA","TTG","CTA","CTG","TAG"
 		},
 
-		"0fold_12":{"GGA","GGC","GGG","GGT","GAG","GAA","GAT","GAC","GCA","GCC","GCA",
-			"GCT","GTA","GTG","GTC","GTT","AAG","AAA","AAC","AAT","ACG","ACC","ACT",
-			"ACA","ATA","ATC","ATT","CAG","CAA","CAT","CAC","CCG","CCC","CCA","CCT",
-			"TGC","TGT","TAC","TAT","TTC","TTT","TCT","TCC","TCG","AGC","AGT","GCG"
+		"0fold_12":{"GCT","GCC","GCA","GCG","CGT","CGC","AAT","AAC","GAT","GAC","TGT",
+					"TGC","CAA","CAG","GAA","GAG","GGT","GGC","GGA","GGG","CAT","CAC",
+					"ATT","ATC","ATA","CTT","CTC","AAA","AAG","TTT","TTC","CCT","CCC",
+					"CCA","CCG","TCT","TCC","TCA","TCG","AGT","AGC","ACT","ACC","ACA",
+					"ACG","TAT","TAC","GTT","GTC","GTA","GTG"
 
 		},
 

@@ -96,12 +96,11 @@ dds_interaction.head = DESeq(dds_interaction.head)
 #name results
 all_genes_interaction.head = results(dds_interaction.head, contrast=c("condition", "male", "female")) # This specifies the output such that the log2FC is male/female
 
-# Add FlyBase ID as first column
+# FlyBaseID as first column
 all_genes_interaction.body$FlyBaseID= rownames(all_genes_interaction.body)
 all_genes_interaction.body = all_genes_interaction.body[,c(7,1:6)]
 all_genes_interaction.head$FlyBaseID= rownames(all_genes_interaction.head)
 all_genes_interaction.head = all_genes_interaction.head[,c(7,1:6)]
-
 
 # Save output files for both whole body and head
 write.table(all_genes_interaction.body, file = "/plas1/amardeep.singh/RNA.Seq.Data/GeneExpression/RAL.DifferentialGeneExpression.body.txt", sep = "\t", row.names = FALSE, col.names = TRUE, quote = FALSE)

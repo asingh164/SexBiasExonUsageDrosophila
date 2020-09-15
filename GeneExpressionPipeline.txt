@@ -1,20 +1,17 @@
-################################################################
-######              Gene Expression Pipeline               #####
-################################################################
+#############################################################################
+######              Differential Gene Expression Pipeline               #####
+#############################################################################
 
 ## Author: Amardeep Singh -- amardeep.singh[at]utoronto.ca
 ## This program makes use of SAM files that I created separately see: STAR.Alignment.Pipeline.sh
-## Originally obtained from Julia Kriener and modified
+## Originally obtained from Julia Kriener and modified by Amardeep Singh
 
 ### Script Details ###
-# This script is written primarily in R, Bash commands are denoted by #---- BASH ---- and end with # ---- ----
-# This script is meant to determine differential gene expression between the sexes
+# This script is written primarily in R, Bash commands are denoted by #---- BASH ---- and end with # ----/----
 
 ##
 # Path to sam files: /plas1/amardeep.singh/Ensembl.Dmel.Genome.Release/RAL.mapped.files.to.ensembl/bam.files/samtools.sort.out
 # Path to gtf /plas1/amardeep.singh/Ensembl.Dmel.Genome.Release/gtf/Drosophila_melanogaster.BDGP6.28.99.gtf.gz
-
-# ---- R Script ----
 
 #####################################################################
 ###     Creating count matrices of each aligned transcriptome     ###
@@ -23,7 +20,6 @@ require("GenomicFeatures")
 require("Rsamtools")
 require("GenomicAlignments")
 require("DESeq2")
-
 
 #############################
 ###   GENOMIC FEATURES    ###
@@ -66,7 +62,7 @@ condition.table.body$condition = as.factor(condition.table.body$condition)
 #condition.table = as.data.frame(condition.table)
 colData(sum_exp.body) = DataFrame(condition.table.body)
 
-# Body
+# Head
 condition.table.head = as.data.frame(factor(colnames(sum_exp.head)))
 colnames(condition.table.head) = "SampleName"
 condition.table.head$condition = factor(rep(c("female", "male"), 18))
@@ -82,7 +78,7 @@ colData(sum_exp.head) = DataFrame(condition.table.head)
 
 # Whole Body
 dds_interaction.body = DESeqDataSet(sum_exp.body, design = ~ condition)
-# Filter out genes with fewer than 20 reads mapping across all samples (more stringent filtering is applied downstream)
+# Filter out genes with fewer than 50 reads mapping across all samples (more stringent filtering is applied downstream)
 keep.body = rowMeans(counts(dds_interaction.body)) >= 50
 dds_interaction.body = dds_interaction.body[keep.body,]
 #run DESeq2
@@ -202,7 +198,6 @@ female.biased.head = female.biased.head %>% mutate(log2FC.quantile = ntile(log2F
 male.biased.body$log2FC.quantile = male.biased.body$log2FC.quantile + 3
 male.biased.head$log2FC.quantile = male.biased.head$log2FC.quantile + 3
 
-
 # Merge data back within each tissue type
 expression.data.body = rbind(male.biased.body,female.biased.body)
 expression.data.body$tissue = "body"
@@ -272,12 +267,12 @@ sex.averaged.expression.plot = ggplot(gene.expression.data.summary, aes(y = log.
                                       position = position_dodge(width = 0.5)) +
                                       geom_errorbar(aes(ymin = lowerCI, ymax = upperCI, x = as.factor(tissue), colour=as.factor(sig.hit)),
                                       width = 0, position = position_dodge(width = 0.5)) +
-                                      theme_bw()  + scale_colour_manual(values = c("#7294D4", "#5B1A18")) +
+                                      theme_bw()  + scale_colour_manual(values = c("#800080", "#65c86e")) +
                                       theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
                                             panel.border = element_rect(colour = "black", fill=NA, size=1),
                                             axis.text = element_text(face="bold", color="black",size=20, family = "Helvetica"),
                                             axis.title=element_blank(), legend.position = "none")
-sex.averaged.expression.plot
+
 
 pdf("/plas1/amardeep.singh/tmp/Sex.averaged.expression.pdf", height = 10, width = 5)
 sex.averaged.expression.plot
@@ -285,7 +280,7 @@ dev.off()
 
 
 ## Comparing average log 2FC (i.e., sex-bias) in gene expression at exon dimorphic genes versus monomorphic genes
-expression.data$log.baseMean = log(expression.data$baseMean)
+#expression.data$log.baseMean = log(expression.data$baseMean)
 expression.summary = summaryBy(log2FoldChange ~ sig.hit + tissue, FUN = c(mean), data = expression.data)
 
 # Bootstrap means for each subset
@@ -310,25 +305,24 @@ for (i in 1:10000){
                     output.row.end = output.row.end + 4
                     print(i)
 }
-colnames(resample.data) = c("sig.hit","tissue","log.2FC.expression","number.of.genes")
+colnames(resample.data) = c("sig.hit","tissue","log2FC.expression","number.of.genes")
 write.table(resample.data, file = "/plas1/amardeep.singh/RNA.Seq.Data/GeneExpression/sex.bias.gene.expression.resampled.txt", quote = FALSE, row.names = FALSE, col.names = TRUE, sep = "\t")
 
 resample.data = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/GeneExpression/sex.bias.gene.expression.resampled.txt", header = TRUE)
 
 # Rename columns of resampled data
-gene.expression.data.summary = summaryBy(log.2FC.expression ~ sig.hit + tissue, FUN = function(x) c(Mean = mean(x), lower.ci = quantile(x, probs = 0.05), upper.ci=quantile(x, probs = 0.95)), data = resample.data)
-colnames(gene.expression.data.summary)[3:5] = c("log.2FC.expression","lowerCI", "upperCI")
+gene.expression.data.summary = summaryBy(log2FC.expression ~ sig.hit + tissue, FUN = function(x) c(Mean = mean(x), lower.ci = quantile(x, probs = 0.05), upper.ci=quantile(x, probs = 0.95)), data = resample.data)
+colnames(gene.expression.data.summary)[3:5] = c("log2FC.expression","lowerCI", "upperCI")
 
 # Replace resample.data.summary "median" with true observed median
-colnames(expression.summary) = c("sig.hit", "tissue", "log.2FC.expression")
-gene.expression.data.summary$log.2FC.expression = expression.summary$log.2FC.expression
+gene.expression.data.summary$log2FC.expression = expression.summary$log2FoldChange
 
-sex.averaged.expression.plot = ggplot(gene.expression.data.summary, aes(y = log.2FC.expression, x = as.factor(tissue), colour = as.factor(sig.hit))) +
-                                      geom_point(aes(y = log.2FC.expression, x = as.factor(tissue), colour = as.factor(sig.hit)),size = 10,
+sex.averaged.expression.plot = ggplot(gene.expression.data.summary, aes(y = log2FC.expression, x = as.factor(tissue), colour = as.factor(sig.hit))) +
+                                      geom_point(aes(y = log2FC.expression, x = as.factor(tissue), colour = as.factor(sig.hit)),size = 10,
                                       position = position_dodge(width = 0.5)) +
                                       geom_errorbar(aes(ymin = lowerCI, ymax = upperCI, x = as.factor(tissue), colour=as.factor(sig.hit)),
                                       width = 0, position = position_dodge(width = 0.5)) +
-                                      theme_bw()  + scale_colour_manual(values = c("#7294D4", "#5B1A18")) +
+                                      theme_bw()  + scale_colour_manual(values = c("#800080", "#65c86e")) +
                                       theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
                                             panel.border = element_rect(colour = "black", fill=NA, size=1),
                                             axis.text = element_text(face="bold", color="black",size=20, family = "Helvetica"),
@@ -513,6 +507,7 @@ dev.off()
 # Second sub method is simply dividing by 5 predefined bins based on confidence interavals quantiles
 # Subset quantiles of gene expression
 # Remove any row with an NA in the quantile column
+#log2FC.quantile.CIs
 expression.data.body = expression.data.body[!is.na(expression.data.body$log2FC.quantile.CIs), ]
 expression.data.head = expression.data.head[!is.na(expression.data.head$log2FC.quantile.CIs), ]
 
@@ -630,18 +625,19 @@ gene.expression.df$shade = c("full","full","full","full","full","shaded","full",
 gene.expression.df$plotting.dummyvariable = paste(gene.expression.df$expbias, gene.expression.df$shade, sep = "")
 gene.expression.df
 # Plotting fractions -- Plot with free y scale
+# Colours: darkred: #b30000; light red: #e09999; Dark Blue: #0000b3; light blue: #9999e0
 fraction.of.genes = ggplot(gene.expression.df, aes(y=fraction, x = as.factor(quantile), colour = plotting.dummyvariable)) +
                            geom_point(aes(x = as.factor(quantile), y = fraction,  colour = plotting.dummyvariable), size = 10,
                            position = position_dodge(width = 0.5)) + #ylim(-0.1,0.75) +
                            geom_errorbar(aes(ymin = lower.CI, ymax = upper.CI, x = as.factor(quantile)),
                            width = 0, position = position_dodge(width = 0.5)) +
-                           theme_bw()  + scale_colour_manual(values = c("#6361f2","#D0CFFB","#f29161", "#FBDECF","#000000")) +
+                           theme_bw()  + scale_colour_manual(values = c("#b30000","#FFFFFF", "#0000b3", "#000000")) +
                            theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
                                  panel.border = element_rect(colour = "black", fill=NA, size=1),
                                  axis.text = element_text(face="bold", color="black",size=15, family = "Helvetica"),
                                  axis.title=element_blank(), legend.position = "none") +
                           facet_grid(tissue~., scales = "free") + theme(panel.spacing = unit(2, "lines"))
-pdf("/plas1/amardeep.singh/tmp/gene.expression.fractions.predefined.bins_free_scale.pdf")
+pdf("/plas1/amardeep.singh/tmp/gene.expression.fractions.predefined.bins.subset_free_scale.pdf")
 fraction.of.genes
 dev.off()
 

@@ -376,8 +376,8 @@ junctionseq.results.head = junctionseq.results.head[junctionseq.results.head$exp
 junctionseq.results.body = junctionseq.results.body[, c(2,25)]
 junctionseq.results.head = junctionseq.results.head[, c(2,25)]
 # Clean out unnecessary columns in gene expression data
-expression.data.body = expression.data.body[,c(1:3)]
-expression.data.head = expression.data.head[,c(1:3)]
+expression.data.body = expression.data.body[,c(1:4)]
+expression.data.head = expression.data.head[,c(1:4)]
 
 ## Assign significant genes from JunctionSeq output
 # Assign significant hits
@@ -392,7 +392,6 @@ junctionseq.results.head$sig.hit[!(junctionseq.results.head$geneWisePadj <= 0.01
 # Collapse duplicates in Junctionseq files
 junctionseq.results.body.unique = junctionseq.results.body[!duplicated(junctionseq.results.body[c(1:3)]), ]
 junctionseq.results.head.unique = junctionseq.results.head[!duplicated(junctionseq.results.head[c(1:3)]), ]
-
 
 # Merge piN/piS (my data) data with junctionseq data and add a column for the ratio of piN/piS
 body.pin.pis = merge(junctionseq.results.body.unique,piNpiS.per.gene, by.x = "geneID", by.y = "geneID", sort = FALSE)
@@ -472,6 +471,25 @@ head.pin.pis = rbind(male.biased.head, female.biased.head)
 body.pin.pis$tissue = "body"
 head.pin.pis$tissue = "head"
 
+# Assign genes to predefined 'bins' of log2FC in gene expression
+# Add upper and lower CIs for log2FC means
+body.pin.pis$log2FC.upperCI = body.pin.pis$log2FoldChange + body.pin.pis$lfcSE * 2
+body.pin.pis$log2FC.lowerCI = body.pin.pis$log2FoldChange - body.pin.pis$lfcSE * 2
+head.pin.pis$log2FC.upperCI = head.pin.pis$log2FoldChange + head.pin.pis$lfcSE * 2
+head.pin.pis$log2FC.lowerCI = head.pin.pis$log2FoldChange - head.pin.pis$lfcSE * 2
+
+body.pin.pis$log2FC.bins[body.pin.pis$log2FC.upperCI < -2 ] = 1
+body.pin.pis$log2FC.bins[body.pin.pis$log2FC.lowerCI >= -2 & body.pin.pis$log2FC.upperCI <= -0.5 ] = 2
+body.pin.pis$log2FC.bins[body.pin.pis$log2FC.lowerCI > -0.5 & body.pin.pis$log2FC.upperCI < 0.5 ] = 3
+body.pin.pis$log2FC.bins[body.pin.pis$log2FC.lowerCI >= 0.5 & body.pin.pis$log2FC.upperCI <= 2 ] = 4
+body.pin.pis$log2FC.bins[body.pin.pis$log2FC.lowerCI > 2 ] = 5
+
+head.pin.pis$log2FC.bins[head.pin.pis$log2FC.upperCI < -2 ] = 1
+head.pin.pis$log2FC.bins[head.pin.pis$log2FC.lowerCI >= -2 & head.pin.pis$log2FC.upperCI <= -0.5 ] = 2
+head.pin.pis$log2FC.bins[head.pin.pis$log2FC.lowerCI > -0.5 & head.pin.pis$log2FC.upperCI < 0.5 ] = 3
+head.pin.pis$log2FC.bins[head.pin.pis$log2FC.lowerCI >= 0.5 & head.pin.pis$log2FC.upperCI <= 2 ] = 4
+head.pin.pis$log2FC.bins[head.pin.pis$log2FC.lowerCI > 2 ] = 5
+
 ## Data frame for plotting
 pin.pis = rbind(body.pin.pis,head.pin.pis)
 
@@ -480,7 +498,7 @@ pin.pis = rbind(body.pin.pis,head.pin.pis)
 # Fitting with lm()
 pinpis.body.model = lm(piN.piS ~ baseMean + abs(log2FoldChange) + sig.hit, data = pin.pis[pin.pis$tissue == "body", ])
 
-pinpis.body.model = lm(piN.piS ~ baseMean + abs(log2FoldChange) + sig.hit, data = pin.pis[pin.pis$tissue == "body", ])
+pinpis.body.model = lm(log(piN.piS) ~ baseMean + abs(log2FoldChange) + sig.hit, data = pin.pis[pin.pis$tissue == "body", ])
 pinpis.head.model = lm(piN.piS ~ baseMean + abs(log2FoldChange) + sig.hit, data = pin.pis[pin.pis$tissue == "head", ])
 
 pinpis.body.model.male.biased = lm(piN.piS ~ baseMean + abs(log2FoldChange) + sig.hit, data = pin.pis[pin.pis$tissue == "body" & pin.pis$log2FoldChange > 0, ])
@@ -490,13 +508,36 @@ pinpis.head.model.female.biased = lm(piN.piS ~ baseMean + log2FoldChange + sig.h
 
 # Model fitting with permuco
 set.seed(1)
-piNpiS.body.model = lmperm(piN.piS ~ baseMean + abs(log2FoldChange) + sig.hit,  data = pin.pis[pin.pis$tissue == "body", ], np = 10000)
-piNpiS.head.model = lmperm(piN.piS ~ baseMean + abs(log2FoldChange) + sig.hit,  data = pin.pis[pin.pis$tissue == "head", ], np = 10000)
+piNpiS.body.model = lmperm(log(piN.piS) ~ baseMean + abs(log2FoldChange) + sig.hit,  data = pin.pis[pin.pis$tissue == "body", ], np = 10000)
+piNpiS.head.model = lmperm(log(piN.piS) ~ baseMean + abs(log2FoldChange) + sig.hit,  data = pin.pis[pin.pis$tissue == "head", ], np = 10000)
 
 piNpiS.body.MB.model = lmperm(piN.piS ~ baseMean + abs(log2FoldChange) + sig.hit,  data = pin.pis[pin.pis$tissue == "body" & pin.pis$log2FoldChange > 0, ], np = 10000)
 piNpiS.body.FB.model = lmperm(piN.piS ~ baseMean + abs(log2FoldChange) + sig.hit,  data = pin.pis[pin.pis$tissue == "body" & pin.pis$log2FoldChange < 0, ], np = 10000)
 piNpiS.head.MB.model = lmperm(piN.piS ~ baseMean + abs(log2FoldChange) + sig.hit,  data = pin.pis[pin.pis$tissue == "head" & pin.pis$log2FoldChange > 0, ], np = 10000)
 piNpiS.head.FB.model = lmperm(piN.piS ~ baseMean + abs(log2FoldChange) + sig.hit,  data = pin.pis[pin.pis$tissue == "head" & pin.pis$log2FoldChange < 0, ], np = 10000)
+
+# Alternative method
+# Lets first seperarte out all genes where piN/piS = 0
+pin.pis.sub = pin.pis[pin.pis$piN.piS > 0,]
+
+# Fit linear models on the log(piN/piS) with permuco
+set.seed(1)
+piNpiS.body.model = lmperm(log(piN.piS) ~ baseMean + abs(log2FoldChange) + sig.hit + abs(log2FoldChange)*sig.hit,  data = pin.pis.sub[pin.pis.sub$tissue == "body", ], np = 10000)
+piNpiS.head.model = lmperm(log(piN.piS) ~ baseMean + abs(log2FoldChange) + sig.hit + abs(log2FoldChange)*sig.hit,  data = pin.pis.sub[pin.pis.sub$tissue == "head", ], np = 10000)
+piNpiS.body.MB.model = lmperm(log(piN.piS) ~ baseMean + abs(log2FoldChange) + sig.hit + abs(log2FoldChange)*sig.hit,  data = pin.pis.sub[pin.pis.sub$tissue == "body" & pin.pis.sub$log2FoldChange > 0, ], np = 10000)
+piNpiS.body.FB.model = lmperm(log(piN.piS) ~ baseMean + abs(log2FoldChange) + sig.hit + abs(log2FoldChange)*sig.hit,  data = pin.pis.sub[pin.pis.sub$tissue == "body" & pin.pis.sub$log2FoldChange < 0, ], np = 10000)
+piNpiS.head.MB.model = lmperm(log(piN.piS) ~ baseMean + abs(log2FoldChange) + sig.hit + abs(log2FoldChange)*sig.hit,  data = pin.pis.sub[pin.pis.sub$tissue == "head" & pin.pis.sub$log2FoldChange > 0, ], np = 10000)
+piNpiS.head.FB.model = lmperm(log(piN.piS) ~ baseMean + abs(log2FoldChange) + sig.hit + abs(log2FoldChange)*sig.hit,  data = pin.pis.sub[pin.pis.sub$tissue == "head" & pin.pis.sub$log2FoldChange < 0, ], np = 10000)
+
+# Fit a logistic regression with the genes where piN/piS is 0 and those that are greater than 0
+pin.pis$binary.trait[pin.pis$piN.piS == 0] = 0
+pin.pis$binary.trait[pin.pis$piN.piS > 0] = 1
+piNpiS.body.logistic.fit = glm(binary.trait ~ baseMean + abs(log2FoldChange) + sig.hit, data = pin.pis[pin.pis$tissue == "body", ], family = binomial)
+piNpiS.head.logistic.fit = glm(binary.trait ~ baseMean + abs(log2FoldChange) + sig.hit, data = pin.pis[pin.pis$tissue == "head", ], family = binomial)
+
+Y ~ AvgExp + SDIU + Abs(Log2FC) + SDIU:Abs(Log2FC)
+where Y is Tajima’s D or log(piN/piS)
+
 
 
 
@@ -549,13 +590,13 @@ piNpiS.summary.plot = ggplot(piNpiS.data.summary, aes(y = piNpiS.Mean, x = as.fa
                                       position = position_dodge(width = 0.5)) + ylim(0.08, 0.12) +
                                       geom_errorbar(aes(ymin = piNpiS.lowerCI, ymax = piNpiS.upperCI, x = as.factor(tissue), colour=as.factor(sig.hit)),
                                       width = 0, position = position_dodge(width = 0.5)) +
-                                      theme_bw()  + scale_colour_manual(values = c("#7294D4", "#5B1A18")) +
+                                      theme_bw()  + scale_colour_manual(values = c("#800080", "#65c86e")) +
                                       theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
                                             panel.border = element_rect(colour = "black", fill=NA, size=1),
                                             axis.text = element_text(face="bold", color="black",size=20, family = "Helvetica"),
                                             axis.title=element_blank(), legend.position = "none")
 
-pdf("/plas1/amardeep.singh/tmp/piNpiS.summary.plot.filtered.sept8.pdf", height = 10, width = 5)
+pdf("/plas1/amardeep.singh/tmp/piNpiS.summary.plot.filtered.sept9.pdf", height = 10, width = 5)
 piNpiS.summary.plot
 dev.off()
 
@@ -563,8 +604,12 @@ dev.off()
 ### Second plot is without parsing out by sex-bias in gene expression but not sex-averaged expression
 #### Plotting by assessing piN/piS at genes showing DEU parsed by sex bias in gene expression
 
+
+# Filter out any genes that aren't binned by log2FC in gene expression
+pin.pis.plotting = pin.pis[!(is.na(pin.pis$log2FC.bins)),]
+
 # Summarize true data
-pin.pis.summary = summaryBy(piN.piS ~ log2FC.quantile + sig.hit + tissue, FUN=c(median, length), data = pin.pis)
+pin.pis.summary = summaryBy(piN.piS ~ log2FC.bins + sig.hit + tissue, FUN=c(median, length), data = pin.pis.plotting)
 
 # Bootstrap means for each subset
 # Data frame to hold resampled results
@@ -577,69 +622,69 @@ resample.data = as.data.frame(cbind(vector(mode="numeric", length = 10000 * nrow
 ## Loop to resample piNpiS data
 
 output.row.start = 1
-output.row.end = 24
+output.row.end = 19
 
 for (i in 1:10000){
 
-resampled.df=rbind( sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 1, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 1, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 2, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 2, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 3, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 3, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 4, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 4, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 4, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 4, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 5, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 5, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 5, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 5, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 6, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 6, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 6, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "body" & pin.pis$log2FC.quantile == 6, ]), replace = TRUE),
+resampled.df=rbind( sample_n(pin.pis.plotting[pin.pis.plotting$sig.hit == 1 & pin.pis.plotting$tissue == "body" & pin.pis.plotting$log2FC.bins == 1, ], nrow(pin.pis.plotting[pin.pis.plotting$sig.hit == 1 & pin.pis.plotting$tissue == "body" & pin.pis.plotting$log2FC.bins == 1, ]), replace = TRUE),
+                    sample_n(pin.pis.plotting[pin.pis.plotting$sig.hit == 0 & pin.pis.plotting$tissue == "body" & pin.pis.plotting$log2FC.bins == 1, ], nrow(pin.pis.plotting[pin.pis.plotting$sig.hit == 0 & pin.pis.plotting$tissue == "body" & pin.pis.plotting$log2FC.bins == 1, ]), replace = TRUE),
+                    sample_n(pin.pis.plotting[pin.pis.plotting$sig.hit == 1 & pin.pis.plotting$tissue == "body" & pin.pis.plotting$log2FC.bins == 2, ], nrow(pin.pis.plotting[pin.pis.plotting$sig.hit == 1 & pin.pis.plotting$tissue == "body" & pin.pis.plotting$log2FC.bins == 2, ]), replace = TRUE),
+                    sample_n(pin.pis.plotting[pin.pis.plotting$sig.hit == 0 & pin.pis.plotting$tissue == "body" & pin.pis.plotting$log2FC.bins == 2, ], nrow(pin.pis.plotting[pin.pis.plotting$sig.hit == 0 & pin.pis.plotting$tissue == "body" & pin.pis.plotting$log2FC.bins == 2, ]), replace = TRUE),
+                    sample_n(pin.pis.plotting[pin.pis.plotting$sig.hit == 1 & pin.pis.plotting$tissue == "body" & pin.pis.plotting$log2FC.bins == 3, ], nrow(pin.pis.plotting[pin.pis.plotting$sig.hit == 1 & pin.pis.plotting$tissue == "body" & pin.pis.plotting$log2FC.bins == 3, ]), replace = TRUE),
+                    sample_n(pin.pis.plotting[pin.pis.plotting$sig.hit == 0 & pin.pis.plotting$tissue == "body" & pin.pis.plotting$log2FC.bins == 3, ], nrow(pin.pis.plotting[pin.pis.plotting$sig.hit == 0 & pin.pis.plotting$tissue == "body" & pin.pis.plotting$log2FC.bins == 3, ]), replace = TRUE),
+                    sample_n(pin.pis.plotting[pin.pis.plotting$sig.hit == 1 & pin.pis.plotting$tissue == "body" & pin.pis.plotting$log2FC.bins == 4, ], nrow(pin.pis.plotting[pin.pis.plotting$sig.hit == 1 & pin.pis.plotting$tissue == "body" & pin.pis.plotting$log2FC.bins == 4, ]), replace = TRUE),
+                    sample_n(pin.pis.plotting[pin.pis.plotting$sig.hit == 0 & pin.pis.plotting$tissue == "body" & pin.pis.plotting$log2FC.bins == 4, ], nrow(pin.pis.plotting[pin.pis.plotting$sig.hit == 0 & pin.pis.plotting$tissue == "body" & pin.pis.plotting$log2FC.bins == 4, ]), replace = TRUE),
+                    sample_n(pin.pis.plotting[pin.pis.plotting$sig.hit == 1 & pin.pis.plotting$tissue == "body" & pin.pis.plotting$log2FC.bins == 5, ], nrow(pin.pis.plotting[pin.pis.plotting$sig.hit == 1 & pin.pis.plotting$tissue == "body" & pin.pis.plotting$log2FC.bins == 5, ]), replace = TRUE),
+                    sample_n(pin.pis.plotting[pin.pis.plotting$sig.hit == 0 & pin.pis.plotting$tissue == "body" & pin.pis.plotting$log2FC.bins == 5, ], nrow(pin.pis.plotting[pin.pis.plotting$sig.hit == 0 & pin.pis.plotting$tissue == "body" & pin.pis.plotting$log2FC.bins == 5, ]), replace = TRUE),
+                    sample_n(pin.pis.plotting[pin.pis.plotting$sig.hit == 1 & pin.pis.plotting$tissue == "body" & pin.pis.plotting$log2FC.bins == 6, ], nrow(pin.pis.plotting[pin.pis.plotting$sig.hit == 1 & pin.pis.plotting$tissue == "body" & pin.pis.plotting$log2FC.bins == 6, ]), replace = TRUE),
+                    sample_n(pin.pis.plotting[pin.pis.plotting$sig.hit == 0 & pin.pis.plotting$tissue == "body" & pin.pis.plotting$log2FC.bins == 6, ], nrow(pin.pis.plotting[pin.pis.plotting$sig.hit == 0 & pin.pis.plotting$tissue == "body" & pin.pis.plotting$log2FC.bins == 6, ]), replace = TRUE),
 
-                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 1, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 1, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 1, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 2, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 2, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 2, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 3, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 3, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 3, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 4, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 4, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 4, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 4, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 5, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 5, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 5, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 5, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 6, ], nrow(pin.pis[pin.pis$sig.hit == 1 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 6, ]), replace = TRUE),
-                    sample_n(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 6, ], nrow(pin.pis[pin.pis$sig.hit == 0 & pin.pis$tissue == "head" & pin.pis$log2FC.quantile == 6, ]), replace = TRUE))
+                    sample_n(pin.pis.plotting[pin.pis.plotting$sig.hit == 1 & pin.pis.plotting$tissue == "head" & pin.pis.plotting$log2FC.bins == 1, ], nrow(pin.pis.plotting[pin.pis.plotting$sig.hit == 1 & pin.pis.plotting$tissue == "head" & pin.pis.plotting$log2FC.bins == 1, ]), replace = TRUE),
+                    sample_n(pin.pis.plotting[pin.pis.plotting$sig.hit == 0 & pin.pis.plotting$tissue == "head" & pin.pis.plotting$log2FC.bins == 1, ], nrow(pin.pis.plotting[pin.pis.plotting$sig.hit == 0 & pin.pis.plotting$tissue == "head" & pin.pis.plotting$log2FC.bins == 1, ]), replace = TRUE),
+                    sample_n(pin.pis.plotting[pin.pis.plotting$sig.hit == 1 & pin.pis.plotting$tissue == "head" & pin.pis.plotting$log2FC.bins == 2, ], nrow(pin.pis.plotting[pin.pis.plotting$sig.hit == 1 & pin.pis.plotting$tissue == "head" & pin.pis.plotting$log2FC.bins == 2, ]), replace = TRUE),
+                    sample_n(pin.pis.plotting[pin.pis.plotting$sig.hit == 0 & pin.pis.plotting$tissue == "head" & pin.pis.plotting$log2FC.bins == 2, ], nrow(pin.pis.plotting[pin.pis.plotting$sig.hit == 0 & pin.pis.plotting$tissue == "head" & pin.pis.plotting$log2FC.bins == 2, ]), replace = TRUE),
+                    sample_n(pin.pis.plotting[pin.pis.plotting$sig.hit == 1 & pin.pis.plotting$tissue == "head" & pin.pis.plotting$log2FC.bins == 3, ], nrow(pin.pis.plotting[pin.pis.plotting$sig.hit == 1 & pin.pis.plotting$tissue == "head" & pin.pis.plotting$log2FC.bins == 3, ]), replace = TRUE),
+                    sample_n(pin.pis.plotting[pin.pis.plotting$sig.hit == 0 & pin.pis.plotting$tissue == "head" & pin.pis.plotting$log2FC.bins == 3, ], nrow(pin.pis.plotting[pin.pis.plotting$sig.hit == 0 & pin.pis.plotting$tissue == "head" & pin.pis.plotting$log2FC.bins == 3, ]), replace = TRUE),
+                    sample_n(pin.pis.plotting[pin.pis.plotting$sig.hit == 1 & pin.pis.plotting$tissue == "head" & pin.pis.plotting$log2FC.bins == 4, ], nrow(pin.pis.plotting[pin.pis.plotting$sig.hit == 1 & pin.pis.plotting$tissue == "head" & pin.pis.plotting$log2FC.bins == 4, ]), replace = TRUE),
+                    sample_n(pin.pis.plotting[pin.pis.plotting$sig.hit == 0 & pin.pis.plotting$tissue == "head" & pin.pis.plotting$log2FC.bins == 4, ], nrow(pin.pis.plotting[pin.pis.plotting$sig.hit == 0 & pin.pis.plotting$tissue == "head" & pin.pis.plotting$log2FC.bins == 4, ]), replace = TRUE),
+                    sample_n(pin.pis.plotting[pin.pis.plotting$sig.hit == 1 & pin.pis.plotting$tissue == "head" & pin.pis.plotting$log2FC.bins == 5, ], nrow(pin.pis.plotting[pin.pis.plotting$sig.hit == 1 & pin.pis.plotting$tissue == "head" & pin.pis.plotting$log2FC.bins == 5, ]), replace = TRUE),
+                    sample_n(pin.pis.plotting[pin.pis.plotting$sig.hit == 0 & pin.pis.plotting$tissue == "head" & pin.pis.plotting$log2FC.bins == 5, ], nrow(pin.pis.plotting[pin.pis.plotting$sig.hit == 0 & pin.pis.plotting$tissue == "head" & pin.pis.plotting$log2FC.bins == 5, ]), replace = TRUE),
+                    sample_n(pin.pis.plotting[pin.pis.plotting$sig.hit == 1 & pin.pis.plotting$tissue == "head" & pin.pis.plotting$log2FC.bins == 6, ], nrow(pin.pis.plotting[pin.pis.plotting$sig.hit == 1 & pin.pis.plotting$tissue == "head" & pin.pis.plotting$log2FC.bins == 6, ]), replace = TRUE),
+                    sample_n(pin.pis.plotting[pin.pis.plotting$sig.hit == 0 & pin.pis.plotting$tissue == "head" & pin.pis.plotting$log2FC.bins == 6, ], nrow(pin.pis.plotting[pin.pis.plotting$sig.hit == 0 & pin.pis.plotting$tissue == "head" & pin.pis.plotting$log2FC.bins == 6, ]), replace = TRUE))
 
 # Output summary of resampled data to resample dataframe
-resample.data[output.row.start:output.row.end, ] = summaryBy(piN.piS ~ log2FC.quantile + sig.hit + tissue, FUN=c(median, length), data = resampled.df)
+resample.data[output.row.start:output.row.end, ] = summaryBy(piN.piS ~ log2FC.bins + sig.hit + tissue, FUN=c(median, length), data = resampled.df)
 output.row.start = output.row.end  + 1
-output.row.end = output.row.end + 24
+output.row.end = output.row.end + 19
 print(i)
 }
-write.table(resample.data, file = "/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/piNpiS.resampled.log2FC.averaged.across.abs.gene.expression.filtered.txt", quote = FALSE, row.names = FALSE, col.names = TRUE, sep = "\t")
+write.table(resample.data, file = "/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/piNpiS.resampled.log2FC.bins.averaged.across.abs.gene.expression.filtered.txt", quote = FALSE, row.names = FALSE, col.names = TRUE, sep = "\t")
 
-resample.data = read.table("/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/piNpiS.resampled.log2FC.averaged.across.abs.gene.expression.filtered.txt", header = TRUE, sep = "\t")
-colnames(resample.data) = c("log2FC.quantile","sig.hit","tissue","piNpiS","number.of.genes")
+resample.data = read.table("/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/piNpiS.resampled.log2FC.bins.averaged.across.abs.gene.expression.filtered.txt", header = TRUE, sep = "\t")
+colnames(resample.data) = c("log2FC.bins","sig.hit","tissue","piNpiS","number.of.genes")
 
 # Rename columns of resampled data
-piNpiS.data.summary = summaryBy(piNpiS ~ log2FC.quantile + sig.hit + tissue, FUN = function(x) c(Median = mean(x), lower.ci = quantile(x, probs = 0.05), upper.ci=quantile(x, probs = 0.95)), data = resample.data)
+piNpiS.data.summary = summaryBy(piNpiS ~ log2FC.bins + sig.hit + tissue, FUN = function(x) c(Median = mean(x), lower.ci = quantile(x, probs = 0.05), upper.ci=quantile(x, probs = 0.95)), data = resample.data)
 
 # Replace resample.data.summary "mean" with true observed mean
-colnames(piNpiS.data.summary) = c("log2FC.quantile","sig.hit","tissue","piNpiS.Median","piNpiS.lowerCI","piNpiS.upperCI")
+colnames(piNpiS.data.summary) = c("log2FC.bins","sig.hit","tissue","piNpiS.Median","piNpiS.lowerCI","piNpiS.upperCI")
 piNpiS.data.summary$piNpiS.Median = pin.pis.summary$piN.piS.median
 
 
 ## Body/head piN/piS plot - Averaged across all levels of gene expression
-piN_piS.expression.plot = ggplot(piNpiS.data.summary, aes(y = piNpiS.Median, x = as.factor(log2FC.quantile), colour = as.factor(sig.hit))) +
-                                      geom_point(aes(y = piNpiS.Median, x = as.factor(log2FC.quantile), colour = as.factor(sig.hit)), size = 10,
-                                      position = position_dodge(width = 0.5)) + ylim(0.05,0.15) +
-                                      geom_errorbar(aes(ymin = piNpiS.lowerCI, ymax = piNpiS.upperCI, x = as.factor(log2FC.quantile), colour=as.factor(sig.hit)),
+piN_piS.expression.plot = ggplot(piNpiS.data.sub, aes(y = piNpiS.Median, x = as.factor(log2FC.bins), colour = as.factor(sig.hit))) +
+                                      geom_point(aes(y = piNpiS.Median, x = as.factor(log2FC.bins), colour = as.factor(sig.hit)), size = 7,
+                                      position = position_dodge(width = 0.5)) + ylim(0.00,0.19) +
+                                      geom_errorbar(aes(ymin = piNpiS.lowerCI, ymax = piNpiS.upperCI, x = as.factor(log2FC.bins), colour=as.factor(sig.hit)),
                                       width = 0, position = position_dodge(width = 0.5)) +
-                                      theme_bw()  + scale_colour_manual(values = c("#7294D4", "#5B1A18")) +
+                                      theme_bw()  + scale_colour_manual(values = c("#800080", "#65c86e")) +
                                       theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
                                             panel.border = element_rect(colour = "black", fill=NA, size=1),
                                             axis.text = element_text(face="bold", color="black",size=20, family = "Helvetica"),
                                             axis.title=element_blank(), legend.position = "none") +
-                                      facet_grid(tissue ~. )
+                                      facet_grid(tissue ~., scales = "free")
 
-pdf("/plas1/amardeep.singh/tmp/piNpiS.by.log2FC.expression.filtered.sept8.pdf", height = 10, width = 10)
+pdf("/plas1/amardeep.singh/tmp/piNpiS.by.log2FC.expression.bins.subset.sept9.pdf", height = 10, width = 10)
 piN_piS.expression.plot
 dev.off()
 
@@ -704,14 +749,14 @@ piN_piS.expression.plot = ggplot(piNpiS.data.summary, aes(y = piNpiS.Median, x =
                                       position = position_dodge(width = 0.5)) + ylim(0.05,0.16) +
                                       geom_errorbar(aes(ymin = piNpiS.lowerCI, ymax = piNpiS.upperCI, x = as.factor(average.expression), colour=as.factor(sig.hit)),
                                       width = 0, position = position_dodge(width = 0.5)) +
-                                      theme_bw()  + scale_colour_manual(values = c("#7294D4", "#5B1A18")) +
+                                      theme_bw()  + scale_colour_manual(values = c("#800080", "#65c86e")) +
                                       theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
                                             panel.border = element_rect(colour = "black", fill=NA, size=1),
                                             axis.text = element_text(face="bold", color="black",size=20, family = "Helvetica"),
                                             axis.title=element_blank(), legend.position = "none") +
                                       facet_grid(tissue ~. )
 
-pdf("/plas1/amardeep.singh/tmp/piNpiS.by.average.expression.filtered.sept8.pdf", height = 10, width = 10)
+pdf("/plas1/amardeep.singh/tmp/piNpiS.by.average.expression.filtered.sept9.pdf", height = 10, width = 10)
 piN_piS.expression.plot
 dev.off()
 

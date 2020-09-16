@@ -535,10 +535,6 @@ pin.pis$binary.trait[pin.pis$piN.piS > 0] = 1
 piNpiS.body.logistic.fit = glm(binary.trait ~ baseMean + abs(log2FoldChange) + sig.hit, data = pin.pis[pin.pis$tissue == "body", ], family = binomial)
 piNpiS.head.logistic.fit = glm(binary.trait ~ baseMean + abs(log2FoldChange) + sig.hit, data = pin.pis[pin.pis$tissue == "head", ], family = binomial)
 
-Y ~ AvgExp + SDIU + Abs(Log2FC) + SDIU:Abs(Log2FC)
-where Y is Tajima’s D or log(piN/piS)
-
-
 
 
 ##################
@@ -601,7 +597,7 @@ piNpiS.summary.plot
 dev.off()
 
 
-### Second plot is without parsing out by sex-bias in gene expression but not sex-averaged expression
+### 2A. Second plot is without parsing out by sex-bias in gene expression but not sex-averaged expression for SDIU and non-SDIU genes
 #### Plotting by assessing piN/piS at genes showing DEU parsed by sex bias in gene expression
 
 
@@ -689,7 +685,88 @@ piN_piS.expression.plot
 dev.off()
 
 
-### Third plot is without parsing out by sex-averaged gene expression over all sex-bias in gene expression levels
+
+### 2B. Second plot is parsing out by sex-bias in gene expression but not sex-averaged expression for all genes
+#### Plotting by assessing piN/piS at genes showing DEU parsed by sex bias in gene expression
+
+# Filter out any genes that aren't binned by log2FC in gene expression
+pin.pis.plotting = pin.pis[!(is.na(pin.pis$log2FC.bins)),]
+
+# Summarize true data
+pin.pis.summary = summaryBy(piN.piS ~ log2FC.bins + tissue, FUN=c(median, length), data = pin.pis.plotting)
+
+# Bootstrap means for each subset
+# Data frame to hold resampled results
+resample.data = as.data.frame(cbind(vector(mode="numeric", length = 10000 * nrow(pin.pis.summary)),
+                                    vector(mode="numeric", length = 10000 * nrow(pin.pis.summary)),
+                                    vector(mode="numeric", length = 10000 * nrow(pin.pis.summary)),
+                                    vector(mode="numeric", length = 10000 * nrow(pin.pis.summary))))
+
+## Loop to resample piNpiS data
+
+output.row.start = 1
+output.row.end = 10
+
+for (i in 1:10000){
+
+resampled.df=rbind( sample_n(pin.pis.plotting[pin.pis.plotting$tissue == "body" & pin.pis.plotting$log2FC.bins == 1, ], nrow(pin.pis.plotting[pin.pis.plotting$tissue == "body" & pin.pis.plotting$log2FC.bins == 1, ]), replace = TRUE),
+                    sample_n(pin.pis.plotting[pin.pis.plotting$tissue == "body" & pin.pis.plotting$log2FC.bins == 2, ], nrow(pin.pis.plotting[pin.pis.plotting$tissue == "body" & pin.pis.plotting$log2FC.bins == 2, ]), replace = TRUE),
+                    sample_n(pin.pis.plotting[pin.pis.plotting$tissue == "body" & pin.pis.plotting$log2FC.bins == 3, ], nrow(pin.pis.plotting[pin.pis.plotting$tissue == "body" & pin.pis.plotting$log2FC.bins == 3, ]), replace = TRUE),
+                    sample_n(pin.pis.plotting[pin.pis.plotting$tissue == "body" & pin.pis.plotting$log2FC.bins == 4, ], nrow(pin.pis.plotting[pin.pis.plotting$tissue == "body" & pin.pis.plotting$log2FC.bins == 4, ]), replace = TRUE),
+                    sample_n(pin.pis.plotting[pin.pis.plotting$tissue == "body" & pin.pis.plotting$log2FC.bins == 5, ], nrow(pin.pis.plotting[pin.pis.plotting$tissue == "body" & pin.pis.plotting$log2FC.bins == 5, ]), replace = TRUE),
+
+                    sample_n(pin.pis.plotting[pin.pis.plotting$tissue == "head" & pin.pis.plotting$log2FC.bins == 1, ], nrow(pin.pis.plotting[pin.pis.plotting$tissue == "head" & pin.pis.plotting$log2FC.bins == 1, ]), replace = TRUE),
+                    sample_n(pin.pis.plotting[pin.pis.plotting$tissue == "head" & pin.pis.plotting$log2FC.bins == 2, ], nrow(pin.pis.plotting[pin.pis.plotting$tissue == "head" & pin.pis.plotting$log2FC.bins == 2, ]), replace = TRUE),
+                    sample_n(pin.pis.plotting[pin.pis.plotting$tissue == "head" & pin.pis.plotting$log2FC.bins == 3, ], nrow(pin.pis.plotting[pin.pis.plotting$tissue == "head" & pin.pis.plotting$log2FC.bins == 3, ]), replace = TRUE),
+                    sample_n(pin.pis.plotting[pin.pis.plotting$tissue == "head" & pin.pis.plotting$log2FC.bins == 4, ], nrow(pin.pis.plotting[pin.pis.plotting$tissue == "head" & pin.pis.plotting$log2FC.bins == 4, ]), replace = TRUE),
+                    sample_n(pin.pis.plotting[pin.pis.plotting$tissue == "head" & pin.pis.plotting$log2FC.bins == 5, ], nrow(pin.pis.plotting[pin.pis.plotting$tissue == "head" & pin.pis.plotting$log2FC.bins == 5, ]), replace = TRUE))
+
+# Output summary of resampled data to resample dataframe
+resample.data[output.row.start:output.row.end, ] = summaryBy(piN.piS ~ log2FC.bins + tissue, FUN=c(median, length), data = resampled.df)
+output.row.start = output.row.end  + 1
+output.row.end = output.row.end + 10
+print(i)
+}
+colnames(resample.data) = c("log2FC.bins","tissue","piNpiS","number.of.genes")
+write.table(resample.data, file = "/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/piNpiS.resampled.log2FC.bins.averaged.across.abs.gene.expression.filtered.no.SDIU.txt", quote = FALSE, row.names = FALSE, col.names = TRUE, sep = "\t")
+
+resample.data = read.table("/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/piNpiS.resampled.log2FC.bins.averaged.across.abs.gene.expression.filtered.no.SDIU.txt", header = TRUE, sep = "\t")
+colnames(resample.data) = c("log2FC.bins","tissue","piNpiS","number.of.genes")
+
+# Rename columns of resampled data
+piNpiS.data.summary = summaryBy(piNpiS ~ log2FC.bins + tissue, FUN = function(x) c(Median = mean(x), lower.ci = quantile(x, probs = 0.05), upper.ci=quantile(x, probs = 0.95)), data = resample.data)
+
+# Replace resample.data.summary "mean" with true observed mean
+colnames(piNpiS.data.summary) = c("log2FC.bins","tissue","piNpiS.Median","piNpiS.lowerCI","piNpiS.upperCI")
+piNpiS.data.summary$piNpiS.Median = pin.pis.summary$piN.piS.median
+piNpiS.data.summary$sexbias[piNpiS.data.summary$log2FC.bins == 1] = "FB"
+piNpiS.data.summary$sexbias[piNpiS.data.summary$log2FC.bins == 2] = "FB"
+piNpiS.data.summary$sexbias[piNpiS.data.summary$log2FC.bins == 3] = "UB"
+piNpiS.data.summary$sexbias[piNpiS.data.summary$log2FC.bins == 4] = "MB"
+piNpiS.data.summary$sexbias[piNpiS.data.summary$log2FC.bins == 5] = "MB"
+
+# Colours: darkred: #b30000; light red: #e09999; Dark Blue: #0000b3; light blue: #9999e0
+
+## Body/head piN/piS plot - Averaged across all levels of gene expression
+piN_piS.expression.plot = ggplot(piNpiS.data.summary, aes(y = piNpiS.Median, x = as.factor(log2FC.bins), colour = as.factor(sexbias))) +
+                                      geom_point(aes(y = piNpiS.Median, x = as.factor(log2FC.bins), colour = as.factor(sexbias)), size = 7,
+                                      position = position_dodge(width = 0.5)) +# ylim(0.00,0.3) +
+                                      geom_errorbar(aes(ymin = piNpiS.lowerCI, ymax = piNpiS.upperCI, x = as.factor(log2FC.bins), colour=as.factor(sexbias)),
+                                      width = 0, position = position_dodge(width = 0.5)) +
+                                      theme_bw()  + scale_colour_manual(values = c("#b30000", "#0000b3", "#000000")) +
+                                      theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
+                                            panel.border = element_rect(colour = "black", fill=NA, size=1),
+                                            axis.text = element_text(face="bold", color="black",size=20, family = "Helvetica"),
+                                            axis.title=element_blank(), legend.position = "none") +
+                                      facet_grid(tissue ~., scales = "free")
+
+pdf("/plas1/amardeep.singh/tmp/piNpiS.by.log2FC.expression.bins.subset.nosdiu.sept15.pdf", height = 10, width = 10)
+piN_piS.expression.plot
+dev.off()
+
+
+
+### 3A. Third plot is without parsing out by sex-averaged gene expression over all sex-bias in gene expression levels split by SDIU and non-SDIU genes
 #### Plotting by assessing piN/piS at genes showing DEU parsed by sex bias in gene expression
 
 # Summarize true data
@@ -757,6 +834,70 @@ piN_piS.expression.plot = ggplot(piNpiS.data.summary, aes(y = piNpiS.Median, x =
                                       facet_grid(tissue ~. )
 
 pdf("/plas1/amardeep.singh/tmp/piNpiS.by.average.expression.filtered.sept9.pdf", height = 10, width = 10)
+piN_piS.expression.plot
+dev.off()
+
+
+### 3B. Third plot is without parsing out by sex-averaged gene expression over all sex-bias in gene expression levels across all genes
+#### Plotting by assessing piN/piS at genes showing DEU parsed by sex bias in gene expression
+
+# Summarize true data
+pin.pis.summary = summaryBy(piN.piS ~ sex.averaged.expression.quantile + tissue, FUN=c(median, length), data = pin.pis)
+
+# Bootstrap means for each subset
+# Data frame to hold resampled results
+resample.data = as.data.frame(cbind(vector(mode="numeric", length = 10000 * nrow(pin.pis.summary)),
+                                    vector(mode="numeric", length = 10000 * nrow(pin.pis.summary)),
+                                    vector(mode="numeric", length = 10000 * nrow(pin.pis.summary)),
+                                    vector(mode="numeric", length = 10000 * nrow(pin.pis.summary))))
+
+## Loop to resample piNpiS data
+
+output.row.start = 1
+output.row.end = 6
+
+for (i in 1:10000){
+
+resampled.df=rbind( sample_n(pin.pis[pin.pis$tissue == "body" & pin.pis$sex.averaged.expression.quantile == 1, ], nrow(pin.pis[pin.pis$tissue == "body" & pin.pis$sex.averaged.expression.quantile == 1, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$tissue == "body" & pin.pis$sex.averaged.expression.quantile == 2, ], nrow(pin.pis[pin.pis$tissue == "body" & pin.pis$sex.averaged.expression.quantile == 2, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$tissue == "body" & pin.pis$sex.averaged.expression.quantile == 3, ], nrow(pin.pis[pin.pis$tissue == "body" & pin.pis$sex.averaged.expression.quantile == 3, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$tissue == "head" & pin.pis$sex.averaged.expression.quantile == 1, ], nrow(pin.pis[pin.pis$tissue == "head" & pin.pis$sex.averaged.expression.quantile == 1, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$tissue == "head" & pin.pis$sex.averaged.expression.quantile == 2, ], nrow(pin.pis[pin.pis$tissue == "head" & pin.pis$sex.averaged.expression.quantile == 2, ]), replace = TRUE),
+                    sample_n(pin.pis[pin.pis$tissue == "head" & pin.pis$sex.averaged.expression.quantile == 3, ], nrow(pin.pis[pin.pis$tissue == "head" & pin.pis$sex.averaged.expression.quantile == 3, ]), replace = TRUE))
+
+# Output summary of resampled data to resample dataframe
+resample.data[output.row.start:output.row.end, ] = summaryBy(piN.piS ~ sex.averaged.expression.quantile + tissue, FUN=c(median, length), data = resampled.df)
+output.row.start = output.row.end  + 1
+output.row.end = output.row.end + 6
+print(i)
+}
+colnames(resample.data) = c("sex.averaged.expression.quantile","tissue","piNpiS","number.of.genes")
+write.table(resample.data, file = "/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/piNpiS.resampled.parsed.by.abs.gene.expression.filtered.no.SDIU.txt", quote = FALSE, row.names = FALSE, col.names = TRUE, sep = "\t")
+
+resample.data = read.table("/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/piNpiS.resampled.parsed.by.abs.gene.expression.filtered.no.SDIU.txt", header = TRUE, sep = "\t")
+colnames(resample.data) = c("sex.averaged.expression.quantile","tissue","piNpiS","number.of.genes")
+
+# Rename columns of resampled data
+piNpiS.data.summary = summaryBy(piNpiS ~ sex.averaged.expression.quantile + tissue, FUN = function(x) c(Median = mean(x), lower.ci = quantile(x, probs = 0.05), upper.ci=quantile(x, probs = 0.95)), data = resample.data)
+
+# Replace resample.data.summary "mean" with true observed mean
+colnames(piNpiS.data.summary) = c("average.expression","tissue","piNpiS.Median","piNpiS.lowerCI","piNpiS.upperCI")
+piNpiS.data.summary$piNpiS.Median = pin.pis.summary$piN.piS.median
+
+## Body/head piN/piS plot - Averaged across all levels of gene expression
+piN_piS.expression.plot = ggplot(piNpiS.data.summary, aes(y = piNpiS.Median, x = as.factor(average.expression))) +
+                                      geom_point(aes(y = piNpiS.Median, x = as.factor(average.expression)), size = 10,
+                                      position = position_dodge(width = 0.5)) + ylim(0.07,0.12) +
+                                      geom_errorbar(aes(ymin = piNpiS.lowerCI, ymax = piNpiS.upperCI, x = as.factor(average.expression)),
+                                      width = 0, position = position_dodge(width = 0.5)) +
+                                      theme_bw()  + scale_colour_manual(values = c("#000000")) +
+                                      theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
+                                            panel.border = element_rect(colour = "black", fill=NA, size=1),
+                                            axis.text = element_text(face="bold", color="black",size=20, family = "Helvetica"),
+                                            axis.title=element_blank(), legend.position = "none") +
+                                      facet_grid(tissue ~. )
+
+pdf("/plas1/amardeep.singh/tmp/piNpiS.by.average.expression.filtered.noSDIU.sept15.pdf", height = 10, width = 10)
 piN_piS.expression.plot
 dev.off()
 

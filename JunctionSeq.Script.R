@@ -250,18 +250,128 @@ pdf(file="/plas1/amardeep.singh/tmp/VennDiagramHeadBody.pdf", height = 10, width
 dev.off()
 
 
-grid.draw(venndiagram)
-/plas1/amardeep.singh/tmp/VennDiagramHeadBody.pdf
+# Plotting fraction of genes by chromosome
+# Load in JunctionSeq outputs
 
-temp <- venn.diagram(list(B = 1:1800, A = 1571:2020),
-    fill = c("red", "green"), alpha = c(0.5, 0.5), cex = 2,cat.fontface = 4,
-    lty =2, fontfamily =3, filename = NULL)
-grid.draw(temp)
+# First, I generated a list of genes and which chromosome they are in using the Flybase D. mel gtf file
+#---- Bash ----
+# First pull out a list of every gene in the gtf
+cat dmel-all-r6.32.filtered.gtf | cut -f9 | cut -f2 | cut -c10-20 > list.of.genes.txt
+# Next, pull out a list of each chromosome location
+cat dmel-all-r6.32.filtered.gtf | cut -f1 > list.of.chromosomes.txt
+# Merge the two files together
+paste list.of.chromosomes.txt list.of.genes.txt > gene.locations.txt
+
+# ----/----
+
+# --- R Code ---
+rm(list = ls())
+require(doBy)
+require(ggplot2)
+
+## Loading in data files
+# Read in JunctionSeq results and gene location data file
+junctionseq.results.body = read.table("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/BodyOutput/Aug1.Body.OnlyallGenes.results.txt", header = TRUE, sep = "\t")
+junctionseq.results.head = read.table("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/HeadOutput/Aug1.Head.OnlyallGenes.results.txt", header = TRUE, sep = "\t")
+
+## Cleaning up junctionseq files
+# Remove any sites that were not tested
+junctionseq.results.body = junctionseq.results.body[!(is.na(junctionseq.results.body$pvalue)),]
+junctionseq.results.head = junctionseq.results.head[!(is.na(junctionseq.results.head$pvalue)),]
+# Remove any rows where the expr in males or females is less than 50
+junctionseq.results.body.filtered = junctionseq.results.body[junctionseq.results.body$expr_male > 50 & junctionseq.results.body$expr_female > 50 ,]
+junctionseq.results.head.filtered = junctionseq.results.head[junctionseq.results.head$expr_male > 50 & junctionseq.results.head$expr_female > 50 ,]
+# Keep only columns that I need
+junctionseq.results.body.filtered = junctionseq.results.body.filtered[,c(2,14,25)]
+junctionseq.results.head.filtered = junctionseq.results.head.filtered[,c(2,14,25)]
+
+# Remove duplicates
+junctionseq.results.body.filtered = junctionseq.results.body.filtered[!duplicated(junctionseq.results.body.filtered[1:3]),]
+junctionseq.results.head.filtered = junctionseq.results.head.filtered[!duplicated(junctionseq.results.head.filtered[1:3]),]
+
+# Assign SDIU and non-SDIU genes
+junctionseq.results.body.filtered$sig.hit[junctionseq.results.body.filtered$geneWisePadj <= 0.01] = 1
+junctionseq.results.body.filtered$sig.hit[junctionseq.results.body.filtered$geneWisePadj > 0.01] = 0
+junctionseq.results.head.filtered$sig.hit[junctionseq.results.head.filtered$geneWisePadj <= 0.01] = 1
+junctionseq.results.head.filtered$sig.hit[junctionseq.results.head.filtered$geneWisePadj > 0.01] = 0
+
+# Calcualte fractions of genes that are SDIU and non-SDIU
+sdiu.body.fraction = nrow(junctionseq.results.body.filtered[junctionseq.results.body.filtered$sig.hit == 1 & junctionseq.results.body.filtered$chr=="X",]) / nrow(junctionseq.results.body.filtered[junctionseq.results.body.filtered$sig.hit == 1,])
+non.sdiu.body.fraction = nrow(junctionseq.results.body.filtered[junctionseq.results.body.filtered$sig.hit == 0 & junctionseq.results.body.filtered$chr=="X",]) / nrow(junctionseq.results.body.filtered[junctionseq.results.body.filtered$sig.hit == 0,])
+sdiu.head.fraction = nrow(junctionseq.results.head.filtered[junctionseq.results.head.filtered$sig.hit == 1 & junctionseq.results.head.filtered$chr=="X",]) / nrow(junctionseq.results.head.filtered[junctionseq.results.head.filtered$sig.hit == 1,])
+non.sdiu.head.fraction = nrow(junctionseq.results.head.filtered[junctionseq.results.head.filtered$sig.hit == 0 & junctionseq.results.head.filtered$chr=="X",]) / nrow(junctionseq.results.head.filtered[junctionseq.results.head.filtered$sig.hit == 0,])
+
+# Resampling
+# Subset genes in SDIU and non-SDIU genes
+sdiu.body.subset = junctionseq.results.body.filtered[junctionseq.results.body.filtered$sig.hit == 1,]
+non.sdiu.body.subset = junctionseq.results.body.filtered[junctionseq.results.body.filtered$sig.hit == 0,]
+sdiu.head.subset = junctionseq.results.head.filtered[junctionseq.results.head.filtered$sig.hit == 1,]
+non.sdiu.head.subset = junctionseq.results.head.filtered[junctionseq.results.head.filtered$sig.hit == 0,]
+
+sdiu.body.fraction.resample = vector(mode = "numeric", length = 10000)
+non.sdiu.body.fraction.resample = vector(mode = "numeric", length = 10000)
+sdiu.head.fraction.resample = vector(mode = "numeric", length = 10000)
+non.sdiu.head.fraction.resample = vector(mode = "numeric", length = 10000)
 
 
+# Resampling
+for (i in 1:10000){
+  sample.body.sdiu.fraction = sample(sdiu.body.subset$chr, nrow(sdiu.body.subset), replace = TRUE)
+  sample.body.non.sdiu.fraction = sample(non.sdiu.body.subset$chr, nrow(non.sdiu.body.subset), replace = TRUE)
+  sample.head.sdiu.fraction = sample(sdiu.head.subset$chr, nrow(sdiu.head.subset), replace = TRUE)
+  sample.head.non.sdiu.fraction = sample(non.sdiu.head.subset$chr, nrow(non.sdiu.head.subset), replace = TRUE)
 
+  sdiu.body.fraction.resample[i] = length(sample.body.sdiu.fraction[sample.body.sdiu.fraction == "X"]) / length(sample.body.sdiu.fraction)
+  non.sdiu.body.fraction.resample[i] = length(sample.body.non.sdiu.fraction[sample.body.non.sdiu.fraction == "X"]) / length(sample.body.non.sdiu.fraction)
+  sdiu.head.fraction.resample[i] = length(sample.head.sdiu.fraction[sample.head.sdiu.fraction == "X"]) / length(sample.head.sdiu.fraction)
+  non.sdiu.head.fraction.resample[i] = length(sample.head.non.sdiu.fraction[sample.head.non.sdiu.fraction == "X"]) / length(sample.head.non.sdiu.fraction)
+print(i)
+}
 
+body.lower.CI = as.vector( c( quantile(sdiu.body.fraction.resample, 0.05)[1],
+                              quantile(non.sdiu.body.fraction.resample, 0.05)[1]))
 
+body.upper.CI = as.vector( c( quantile(sdiu.body.fraction.resample, 0.95)[1],
+                              quantile(non.sdiu.body.fraction.resample, 0.95)[1]))
+
+head.lower.CI = as.vector( c( quantile(sdiu.head.fraction.resample, 0.05)[1],
+                              quantile(non.sdiu.head.fraction.resample, 0.05)[1]))
+
+head.upper.CI = as.vector( c( quantile(sdiu.head.fraction.resample, 0.95)[1],
+                              quantile(non.sdiu.head.fraction.resample, 0.95)[1]))
+
+# Make dataframe for plotting
+body.df.tmp = as.data.frame(c(sdiu.body.fraction,non.sdiu.body.fraction))
+colnames(body.df.tmp) = "fraction"
+body.df.tmp$tissue = "body"
+body.df.tmp$sdiu = c(1,0)
+body.df.tmp$upper.CI = body.upper.CI
+body.df.tmp$lower.CI = body.lower.CI
+
+head.df.tmp = as.data.frame(c(sdiu.head.fraction,non.sdiu.head.fraction))
+colnames(head.df.tmp) = "fraction"
+head.df.tmp$tissue = "head"
+head.df.tmp$sdiu = c(1,0)
+head.df.tmp$upper.CI = head.upper.CI
+head.df.tmp$lower.CI = head.lower.CI
+
+fraction.df = rbind(body.df.tmp,head.df.tmp)
+
+# Plotting
+fraction.of.SDIU.X.chromosome = ggplot(fraction.df, aes(y=fraction, x = as.factor(tissue), colour = as.factor(sdiu))) +
+                                  geom_point(aes(y=fraction, x = as.factor(tissue), colour = as.factor(sdiu)), size = 7,
+                                  position = position_dodge(width = 0.5)) + ylim(0,0.5) +
+                                  geom_errorbar(aes(ymin = lower.CI, ymax = upper.CI, x = as.factor(tissue)),
+                                  width = 0, position = position_dodge(width = 0.5)) +
+                                  theme_bw()  + scale_colour_manual(values = c("#800080", "#65c86e")) +
+                                  theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
+                                      panel.border = element_rect(colour = "black", fill=NA, size=1),
+                                      axis.text = element_text(face="bold", color="black",size=15, family = "Helvetica"),
+                                      axis.title=element_blank(), legend.position = "none")
+                                  #facet_grid(tissue~., scales = "free")
+pdf("/plas1/amardeep.singh/tmp/sdiu.fraction.on.x.chromosome.sept15.pdf",height = 10, width = 5)
+fraction.of.SDIU.X.chromosome
+dev.off()
 
 
 

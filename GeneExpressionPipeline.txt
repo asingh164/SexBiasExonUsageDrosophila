@@ -1137,17 +1137,398 @@ pdf("/plas1/amardeep.singh/tmp/test.violin.pdf", height = 15, width = 10)
 log2FC.violin
 dev.off()
 
+#################
+#################
+
+## Comparing sex-bias in gene expression on the X versus the autosome ##
+# First, I generated a list of genes and which chromosome they are in using the Flybase D. mel gtf file
+#---- Bash ----
+# First pull out a list of every gene in the gtf
+cat dmel-all-r6.32.filtered.gtf | cut -f9 | cut -f2 | cut -c10-20 > list.of.genes.txt
+# Next, pull out a list of each chromosome location
+cat dmel-all-r6.32.filtered.gtf | cut -f1 > list.of.chromosomes.txt
+# Merge the two files together
+paste list.of.chromosomes.txt list.of.genes.txt > gene.locations.txt
+
+# ----/----
+
+# ---- R ----
+# Read in file of gene chromosome locations
+gene.locations = read.delim("/plas1/amardeep.singh/Flybase.Dmel.Genome.Release/gtf/gene.locations.txt", header = FALSE)
+# Merge expression data file with gene location data
+expression.data.with.chromosome = merge(expression.data, gene.locations, by.x="geneID", by.y="V2", sort = FALSE)
+# Remove duplicated rows
+expression.data.with.chromosome = unique(expression.data.with.chromosome)
+colnames(expression.data.with.chromosome)[14]= "chromosome"
+
+# Remove rows that haven't been binned into the predefined expression bins
+expression.data.with.chromosome = expression.data.with.chromosome[!is.na(expression.data.with.chromosome$log2FC.quantile.CIs),]
+# Subset data by tissue type
+expression.data.with.chromosome.body = expression.data.with.chromosome[expression.data.with.chromosome$tissue == "body",]
+expression.data.with.chromosome.head = expression.data.with.chromosome[expression.data.with.chromosome$tissue == "head",]
+
+# Subset quantiles of gene expression
+body.quantile.bin.1 = expression.data.with.chromosome.body[expression.data.with.chromosome.body$log2FC.quantile.CIs == 1, ]
+body.quantile.bin.2 = expression.data.with.chromosome.body[expression.data.with.chromosome.body$log2FC.quantile.CIs == 2, ]
+body.quantile.bin.3 = expression.data.with.chromosome.body[expression.data.with.chromosome.body$log2FC.quantile.CIs == 3, ]
+body.quantile.bin.4 = expression.data.with.chromosome.body[expression.data.with.chromosome.body$log2FC.quantile.CIs == 4, ]
+body.quantile.bin.5 = expression.data.with.chromosome.body[expression.data.with.chromosome.body$log2FC.quantile.CIs == 5, ]
+
+head.quantile.bin.1 = expression.data.with.chromosome.head[expression.data.with.chromosome.head$log2FC.quantile.CIs == 1, ]
+head.quantile.bin.2 = expression.data.with.chromosome.head[expression.data.with.chromosome.head$log2FC.quantile.CIs == 2, ]
+head.quantile.bin.3 = expression.data.with.chromosome.head[expression.data.with.chromosome.head$log2FC.quantile.CIs == 3, ]
+head.quantile.bin.4 = expression.data.with.chromosome.head[expression.data.with.chromosome.head$log2FC.quantile.CIs == 4, ]
+head.quantile.bin.5 = expression.data.with.chromosome.head[expression.data.with.chromosome.head$log2FC.quantile.CIs == 5, ]
+
+body.bin.1.fraction = nrow(body.quantile.bin.1[body.quantile.bin.1$chromosome == "X",]) / nrow(body.quantile.bin.1)
+body.bin.2.fraction = nrow(body.quantile.bin.2[body.quantile.bin.2$chromosome == "X",]) / nrow(body.quantile.bin.2)
+body.bin.3.fraction = nrow(body.quantile.bin.3[body.quantile.bin.3$chromosome == "X",]) / nrow(body.quantile.bin.3)
+body.bin.4.fraction = nrow(body.quantile.bin.4[body.quantile.bin.4$chromosome == "X",]) / nrow(body.quantile.bin.4)
+body.bin.5.fraction = nrow(body.quantile.bin.5[body.quantile.bin.5$chromosome == "X",]) / nrow(body.quantile.bin.5)
+body.fraction = c(body.bin.1.fraction,body.bin.2.fraction,body.bin.3.fraction,body.bin.4.fraction,body.bin.5.fraction)
+head.bin.1.fraction = nrow(head.quantile.bin.1[head.quantile.bin.1$chromosome == "X",]) / nrow(head.quantile.bin.1)
+head.bin.2.fraction = nrow(head.quantile.bin.2[head.quantile.bin.2$chromosome == "X",]) / nrow(head.quantile.bin.2)
+head.bin.3.fraction = nrow(head.quantile.bin.3[head.quantile.bin.3$chromosome == "X",]) / nrow(head.quantile.bin.3)
+head.bin.4.fraction = nrow(head.quantile.bin.4[head.quantile.bin.4$chromosome == "X",]) / nrow(head.quantile.bin.4)
+head.bin.5.fraction = nrow(head.quantile.bin.5[head.quantile.bin.5$chromosome == "X",]) / nrow(head.quantile.bin.5)
+head.fraction = c(head.bin.1.fraction,head.bin.2.fraction,head.bin.3.fraction,head.bin.4.fraction,head.bin.5.fraction)
+
+body.bin.1.resample = vector(mode = "numeric", length = 10000)
+body.bin.2.resample = vector(mode = "numeric", length = 10000)
+body.bin.3.resample = vector(mode = "numeric", length = 10000)
+body.bin.4.resample = vector(mode = "numeric", length = 10000)
+body.bin.5.resample = vector(mode = "numeric", length = 10000)
+
+head.bin.1.resample = vector(mode = "numeric", length = 10000)
+head.bin.2.resample = vector(mode = "numeric", length = 10000)
+head.bin.3.resample = vector(mode = "numeric", length = 10000)
+head.bin.4.resample = vector(mode = "numeric", length = 10000)
+head.bin.5.resample = vector(mode = "numeric", length = 10000)
+
+# Resampling
+for (i in 1:10000){
+
+  sample.body.quantile1 = sample(body.quantile.bin.1$chromosome, nrow(body.quantile.bin.1), replace = TRUE)
+  sample.body.quantile2 = sample(body.quantile.bin.2$chromosome, nrow(body.quantile.bin.2), replace = TRUE)
+  sample.body.quantile3 = sample(body.quantile.bin.3$chromosome, nrow(body.quantile.bin.3), replace = TRUE)
+  sample.body.quantile4 = sample(body.quantile.bin.4$chromosome, nrow(body.quantile.bin.4), replace = TRUE)
+  sample.body.quantile5 = sample(body.quantile.bin.5$chromosome, nrow(body.quantile.bin.5), replace = TRUE)
+
+  sample.head.quantile1 = sample(head.quantile.bin.1$chromosome, nrow(head.quantile.bin.1), replace = TRUE)
+  sample.head.quantile2 = sample(head.quantile.bin.2$chromosome, nrow(head.quantile.bin.2), replace = TRUE)
+  sample.head.quantile3 = sample(head.quantile.bin.3$chromosome, nrow(head.quantile.bin.3), replace = TRUE)
+  sample.head.quantile4 = sample(head.quantile.bin.4$chromosome, nrow(head.quantile.bin.4), replace = TRUE)
+  sample.head.quantile5 = sample(head.quantile.bin.5$chromosome, nrow(head.quantile.bin.5), replace = TRUE)
+
+  body.bin.1.resample[i] = length(sample.body.quantile1[sample.body.quantile1 == "X"]) / length(sample.body.quantile1)
+  body.bin.2.resample[i] = length(sample.body.quantile2[sample.body.quantile2 == "X"]) / length(sample.body.quantile2)
+  body.bin.3.resample[i] = length(sample.body.quantile3[sample.body.quantile3 == "X"]) / length(sample.body.quantile3)
+  body.bin.4.resample[i] = length(sample.body.quantile4[sample.body.quantile4 == "X"]) / length(sample.body.quantile4)
+  body.bin.5.resample[i] = length(sample.body.quantile5[sample.body.quantile5 == "X"]) / length(sample.body.quantile5)
+
+  head.bin.1.resample[i] = length(sample.head.quantile1[sample.head.quantile1 == "X"]) / length(sample.head.quantile1)
+  head.bin.2.resample[i] = length(sample.head.quantile2[sample.head.quantile2 == "X"]) / length(sample.head.quantile2)
+  head.bin.3.resample[i] = length(sample.head.quantile3[sample.head.quantile3 == "X"]) / length(sample.head.quantile3)
+  head.bin.4.resample[i] = length(sample.head.quantile4[sample.head.quantile4 == "X"]) / length(sample.head.quantile4)
+  head.bin.5.resample[i] = length(sample.head.quantile5[sample.head.quantile5 == "X"]) / length(sample.head.quantile5)
+
+print(i)
+}
+
+body.lower.CI = as.vector( c( quantile(body.bin.1.resample, 0.05)[1],
+                              quantile(body.bin.2.resample, 0.05)[1],
+                              quantile(body.bin.3.resample, 0.05)[1],
+                              quantile(body.bin.4.resample, 0.05)[1],
+                              quantile(body.bin.5.resample, 0.05)[1]))
+#
+body.upper.CI = as.vector( c( quantile(body.bin.1.resample, 0.95)[1],
+                              quantile(body.bin.2.resample, 0.95)[1],
+                              quantile(body.bin.3.resample, 0.95)[1],
+                              quantile(body.bin.4.resample, 0.95)[1],
+                              quantile(body.bin.5.resample, 0.95)[1]))
+#
+head.lower.CI = as.vector( c( quantile(head.bin.1.resample, 0.05)[1],
+                              quantile(head.bin.2.resample, 0.05)[1],
+                              quantile(head.bin.3.resample, 0.05)[1],
+                              quantile(head.bin.4.resample, 0.05)[1],
+                              quantile(head.bin.5.resample, 0.05)[1]))
+
+#
+head.upper.CI = as.vector( c( quantile(head.bin.1.resample, 0.95)[1],
+                              quantile(head.bin.2.resample, 0.95)[1],
+                              quantile(head.bin.3.resample, 0.95)[1],
+                              quantile(head.bin.4.resample, 0.95)[1],
+                              quantile(head.bin.5.resample, 0.95)[1]))
 
 
+body.gene.expression.df = as.data.frame(cbind(body.fraction, body.lower.CI, body.upper.CI))
+body.gene.expression.df$log2FCbin = seq(1,5,1)
+body.gene.expression.df$tissue = "body"
+body.gene.expression.df$expbias = c(rep("FB",2), rep("UB",1), rep("MB",2))
+colnames(body.gene.expression.df) = c("fraction", "lower.CI", "upper.CI", "log2FC.bin", "tissue", "expbias")
+
+head.gene.expression.df = as.data.frame(cbind(head.fraction, head.lower.CI, head.upper.CI))
+head.gene.expression.df$log2FCbin = seq(1,5,1)
+head.gene.expression.df$tissue = "head"
+head.gene.expression.df$expbias = c(rep("FB.1",1),rep("FB",1), rep("UB",1), rep("MB",1), rep("MB.1",1))
+colnames(head.gene.expression.df) = c("fraction", "lower.CI", "upper.CI", "log2FC.bin", "tissue", "expbias")
+
+gene.expression.df = rbind(body.gene.expression.df,head.gene.expression.df)
+
+fraction.of.genes.on.chromosome = ggplot(gene.expression.df, aes(y=fraction, x = as.factor(log2FC.bin), colour = expbias)) +
+                                  geom_point(aes(x = as.factor(log2FC.bin), y=fraction, colour = expbias), size = 7,
+                                  position = position_dodge(width = 0.5)) +
+                                  geom_errorbar(aes(ymin = lower.CI, ymax = upper.CI, x = as.factor(log2FC.bin)),
+                                  width = 0, position = position_dodge(width = 0.5)) +
+                                  theme_bw()  + scale_colour_manual(values = c("#e09999","#0000b3", "#000000")) +
+                                  theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
+                                      panel.border = element_rect(colour = "black", fill=NA, size=1),
+                                      axis.text = element_text(face="bold", color="black",size=15, family = "Helvetica"),
+                                      axis.title=element_blank(), legend.position = "none") +
+                                  facet_grid(tissue~., scales = "free")
+pdf("/plas1/amardeep.singh/tmp/gene.expression.fractions.by.on.chromosome.filtered.sept15.pdf")
+fraction.of.genes.on.chromosome
+dev.off()
 
 
+#####
+## Plotting SDIU and gene expression bias fractions on X chromosome
+# Load in datasets
+gene.locations = read.delim("/plas1/amardeep.singh/Flybase.Dmel.Genome.Release/gtf/gene.locations.txt", header = FALSE)
+gene.locations=unique(gene.locations)
+# Gene expression data from above
+# original data file names: expression.data.body; expression.data.head
+
+# Merge expression data with chromosomal location data
+expression.data.body = merge(expression.data.body,gene.locations,by.x = "geneID", by.y = "V2", sort = FALSE)
+expression.data.head = merge(expression.data.head,gene.locations,by.x = "geneID", by.y = "V2", sort = FALSE)
+colnames(expression.data.body)[14]="chr"
+colnames(expression.data.head)[14]="chr"
+
+expression.data.body = expression.data.body[!is.na(expression.data.body$log2FC.quantile.CIs),]
+expression.data.head = expression.data.head[!is.na(expression.data.head$log2FC.quantile.CIs),]
+
+sdiu.body = expression.data.body[expression.data.body$sig.hit == 1,]
+non.sdiu.body = expression.data.body[expression.data.body$sig.hit == 0,]
+sdiu.head = expression.data.head[expression.data.head$sig.hit == 1,]
+non.sdiu.head = expression.data.head[expression.data.head$sig.hit == 0,]
+
+# Subset quantiles of gene expression
+body.quantile.bin.1.sdiu = sdiu.body[sdiu.body$log2FC.quantile.CIs == 1, ]
+body.quantile.bin.2.sdiu = sdiu.body[sdiu.body$log2FC.quantile.CIs == 2, ]
+body.quantile.bin.3.sdiu = sdiu.body[sdiu.body$log2FC.quantile.CIs == 3, ]
+body.quantile.bin.4.sdiu = sdiu.body[sdiu.body$log2FC.quantile.CIs == 4, ]
+body.quantile.bin.5.sdiu = sdiu.body[sdiu.body$log2FC.quantile.CIs == 5, ]
+body.quantile.bin.1.non.sdiu = non.sdiu.body[non.sdiu.body$log2FC.quantile.CIs == 1, ]
+body.quantile.bin.2.non.sdiu = non.sdiu.body[non.sdiu.body$log2FC.quantile.CIs == 2, ]
+body.quantile.bin.3.non.sdiu = non.sdiu.body[non.sdiu.body$log2FC.quantile.CIs == 3, ]
+body.quantile.bin.4.non.sdiu = non.sdiu.body[non.sdiu.body$log2FC.quantile.CIs == 4, ]
+body.quantile.bin.5.non.sdiu = non.sdiu.body[non.sdiu.body$log2FC.quantile.CIs == 5, ]
+
+head.quantile.bin.1.sdiu = sdiu.head[sdiu.head$log2FC.quantile.CIs == 1, ]
+head.quantile.bin.2.sdiu = sdiu.head[sdiu.head$log2FC.quantile.CIs == 2, ]
+head.quantile.bin.3.sdiu = sdiu.head[sdiu.head$log2FC.quantile.CIs == 3, ]
+head.quantile.bin.4.sdiu = sdiu.head[sdiu.head$log2FC.quantile.CIs == 4, ]
+head.quantile.bin.5.sdiu = sdiu.head[sdiu.head$log2FC.quantile.CIs == 5, ]
+head.quantile.bin.1.non.sdiu = non.sdiu.head[non.sdiu.head$log2FC.quantile.CIs == 1, ]
+head.quantile.bin.2.non.sdiu = non.sdiu.head[non.sdiu.head$log2FC.quantile.CIs == 2, ]
+head.quantile.bin.3.non.sdiu = non.sdiu.head[non.sdiu.head$log2FC.quantile.CIs == 3, ]
+head.quantile.bin.4.non.sdiu = non.sdiu.head[non.sdiu.head$log2FC.quantile.CIs == 4, ]
+#head.quantile.bin.5.non.sdiu = non.sdiu.head[non.sdiu.head$log2FC.quantile.CIs == 5, ]
+
+body.bin.1.fraction.sdiu = nrow(body.quantile.bin.1.sdiu[body.quantile.bin.1.sdiu$chr == "X",]) / nrow(body.quantile.bin.1.sdiu)
+body.bin.2.fraction.sdiu = nrow(body.quantile.bin.2.sdiu[body.quantile.bin.2.sdiu$chr == "X",]) / nrow(body.quantile.bin.2.sdiu)
+body.bin.3.fraction.sdiu = nrow(body.quantile.bin.3.sdiu[body.quantile.bin.3.sdiu$chr == "X",]) / nrow(body.quantile.bin.3.sdiu)
+body.bin.4.fraction.sdiu = nrow(body.quantile.bin.4.sdiu[body.quantile.bin.4.sdiu$chr == "X",]) / nrow(body.quantile.bin.4.sdiu)
+body.bin.5.fraction.sdiu = nrow(body.quantile.bin.5.sdiu[body.quantile.bin.5.sdiu$chr == "X",]) / nrow(body.quantile.bin.5.sdiu)
+body.fraction.sdiu = as.data.frame(c(body.bin.1.fraction.sdiu,body.bin.2.fraction.sdiu,body.bin.3.fraction.sdiu,body.bin.4.fraction.sdiu,body.bin.5.fraction.sdiu))
+colnames(body.fraction.sdiu)="fraction"
+body.fraction.sdiu$log2FC.bins = seq(1,5,1)
+body.fraction.sdiu$tissue = "body"
+body.fraction.sdiu$sdiu = as.factor(1)
+
+body.bin.1.fraction.non.sdiu = nrow(body.quantile.bin.1.non.sdiu[body.quantile.bin.1.non.sdiu$chr == "X",]) / nrow(body.quantile.bin.1.non.sdiu)
+body.bin.2.fraction.non.sdiu = nrow(body.quantile.bin.2.non.sdiu[body.quantile.bin.2.non.sdiu$chr == "X",]) / nrow(body.quantile.bin.2.non.sdiu)
+body.bin.3.fraction.non.sdiu = nrow(body.quantile.bin.3.non.sdiu[body.quantile.bin.3.non.sdiu$chr == "X",]) / nrow(body.quantile.bin.3.non.sdiu)
+body.bin.4.fraction.non.sdiu = nrow(body.quantile.bin.4.non.sdiu[body.quantile.bin.4.non.sdiu$chr == "X",]) / nrow(body.quantile.bin.4.non.sdiu)
+body.bin.5.fraction.non.sdiu = nrow(body.quantile.bin.5.non.sdiu[body.quantile.bin.5.non.sdiu$chr == "X",]) / nrow(body.quantile.bin.5.non.sdiu)
+body.fraction.non.sdiu = as.data.frame(c(body.bin.1.fraction.non.sdiu,body.bin.2.fraction.non.sdiu,body.bin.3.fraction.non.sdiu,body.bin.4.fraction.non.sdiu,body.bin.5.fraction.non.sdiu))
+colnames(body.fraction.non.sdiu)="fraction"
+body.fraction.non.sdiu$log2FC.bins = seq(1,5,1)
+body.fraction.non.sdiu$tissue = "body"
+body.fraction.non.sdiu$sdiu = as.factor(0)
+
+body.fraction = rbind(body.fraction.sdiu, body.fraction.non.sdiu)
+
+head.bin.1.fraction.sdiu = nrow(head.quantile.bin.1.sdiu[head.quantile.bin.1.sdiu$chr == "X",]) / nrow(head.quantile.bin.1.sdiu)
+head.bin.2.fraction.sdiu = nrow(head.quantile.bin.2.sdiu[head.quantile.bin.2.sdiu$chr == "X",]) / nrow(head.quantile.bin.2.sdiu)
+head.bin.3.fraction.sdiu = nrow(head.quantile.bin.3.sdiu[head.quantile.bin.3.sdiu$chr == "X",]) / nrow(head.quantile.bin.3.sdiu)
+head.bin.4.fraction.sdiu = nrow(head.quantile.bin.4.sdiu[head.quantile.bin.4.sdiu$chr == "X",]) / nrow(head.quantile.bin.4.sdiu)
+head.bin.5.fraction.sdiu = nrow(head.quantile.bin.5.sdiu[head.quantile.bin.5.sdiu$chr == "X",]) / nrow(head.quantile.bin.5.sdiu)
+head.fraction.sdiu = as.data.frame(c(head.bin.1.fraction.sdiu,head.bin.2.fraction.sdiu,head.bin.3.fraction.sdiu,head.bin.4.fraction.sdiu,head.bin.5.fraction.sdiu))
+colnames(head.fraction.sdiu)="fraction"
+head.fraction.sdiu$log2FC.bins = seq(1,5,1)
+head.fraction.sdiu$tissue = "head"
+head.fraction.sdiu$sdiu = as.factor(1)
+
+head.bin.1.fraction.non.sdiu = nrow(head.quantile.bin.1.non.sdiu[head.quantile.bin.1.non.sdiu$chr == "X",]) / nrow(head.quantile.bin.1.non.sdiu)
+head.bin.2.fraction.non.sdiu = nrow(head.quantile.bin.2.non.sdiu[head.quantile.bin.2.non.sdiu$chr == "X",]) / nrow(head.quantile.bin.2.non.sdiu)
+head.bin.3.fraction.non.sdiu = nrow(head.quantile.bin.3.non.sdiu[head.quantile.bin.3.non.sdiu$chr == "X",]) / nrow(head.quantile.bin.3.non.sdiu)
+head.bin.4.fraction.non.sdiu = nrow(head.quantile.bin.4.non.sdiu[head.quantile.bin.4.non.sdiu$chr == "X",]) / nrow(head.quantile.bin.4.non.sdiu)
+head.bin.5.fraction.non.sdiu = 0 # There are no genes in this bin so I just set it to 0
+head.fraction.non.sdiu = as.data.frame(c(head.bin.1.fraction.non.sdiu,head.bin.2.fraction.non.sdiu,head.bin.3.fraction.non.sdiu,head.bin.4.fraction.non.sdiu,head.bin.5.fraction.non.sdiu))
+colnames(head.fraction.non.sdiu)="fraction"
+head.fraction.non.sdiu$log2FC.bins = seq(1,5,1)
+head.fraction.non.sdiu$tissue = "head"
+head.fraction.non.sdiu$sdiu = as.factor(0)
+
+head.fraction = rbind(head.fraction.sdiu, head.fraction.non.sdiu)
+
+gene.expression.fraction.chromosome = rbind(body.fraction,head.fraction)
+
+body.bin.1.sdiu.resample = vector(mode = "numeric", length = 10000)
+body.bin.2.sdiu.resample = vector(mode = "numeric", length = 10000)
+body.bin.3.sdiu.resample = vector(mode = "numeric", length = 10000)
+body.bin.4.sdiu.resample = vector(mode = "numeric", length = 10000)
+body.bin.5.sdiu.resample = vector(mode = "numeric", length = 10000)
+body.bin.1.non.sdiu.resample = vector(mode = "numeric", length = 10000)
+body.bin.2.non.sdiu.resample = vector(mode = "numeric", length = 10000)
+body.bin.3.non.sdiu.resample = vector(mode = "numeric", length = 10000)
+body.bin.4.non.sdiu.resample = vector(mode = "numeric", length = 10000)
+body.bin.5.non.sdiu.resample = vector(mode = "numeric", length = 10000)
+
+head.bin.1.sdiu.resample = vector(mode = "numeric", length = 10000)
+head.bin.2.sdiu.resample = vector(mode = "numeric", length = 10000)
+head.bin.3.sdiu.resample = vector(mode = "numeric", length = 10000)
+head.bin.4.sdiu.resample = vector(mode = "numeric", length = 10000)
+head.bin.5.sdiu.resample = vector(mode = "numeric", length = 10000)
+head.bin.1.non.sdiu.resample = vector(mode = "numeric", length = 10000)
+head.bin.2.non.sdiu.resample = vector(mode = "numeric", length = 10000)
+head.bin.3.non.sdiu.resample = vector(mode = "numeric", length = 10000)
+head.bin.4.non.sdiu.resample = vector(mode = "numeric", length = 10000)
+head.bin.5.non.sdiu.resample = vector(mode = "numeric", length = 10000)
 
 
+# Resampling
+for (i in 1:10000){
 
+  sample.body.quantile1.sdiu = sample(body.quantile.bin.1.sdiu$chr, nrow(body.quantile.bin.1.sdiu), replace = TRUE)
+  sample.body.quantile2.sdiu = sample(body.quantile.bin.2.sdiu$chr, nrow(body.quantile.bin.2.sdiu), replace = TRUE)
+  sample.body.quantile3.sdiu = sample(body.quantile.bin.3.sdiu$chr, nrow(body.quantile.bin.3.sdiu), replace = TRUE)
+  sample.body.quantile4.sdiu = sample(body.quantile.bin.4.sdiu$chr, nrow(body.quantile.bin.4.sdiu), replace = TRUE)
+  sample.body.quantile5.sdiu = sample(body.quantile.bin.5.sdiu$chr, nrow(body.quantile.bin.5.sdiu), replace = TRUE)
 
+  sample.body.quantile1.non.sdiu = sample(body.quantile.bin.1.non.sdiu$chr, nrow(body.quantile.bin.1.non.sdiu), replace = TRUE)
+  sample.body.quantile2.non.sdiu = sample(body.quantile.bin.2.non.sdiu$chr, nrow(body.quantile.bin.2.non.sdiu), replace = TRUE)
+  sample.body.quantile3.non.sdiu = sample(body.quantile.bin.3.non.sdiu$chr, nrow(body.quantile.bin.3.non.sdiu), replace = TRUE)
+  sample.body.quantile4.non.sdiu = sample(body.quantile.bin.4.non.sdiu$chr, nrow(body.quantile.bin.4.non.sdiu), replace = TRUE)
+  sample.body.quantile5.non.sdiu = sample(body.quantile.bin.5.non.sdiu$chr, nrow(body.quantile.bin.5.non.sdiu), replace = TRUE)
 
+  sample.head.quantile1.sdiu = sample(head.quantile.bin.1.sdiu$chr, nrow(head.quantile.bin.1.sdiu), replace = TRUE)
+  sample.head.quantile2.sdiu = sample(head.quantile.bin.2.sdiu$chr, nrow(head.quantile.bin.2.sdiu), replace = TRUE)
+  sample.head.quantile3.sdiu = sample(head.quantile.bin.3.sdiu$chr, nrow(head.quantile.bin.3.sdiu), replace = TRUE)
+  sample.head.quantile4.sdiu = sample(head.quantile.bin.4.sdiu$chr, nrow(head.quantile.bin.4.sdiu), replace = TRUE)
+  sample.head.quantile5.sdiu = sample(head.quantile.bin.5.sdiu$chr, nrow(head.quantile.bin.5.sdiu), replace = TRUE)
 
+  sample.head.quantile1.non.sdiu = sample(head.quantile.bin.1.non.sdiu$chr, nrow(head.quantile.bin.1.non.sdiu), replace = TRUE)
+  sample.head.quantile2.non.sdiu = sample(head.quantile.bin.2.non.sdiu$chr, nrow(head.quantile.bin.2.non.sdiu), replace = TRUE)
+  sample.head.quantile3.non.sdiu = sample(head.quantile.bin.3.non.sdiu$chr, nrow(head.quantile.bin.3.non.sdiu), replace = TRUE)
+  sample.head.quantile4.non.sdiu = sample(head.quantile.bin.4.non.sdiu$chr, nrow(head.quantile.bin.4.non.sdiu), replace = TRUE)
+  sample.head.quantile5.non.sdiu = sample(head.quantile.bin.5.non.sdiu$chr, nrow(head.quantile.bin.5.non.sdiu), replace = TRUE)
 
+  # Resampling
+
+  body.bin.1.sdiu.resample[i] = length(sample.body.quantile1.sdiu[sample.body.quantile1.sdiu == "X"]) / length(sample.body.quantile1.sdiu)
+  body.bin.2.sdiu.resample[i] = length(sample.body.quantile2.sdiu[sample.body.quantile2.sdiu == "X"]) / length(sample.body.quantile2.sdiu)
+  body.bin.3.sdiu.resample[i] = length(sample.body.quantile3.sdiu[sample.body.quantile3.sdiu == "X"]) / length(sample.body.quantile3.sdiu)
+  body.bin.4.sdiu.resample[i] = length(sample.body.quantile4.sdiu[sample.body.quantile4.sdiu == "X"]) / length(sample.body.quantile4.sdiu)
+  body.bin.5.sdiu.resample[i] = length(sample.body.quantile5.sdiu[sample.body.quantile5.sdiu == "X"]) / length(sample.body.quantile5.sdiu)
+
+  body.bin.1.non.sdiu.resample[i] = length(sample.body.quantile1.non.sdiu[sample.body.quantile1.non.sdiu == "X"]) / length(sample.body.quantile1.non.sdiu)
+  body.bin.2.non.sdiu.resample[i] = length(sample.body.quantile2.non.sdiu[sample.body.quantile2.non.sdiu == "X"]) / length(sample.body.quantile2.non.sdiu)
+  body.bin.3.non.sdiu.resample[i] = length(sample.body.quantile3.non.sdiu[sample.body.quantile3.non.sdiu == "X"]) / length(sample.body.quantile3.non.sdiu)
+  body.bin.4.non.sdiu.resample[i] = length(sample.body.quantile4.non.sdiu[sample.body.quantile4.non.sdiu == "X"]) / length(sample.body.quantile4.non.sdiu)
+  body.bin.5.non.sdiu.resample[i] = length(sample.body.quantile5.non.sdiu[sample.body.quantile5.non.sdiu == "X"]) / length(sample.body.quantile5.non.sdiu)
+
+  head.bin.1.sdiu.resample[i] = length(sample.head.quantile1.sdiu[sample.head.quantile1.sdiu == "X"]) / length(sample.head.quantile1.sdiu)
+  head.bin.2.sdiu.resample[i] = length(sample.head.quantile2.sdiu[sample.head.quantile2.sdiu == "X"]) / length(sample.head.quantile2.sdiu)
+  head.bin.3.sdiu.resample[i] = length(sample.head.quantile3.sdiu[sample.head.quantile3.sdiu == "X"]) / length(sample.head.quantile3.sdiu)
+  head.bin.4.sdiu.resample[i] = length(sample.head.quantile4.sdiu[sample.head.quantile4.sdiu == "X"]) / length(sample.head.quantile4.sdiu)
+  head.bin.5.sdiu.resample[i] = length(sample.head.quantile5.sdiu[sample.head.quantile5.sdiu == "X"]) / length(sample.head.quantile5.sdiu)
+
+  head.bin.1.non.sdiu.resample[i] = length(sample.head.quantile1.non.sdiu[sample.head.quantile1.non.sdiu == "X"]) / length(sample.head.quantile1.non.sdiu)
+  head.bin.2.non.sdiu.resample[i] = length(sample.head.quantile2.non.sdiu[sample.head.quantile2.non.sdiu == "X"]) / length(sample.head.quantile2.non.sdiu)
+  head.bin.3.non.sdiu.resample[i] = length(sample.head.quantile3.non.sdiu[sample.head.quantile3.non.sdiu == "X"]) / length(sample.head.quantile3.non.sdiu)
+  head.bin.4.non.sdiu.resample[i] = length(sample.head.quantile4.non.sdiu[sample.head.quantile4.non.sdiu == "X"]) / length(sample.head.quantile4.non.sdiu)
+  head.bin.5.non.sdiu.resample[i] = length(sample.head.quantile5.non.sdiu[sample.head.quantile5.non.sdiu == "X"]) / length(sample.head.quantile5.non.sdiu)
+
+print(i)
+}
+
+body.lower.CI = as.vector( c( quantile(body.bin.1.sdiu.resample, 0.05)[1],
+                              quantile(body.bin.2.sdiu.resample, 0.05)[1],
+                              quantile(body.bin.3.sdiu.resample, 0.05)[1],
+                              quantile(body.bin.4.sdiu.resample, 0.05)[1],
+                              quantile(body.bin.5.sdiu.resample, 0.05)[1],
+                              quantile(body.bin.1.non.sdiu.resample, 0.05)[1],
+                              quantile(body.bin.2.non.sdiu.resample, 0.05)[1],
+                              quantile(body.bin.3.non.sdiu.resample, 0.05)[1],
+                              quantile(body.bin.4.non.sdiu.resample, 0.05)[1],
+                              quantile(body.bin.5.non.sdiu.resample, 0.05)[1]))
+#
+body.upper.CI = as.vector( c( quantile(body.bin.1.sdiu.resample, 0.95)[1],
+                              quantile(body.bin.2.sdiu.resample, 0.95)[1],
+                              quantile(body.bin.3.sdiu.resample, 0.95)[1],
+                              quantile(body.bin.4.sdiu.resample, 0.95)[1],
+                              quantile(body.bin.5.sdiu.resample, 0.95)[1],
+                              quantile(body.bin.1.non.sdiu.resample, 0.95)[1],
+                              quantile(body.bin.2.non.sdiu.resample, 0.95)[1],
+                              quantile(body.bin.3.non.sdiu.resample, 0.95)[1],
+                              quantile(body.bin.4.non.sdiu.resample, 0.95)[1],
+                              quantile(body.bin.5.non.sdiu.resample, 0.95)[1]))
+#
+head.lower.CI = as.vector( c( quantile(head.bin.1.sdiu.resample, 0.05)[1],
+                              quantile(head.bin.2.sdiu.resample, 0.05)[1],
+                              quantile(head.bin.3.sdiu.resample, 0.05)[1],
+                              quantile(head.bin.4.sdiu.resample, 0.05)[1],
+                              quantile(head.bin.5.sdiu.resample, 0.05)[1],
+                              quantile(head.bin.1.non.sdiu.resample, 0.05)[1],
+                              quantile(head.bin.2.non.sdiu.resample, 0.05)[1],
+                              quantile(head.bin.3.non.sdiu.resample, 0.05)[1],
+                              quantile(head.bin.4.non.sdiu.resample, 0.05)[1],
+                              0))
+
+#
+head.upper.CI = as.vector( c( quantile(head.bin.1.sdiu.resample, 0.95)[1],
+                              quantile(head.bin.2.sdiu.resample, 0.95)[1],
+                              quantile(head.bin.3.sdiu.resample, 0.95)[1],
+                              quantile(head.bin.4.sdiu.resample, 0.95)[1],
+                              quantile(head.bin.5.sdiu.resample, 0.95)[1],
+                              quantile(head.bin.1.non.sdiu.resample, 0.95)[1],
+                              quantile(head.bin.2.non.sdiu.resample, 0.95)[1],
+                              quantile(head.bin.3.non.sdiu.resample, 0.95)[1],
+                              quantile(head.bin.4.non.sdiu.resample, 0.95)[1],
+                              0))
+
+gene.expression.fraction.chromosome$lower.CI = c(body.lower.CI,head.lower.CI)
+gene.expression.fraction.chromosome$upper.CI = c(body.upper.CI,head.upper.CI)
+gene.expression.fraction.chromosome$expbias = c("FB","FB","UB","MB","MB","FB","FB","UB","MB","MB","FB.1","FB","UB","MB","MB.1","FB.1","FB","UB","MB","MB.1")
+# Colours: darkred: #b30000; light red: #e09999; Dark Blue: #0000b3; light blue: #9999e0
+
+fraction.of.genes.on.chromosome = ggplot(gene.expression.fraction.chromosome, aes(y=fraction, x = as.factor(log2FC.bins), colour = sdiu)) +
+                                  geom_point(aes(x = as.factor(log2FC.bins), y=fraction, colour = sdiu), size = 7,
+                                  position = position_dodge(width = 0.5)) +
+                                  geom_errorbar(aes(ymin = lower.CI, ymax = upper.CI, x = as.factor(log2FC.bins)),
+                                  width = 0, position = position_dodge(width = 0.5)) +
+                                  theme_bw()  + scale_colour_manual(values = c("#800080", "#65c86e")) +
+                                  theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
+                                      panel.border = element_rect(colour = "black", fill=NA, size=1),
+                                      axis.text = element_text(face="bold", color="black",size=15, family = "Helvetica"),
+                                      axis.title=element_blank(), legend.position = "none") +
+                                  facet_grid(tissue~., scales = "free")
+pdf("/plas1/amardeep.singh/tmp/gene.expression.by.sdiu.fractions.by.on.chromosome.filtered.sept15.pdf")
+fraction.of.genes.on.chromosome
+dev.off()
 
 
 #

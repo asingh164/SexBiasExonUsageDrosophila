@@ -385,7 +385,7 @@ tajimasD.summary.plot
 dev.off()
 
 
-# 2. Plotting Tajimas D against log2FC without parsing out by sex-averaged gene expression   ######
+# 2A. Plotting Tajimas D for SDIU and non-SDIU genes against log2FC without parsing out by sex-averaged gene expression   ######
 
 # Remove unbinned genes
 expression.data.tajimasD.plotting = expression.data.tajimasD[!(is.na(expression.data.tajimasD$log2FC.bins)),]
@@ -470,8 +470,84 @@ pdf("/plas1/amardeep.singh/tmp/TajimasD.by.log2FC.expression.filtered.subset.sep
 tajimasD.expression.plot
 dev.off()
 
+# 2B. Plotting Tajimas D for all genes against log2FC without parsing out by sex-averaged gene expression   ######
 
-#3.  Plotting Tajimas D against sex-averaged gene expression without parsing by log2FC  ######
+# Remove unbinned genes
+expression.data.tajimasD.plotting = expression.data.tajimasD[!(is.na(expression.data.tajimasD$log2FC.bins)),]
+
+# Summary for means
+expression.data.tajimaD.summary = summaryBy(TajimasD ~ log2FC.bins + tissue, FUN=c(mean, length), data = expression.data.tajimasD.plotting)
+
+# Bootstrap means for each subset
+# Data frame to hold resampled results
+resample.data = as.data.frame(cbind(vector(mode="numeric", length = 10000 * nrow(expression.data.tajimaD.summary)),
+                                    vector(mode="numeric", length = 10000 * nrow(expression.data.tajimaD.summary)),
+                                    vector(mode="numeric", length = 10000 * nrow(expression.data.tajimaD.summary)),
+                                    vector(mode="numeric", length = 10000 * nrow(expression.data.tajimaD.summary)),
+                                    vector(mode="numeric", length = 10000 * nrow(expression.data.tajimaD.summary))))
+
+## Loop to resample TajimasD data
+output.row.start = 1
+output.row.end = 10
+for (i in 1:10000){
+  resampled.df=rbind( sample_n(expression.data.tajimasD.plotting[expression.data.tajimasD.plotting$tissue == "body" & expression.data.tajimasD.plotting$log2FC.bins == 1, ], nrow(expression.data.tajimasD.plotting[expression.data.tajimasD.plotting$tissue == "body" & expression.data.tajimasD.plotting$log2FC.bins == 1, ]), replace = TRUE),
+                      sample_n(expression.data.tajimasD.plotting[expression.data.tajimasD.plotting$tissue == "body" & expression.data.tajimasD.plotting$log2FC.bins == 2, ], nrow(expression.data.tajimasD.plotting[expression.data.tajimasD.plotting$tissue == "body" & expression.data.tajimasD.plotting$log2FC.bins == 2, ]), replace = TRUE),
+                      sample_n(expression.data.tajimasD.plotting[expression.data.tajimasD.plotting$tissue == "body" & expression.data.tajimasD.plotting$log2FC.bins == 3, ], nrow(expression.data.tajimasD.plotting[expression.data.tajimasD.plotting$tissue == "body" & expression.data.tajimasD.plotting$log2FC.bins == 3, ]), replace = TRUE),
+                      sample_n(expression.data.tajimasD.plotting[expression.data.tajimasD.plotting$tissue == "body" & expression.data.tajimasD.plotting$log2FC.bins == 4, ], nrow(expression.data.tajimasD.plotting[expression.data.tajimasD.plotting$tissue == "body" & expression.data.tajimasD.plotting$log2FC.bins == 4, ]), replace = TRUE),
+                      sample_n(expression.data.tajimasD.plotting[expression.data.tajimasD.plotting$tissue == "body" & expression.data.tajimasD.plotting$log2FC.bins == 5, ], nrow(expression.data.tajimasD.plotting[expression.data.tajimasD.plotting$tissue == "body" & expression.data.tajimasD.plotting$log2FC.bins == 5, ]), replace = TRUE),
+
+                      sample_n(expression.data.tajimasD.plotting[expression.data.tajimasD.plotting$tissue == "head" & expression.data.tajimasD.plotting$log2FC.bins == 1, ], nrow(expression.data.tajimasD.plotting[expression.data.tajimasD.plotting$tissue == "head" & expression.data.tajimasD.plotting$log2FC.bins == 1, ]), replace = TRUE),
+                      sample_n(expression.data.tajimasD.plotting[expression.data.tajimasD.plotting$tissue == "head" & expression.data.tajimasD.plotting$log2FC.bins == 2, ], nrow(expression.data.tajimasD.plotting[expression.data.tajimasD.plotting$tissue == "head" & expression.data.tajimasD.plotting$log2FC.bins == 2, ]), replace = TRUE),
+                      sample_n(expression.data.tajimasD.plotting[expression.data.tajimasD.plotting$tissue == "head" & expression.data.tajimasD.plotting$log2FC.bins == 3, ], nrow(expression.data.tajimasD.plotting[expression.data.tajimasD.plotting$tissue == "head" & expression.data.tajimasD.plotting$log2FC.bins == 3, ]), replace = TRUE),
+                      sample_n(expression.data.tajimasD.plotting[expression.data.tajimasD.plotting$tissue == "head" & expression.data.tajimasD.plotting$log2FC.bins == 4, ], nrow(expression.data.tajimasD.plotting[expression.data.tajimasD.plotting$tissue == "head" & expression.data.tajimasD.plotting$log2FC.bins == 4, ]), replace = TRUE),
+                      sample_n(expression.data.tajimasD.plotting[expression.data.tajimasD.plotting$tissue == "head" & expression.data.tajimasD.plotting$log2FC.bins == 5, ], nrow(expression.data.tajimasD.plotting[expression.data.tajimasD.plotting$tissue == "head" & expression.data.tajimasD.plotting$log2FC.bins == 5, ]), replace = TRUE))
+
+                    # Output summary of resampled data to resample dataframe
+                    resample.data[output.row.start:output.row.end, ] = summaryBy(TajimasD ~ log2FC.bins + tissue, FUN=c(mean, length), data = resampled.df)
+                    output.row.start = output.row.end  + 1
+                    output.row.end = output.row.end + 10
+                    print(i)
+}
+
+resample.data=resample.data[,1:4]
+colnames(resample.data) = c("log2FC.bins","tissue","TajimasD","number.of.genes")
+write.table(resample.data, file = "/plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/TajimasD.resampled.averaged.across.abs.gene.expression.bins.filtered.notsplit.by.sdiu.txt", quote = FALSE, row.names = FALSE, col.names = TRUE, sep = "\t")
+
+# Not filtering 4fold sites
+#filtering 4fold sites < 6 segregating sites
+resample.data = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/TajimasD.resampled.averaged.across.abs.gene.expression.bins.filtered.notsplit.by.sdiu.txt", header = TRUE)
+
+# Rename columns of resampled data
+tajimasD.data.summary = summaryBy(TajimasD ~ log2FC.bins + tissue, FUN = function(x) c(Mean = mean(x), lower.ci = quantile(x, probs = 0.05), upper.ci=quantile(x, probs = 0.95)), data = resample.data)
+
+# Replace resample.data.summary "mean" with true observed mean
+colnames(tajimasD.data.summary) = c("log2FC.bins","tissue","TajimasD.Mean","TajimasD.lowerCI","TajimasD.upperCI")
+tajimasD.data.summary$TajimasD.Mean = expression.data.tajimaD.summary$TajimasD.mean
+# Add new column to denote MB, FB and unbiased genes
+tajimasD.data.summary$sexbias[tajimasD.data.summary$log2FC.bins == 1] = "FB"
+tajimasD.data.summary$sexbias[tajimasD.data.summary$log2FC.bins == 2] = "FB"
+tajimasD.data.summary$sexbias[tajimasD.data.summary$log2FC.bins == 3] = "UB"
+tajimasD.data.summary$sexbias[tajimasD.data.summary$log2FC.bins == 4] = "MB"
+tajimasD.data.summary$sexbias[tajimasD.data.summary$log2FC.bins == 5] = "MB"
+# Colours: darkred: #b30000; light red: #e09999; Dark Blue: #0000b3; light blue: #9999e0
+
+tajimasD.expression.plot = ggplot(tajimasD.data.summary, aes(y = TajimasD.Mean, x = as.factor(log2FC.bins), colour = as.factor(sexbias))) +
+                                      geom_point(aes(y = TajimasD.Mean, x = as.factor(log2FC.bins), colour = as.factor(sexbias)),size = 10,
+                                      position = position_dodge(width = 0.5)) + #ylim(-0.12, 0.17) +
+                                      geom_errorbar(aes(ymin = TajimasD.lowerCI, ymax = TajimasD.upperCI, x = as.factor(log2FC.bins), colour=as.factor(sexbias)),
+                                      width = 0, position = position_dodge(width = 0.5)) +
+                                      theme_bw()  + scale_colour_manual(values = c("#b30000", "#0000b3", "#000000")) +
+                                      theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
+                                            panel.border = element_rect(colour = "black", fill=NA, size=1),
+                                            axis.text = element_text(face="bold", color="black",size=20, family = "Helvetica"),
+                                            axis.title=element_blank(), legend.position = "none") +
+                                      facet_grid(tissue ~., scales = "free")
+pdf("/plas1/amardeep.singh/tmp/TajimasD.by.log2FC.expression.noSDIU.sept15.pdf", height = 10, width = 10)
+tajimasD.expression.plot
+dev.off()
+
+
+#3A.  Plotting Tajimas D for SDIU and non-SDIU genes against sex-averaged gene expression without parsing by log2FC  ######
 # Summary for means
 expression.data.tajimaD.summary = summaryBy(TajimasD ~ sex.averaged.expression.quantile + sig.hit + tissue, FUN=c(mean, length), data = expression.data.tajimasD)
 
@@ -536,6 +612,70 @@ tajimasD.sex.averaged.expression.plot = ggplot(tajimasD.data.summary, aes(y = Ta
                                       facet_grid(tissue ~., scales = "free" )
 
 pdf("/plas1/amardeep.singh/tmp/TajimasD.by.sex.averaged.expression.quantile.filtered.sept9.pdf", height = 10, width = 10)
+tajimasD.sex.averaged.expression.plot
+dev.off()
+
+
+#3B.  Plotting Tajimas D against sex-averaged gene expression without parsing by log2FC  ######
+# Summary for means
+expression.data.tajimaD.summary = summaryBy(TajimasD ~ sex.averaged.expression.quantile + tissue, FUN=c(mean, length), data = expression.data.tajimasD)
+
+# Bootstrap means for each subset
+# Data frame to hold resampled results
+resample.data = as.data.frame(cbind(vector(mode="numeric", length = 10000 * nrow(expression.data.tajimaD.summary)),
+                                    vector(mode="numeric", length = 10000 * nrow(expression.data.tajimaD.summary)),
+                                    vector(mode="numeric", length = 10000 * nrow(expression.data.tajimaD.summary)),
+                                    vector(mode="numeric", length = 10000 * nrow(expression.data.tajimaD.summary)),
+                                    vector(mode="numeric", length = 10000 * nrow(expression.data.tajimaD.summary))))
+
+## Loop to resample TajimasD data
+output.row.start = 1
+output.row.end = 6
+for (i in 1:10000){
+  resampled.df=rbind( sample_n(expression.data.tajimasD[expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$sex.averaged.expression.quantile == 1, ], nrow(expression.data.tajimasD[expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$sex.averaged.expression.quantile == 1, ]), replace = TRUE),
+                      sample_n(expression.data.tajimasD[expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$sex.averaged.expression.quantile == 2, ], nrow(expression.data.tajimasD[expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$sex.averaged.expression.quantile == 2, ]), replace = TRUE),
+                      sample_n(expression.data.tajimasD[expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$sex.averaged.expression.quantile == 3, ], nrow(expression.data.tajimasD[expression.data.tajimasD$tissue == "body" & expression.data.tajimasD$sex.averaged.expression.quantile == 3, ]), replace = TRUE),
+
+                      sample_n(expression.data.tajimasD[expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$sex.averaged.expression.quantile == 1, ], nrow(expression.data.tajimasD[expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$sex.averaged.expression.quantile == 1, ]), replace = TRUE),
+                      sample_n(expression.data.tajimasD[expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$sex.averaged.expression.quantile == 2, ], nrow(expression.data.tajimasD[expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$sex.averaged.expression.quantile == 2, ]), replace = TRUE),
+                      sample_n(expression.data.tajimasD[expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$sex.averaged.expression.quantile == 3, ], nrow(expression.data.tajimasD[expression.data.tajimasD$tissue == "head" & expression.data.tajimasD$sex.averaged.expression.quantile == 3, ]), replace = TRUE))
+
+                    # Output summary of resampled data to resample dataframe
+                    resample.data[output.row.start:output.row.end, ] = summaryBy(TajimasD ~ sex.averaged.expression.quantile + tissue, FUN=c(mean, length), data = resampled.df)
+                    output.row.start = output.row.end  + 1
+                    output.row.end = output.row.end + 6
+                    print(i)
+}
+resample.data=resample.data[,1:4]
+colnames(resample.data) = c("sex.averaged.expression.quantile","tissue","TajimasD","number.of.genes")
+write.table(resample.data, file = "/plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/TajimasD.resampled.versus.sex.averaged.expression.quantile.filtered.no.SDIU.txt", quote = FALSE, row.names = FALSE, col.names = TRUE, sep = "\t")
+
+# Not filtering 4fold sites
+#resample.data = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/TajimasD.resampled.versus.sex.averaged.expression.quantile.txt", header = TRUE)
+# Filtered 4fold sites
+resample.data = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/TajimasD.resampled.versus.sex.averaged.expression.quantile.filtered.no.SDIU.txt", header = TRUE)
+
+# Rename columns of resampled data
+tajimasD.data.summary = summaryBy(TajimasD ~ sex.averaged.expression.quantile  + tissue, FUN = function(x) c(Mean = mean(x), lower.ci = quantile(x, probs = 0.05), upper.ci=quantile(x, probs = 0.95)), data = resample.data)
+
+# Replace resample.data.summary "mean" with true observed mean
+colnames(tajimasD.data.summary) = c("sex.averaged.expression.quantile","tissue","TajimasD.Mean","TajimasD.lowerCI","TajimasD.upperCI")
+tajimasD.data.summary$TajimasD.Mean = expression.data.tajimaD.summary$TajimasD.mean
+# Colours: darkred: #b30000; light red: #e09999; Dark Blue: #0000b3; light blue: #9999e0
+
+tajimasD.sex.averaged.expression.plot = ggplot(tajimasD.data.summary, aes(y = TajimasD.Mean, x = as.factor(sex.averaged.expression.quantile))) +
+                                      geom_point(aes(y = TajimasD.Mean, x = as.factor(sex.averaged.expression.quantile)),size = 10,
+                                      position = position_dodge(width = 0.5)) + ylim(-0.01, 0.1) +
+                                      geom_errorbar(aes(ymin = TajimasD.lowerCI, ymax = TajimasD.upperCI, x = as.factor(sex.averaged.expression.quantile)),
+                                      width = 0, position = position_dodge(width = 0.5)) +
+                                      theme_bw()  + scale_colour_manual(values = c("#000000")) +
+                                      theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
+                                            panel.border = element_rect(colour = "black", fill=NA, size=1),
+                                            axis.text = element_text(face="bold", color="black",size=20, family = "Helvetica"),
+                                            axis.title=element_blank(), legend.position = "none") +
+                                      facet_grid(tissue ~., scales = "free" )
+
+pdf("/plas1/amardeep.singh/tmp/TajimasD.by.sex.averaged.expression.quantile.filtered.noSDIU.sept15.pdf", height = 10, width = 10)
 tajimasD.sex.averaged.expression.plot
 dev.off()
 

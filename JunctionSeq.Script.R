@@ -359,7 +359,7 @@ fraction.df = rbind(body.df.tmp,head.df.tmp)
 
 # Plotting
 fraction.of.SDIU.X.chromosome = ggplot(fraction.df, aes(y=fraction, x = as.factor(tissue), colour = as.factor(sdiu))) +
-                                  geom_point(aes(y=fraction, x = as.factor(tissue), colour = as.factor(sdiu)), size = 7,
+                                  geom_point(aes(y=fraction, x = as.factor(tissue), colour = as.factor(sdiu)), size = 8,
                                   position = position_dodge(width = 0.5)) + ylim(0,0.5) +
                                   geom_errorbar(aes(ymin = lower.CI, ymax = upper.CI, x = as.factor(tissue)),
                                   width = 0, position = position_dodge(width = 0.5)) +
@@ -369,7 +369,7 @@ fraction.of.SDIU.X.chromosome = ggplot(fraction.df, aes(y=fraction, x = as.facto
                                       axis.text = element_text(face="bold", color="black",size=15, family = "Helvetica"),
                                       axis.title=element_blank(), legend.position = "none")
                                   #facet_grid(tissue~., scales = "free")
-pdf("/plas1/amardeep.singh/tmp/sdiu.fraction.on.x.chromosome.sept15.pdf",height = 10, width = 5)
+pdf("/plas1/amardeep.singh/tmp/sdiu.fraction.on.x.chromosome.sept16.pdf",height = 10, width = 5)
 fraction.of.SDIU.X.chromosome
 dev.off()
 

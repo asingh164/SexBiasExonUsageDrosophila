@@ -1260,7 +1260,6 @@ head.upper.CI = as.vector( c( quantile(head.bin.1.resample, 0.95)[1],
                               quantile(head.bin.4.resample, 0.95)[1],
                               quantile(head.bin.5.resample, 0.95)[1]))
 
-
 body.gene.expression.df = as.data.frame(cbind(body.fraction, body.lower.CI, body.upper.CI))
 body.gene.expression.df$log2FCbin = seq(1,5,1)
 body.gene.expression.df$tissue = "body"
@@ -1275,18 +1274,20 @@ colnames(head.gene.expression.df) = c("fraction", "lower.CI", "upper.CI", "log2F
 
 gene.expression.df = rbind(body.gene.expression.df,head.gene.expression.df)
 
+# Colours: darkred: #b30000; light red: #e09999; Dark Blue: #0000b3; light blue: #9999e0
+
 fraction.of.genes.on.chromosome = ggplot(gene.expression.df, aes(y=fraction, x = as.factor(log2FC.bin), colour = expbias)) +
                                   geom_point(aes(x = as.factor(log2FC.bin), y=fraction, colour = expbias), size = 7,
                                   position = position_dodge(width = 0.5)) +
                                   geom_errorbar(aes(ymin = lower.CI, ymax = upper.CI, x = as.factor(log2FC.bin)),
                                   width = 0, position = position_dodge(width = 0.5)) +
-                                  theme_bw()  + scale_colour_manual(values = c("#e09999","#0000b3", "#000000")) +
+                                  theme_bw()  + scale_colour_manual(values = c("#b30000","#0000b3","#000000")) +
                                   theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
                                       panel.border = element_rect(colour = "black", fill=NA, size=1),
                                       axis.text = element_text(face="bold", color="black",size=15, family = "Helvetica"),
                                       axis.title=element_blank(), legend.position = "none") +
                                   facet_grid(tissue~., scales = "free")
-pdf("/plas1/amardeep.singh/tmp/gene.expression.fractions.by.on.chromosome.filtered.sept15.pdf")
+pdf("/plas1/amardeep.singh/tmp/gene.expression.fractions.by.on.chromosome.filtered.sept16.pdf")
 fraction.of.genes.on.chromosome
 dev.off()
 
@@ -1334,7 +1335,7 @@ head.quantile.bin.1.non.sdiu = non.sdiu.head[non.sdiu.head$log2FC.quantile.CIs =
 head.quantile.bin.2.non.sdiu = non.sdiu.head[non.sdiu.head$log2FC.quantile.CIs == 2, ]
 head.quantile.bin.3.non.sdiu = non.sdiu.head[non.sdiu.head$log2FC.quantile.CIs == 3, ]
 head.quantile.bin.4.non.sdiu = non.sdiu.head[non.sdiu.head$log2FC.quantile.CIs == 4, ]
-#head.quantile.bin.5.non.sdiu = non.sdiu.head[non.sdiu.head$log2FC.quantile.CIs == 5, ]
+head.quantile.bin.5.non.sdiu = non.sdiu.head[non.sdiu.head$log2FC.quantile.CIs == 5, ]
 
 body.bin.1.fraction.sdiu = nrow(body.quantile.bin.1.sdiu[body.quantile.bin.1.sdiu$chr == "X",]) / nrow(body.quantile.bin.1.sdiu)
 body.bin.2.fraction.sdiu = nrow(body.quantile.bin.2.sdiu[body.quantile.bin.2.sdiu$chr == "X",]) / nrow(body.quantile.bin.2.sdiu)
@@ -1513,22 +1514,28 @@ head.upper.CI = as.vector( c( quantile(head.bin.1.sdiu.resample, 0.95)[1],
 gene.expression.fraction.chromosome$lower.CI = c(body.lower.CI,head.lower.CI)
 gene.expression.fraction.chromosome$upper.CI = c(body.upper.CI,head.upper.CI)
 gene.expression.fraction.chromosome$expbias = c("FB","FB","UB","MB","MB","FB","FB","UB","MB","MB","FB.1","FB","UB","MB","MB.1","FB.1","FB","UB","MB","MB.1")
-# Colours: darkred: #b30000; light red: #e09999; Dark Blue: #0000b3; light blue: #9999e0
 
-fraction.of.genes.on.chromosome = ggplot(gene.expression.fraction.chromosome, aes(y=fraction, x = as.factor(log2FC.bins), colour = sdiu)) +
-                                  geom_point(aes(x = as.factor(log2FC.bins), y=fraction, colour = sdiu), size = 7,
+
+# Note: For plotting I converted the SDIU column from numeric to "sdiu" and "nonsdiu"
+gene.expression.fraction.chromosome$sdiu.plotting[gene.expression.fraction.chromosome$sdiu == 1] = "sdiu"
+gene.expression.fraction.chromosome$sdiu.plotting[gene.expression.fraction.chromosome$sdiu == 0] = "nonsdiu"
+# Modify the bins with few genes
+gene.expression.fraction.chromosome$sdiu.plotting[c(11,15)] = "sdiu.1"
+gene.expression.fraction.chromosome$sdiu.plotting[c(20,16)] = "nonsdiu.1"
+
+#Colours: purple: #800080 ; light purple: #cc99cc; green: #65c86e; light green: #c1e9c5
+fraction.of.genes.on.chromosome = ggplot(gene.expression.fraction.chromosome, aes(y=fraction, x = as.factor(log2FC.bins), colour = sdiu.plotting)) +
+                                  geom_point(aes(x = as.factor(log2FC.bins), y=fraction, colour = sdiu.plotting), size = 7,
                                   position = position_dodge(width = 0.5)) +
                                   geom_errorbar(aes(ymin = lower.CI, ymax = upper.CI, x = as.factor(log2FC.bins)),
                                   width = 0, position = position_dodge(width = 0.5)) +
-                                  theme_bw()  + scale_colour_manual(values = c("#800080", "#65c86e")) +
+                                  #theme_bw()  + scale_colour_manual(values = c("#800080","#65c86e")) +
+                                  theme_bw()  + scale_colour_manual(values = c("#800080", "#cc99cc","#65c86e","#c1e9c5")) +
                                   theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
                                       panel.border = element_rect(colour = "black", fill=NA, size=1),
                                       axis.text = element_text(face="bold", color="black",size=15, family = "Helvetica"),
                                       axis.title=element_blank(), legend.position = "none") +
                                   facet_grid(tissue~., scales = "free")
-pdf("/plas1/amardeep.singh/tmp/gene.expression.by.sdiu.fractions.by.on.chromosome.filtered.sept15.pdf")
+pdf("/plas1/amardeep.singh/tmp/gene.expression.by.sdiu.fractions.by.on.chromosome.sept15.pdf")
 fraction.of.genes.on.chromosome
 dev.off()
-
-
-#

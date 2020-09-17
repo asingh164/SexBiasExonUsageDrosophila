@@ -739,11 +739,13 @@ piNpiS.data.summary = summaryBy(piNpiS ~ log2FC.bins + tissue, FUN = function(x)
 # Replace resample.data.summary "mean" with true observed mean
 colnames(piNpiS.data.summary) = c("log2FC.bins","tissue","piNpiS.Median","piNpiS.lowerCI","piNpiS.upperCI")
 piNpiS.data.summary$piNpiS.Median = pin.pis.summary$piN.piS.median
-piNpiS.data.summary$sexbias[piNpiS.data.summary$log2FC.bins == 1] = "FB"
+piNpiS.data.summary$sexbias[piNpiS.data.summary$log2FC.bins == 1 & piNpiS.data.summary$tissue == "body"] = "FB"
+piNpiS.data.summary$sexbias[piNpiS.data.summary$log2FC.bins == 1 & piNpiS.data.summary$tissue == "head"] = "FB.1"
 piNpiS.data.summary$sexbias[piNpiS.data.summary$log2FC.bins == 2] = "FB"
 piNpiS.data.summary$sexbias[piNpiS.data.summary$log2FC.bins == 3] = "UB"
 piNpiS.data.summary$sexbias[piNpiS.data.summary$log2FC.bins == 4] = "MB"
-piNpiS.data.summary$sexbias[piNpiS.data.summary$log2FC.bins == 5] = "MB"
+piNpiS.data.summary$sexbias[piNpiS.data.summary$log2FC.bins == 5 & piNpiS.data.summary$tissue == "body"] = "MB"
+piNpiS.data.summary$sexbias[piNpiS.data.summary$log2FC.bins == 5 & piNpiS.data.summary$tissue == "head"] = "MB.1"
 
 # Colours: darkred: #b30000; light red: #e09999; Dark Blue: #0000b3; light blue: #9999e0
 
@@ -753,6 +755,7 @@ piN_piS.expression.plot = ggplot(piNpiS.data.summary, aes(y = piNpiS.Median, x =
                                       position = position_dodge(width = 0.5)) +# ylim(0.00,0.3) +
                                       geom_errorbar(aes(ymin = piNpiS.lowerCI, ymax = piNpiS.upperCI, x = as.factor(log2FC.bins), colour=as.factor(sexbias)),
                                       width = 0, position = position_dodge(width = 0.5)) +
+                                      #theme_bw()  + scale_colour_manual(values = c("#b30000","#e09999", "#0000b3","#9999e0", "#000000")) +
                                       theme_bw()  + scale_colour_manual(values = c("#b30000", "#0000b3", "#000000")) +
                                       theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
                                             panel.border = element_rect(colour = "black", fill=NA, size=1),
@@ -760,13 +763,13 @@ piN_piS.expression.plot = ggplot(piNpiS.data.summary, aes(y = piNpiS.Median, x =
                                             axis.title=element_blank(), legend.position = "none") +
                                       facet_grid(tissue ~., scales = "free")
 
-pdf("/plas1/amardeep.singh/tmp/piNpiS.by.log2FC.expression.bins.subset.nosdiu.sept15.pdf", height = 10, width = 10)
+pdf("/plas1/amardeep.singh/tmp/piNpiS.by.log2FC.expression.bins.nosdiu.sept15.pdf", height = 10, width = 10)
 piN_piS.expression.plot
 dev.off()
 
 
 
-### 3A. Third plot is without parsing out by sex-averaged gene expression over all sex-bias in gene expression levels split by SDIU and non-SDIU genes
+### 3A. Third plot is parsing out by sex-averaged gene expression over all sex-bias in gene expression levels split by SDIU and non-SDIU genes
 #### Plotting by assessing piN/piS at genes showing DEU parsed by sex bias in gene expression
 
 # Summarize true data

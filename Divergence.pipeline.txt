@@ -1,0 +1,61 @@
+
+
+#--- Bash ---
+# Data file from Begun et al 2007
+#   Begun_et_al_SupTable1.txt
+# Remove the isoform data in the Begun et al. dataset (i.e., the "-P*" text at the end of the first column) to allow for
+#   combining it with a file that converts CG to FBgn IDs.
+cat Begun.data.tmp | awk -vOFS="\t" '{sub(/...$/,"",$1);print $0}' > tmp && mv tmp Begun.data.tmp
+#--- /Bash ---
+
+
+# Combine Begun data with FBgn/CG conversion data
+begun.data = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/HomologyData/Begun.data.tmp", header = TRUE, sep = "\t")
+FBgnCG.data = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/HomologyData/FBgnCG.txt", header = TRUE, sep = "\t")
+colnames(FBgnCG.data) = c("geneID", "GeneSymbol")
+# Merge both datasets and save outputs
+merged.data = merge(FBgnCG.data, begun.data, by.x = "GeneSymbol", by.y = "CG", sort = FALSE)
+write.table(merged.data, "/plas1/amardeep.singh/RNA.Seq.Data/HomologyData/begun.data.withFBgn.Oct16.txt", quote = F, sep = "\t", row.names = F, col.names = T)
+
+###########################################################################################
+###   Examining patterns of divergence and diversity at (non)SDIU and (non)SBGE genes   ###
+###########################################################################################
+
+rm(list=ls())
+
+## Loading in data files
+# Read in JunctionSeq results
+junctionseq.results.body = read.table("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/BodyOutput/Aug1.Body.OnlyallGenes.results.txt", header = TRUE, sep = "\t")
+junctionseq.results.head = read.table("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/HeadOutput/Aug1.Head.OnlyallGenes.results.txt", header = TRUE, sep = "\t")
+# Read in Gene Expression data
+
+# Loading in Diversity data from DGRP D. mel population
+diversity.data = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/nucleotide.diversity.per.gene.Aug10.txt", header = TRUE)
+# Read in Divergence Data
+divergence.data = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/HomologyData/begun.data.withFBgn.Oct16.txt", header = TRUE, sep = "\t")
+
+### Lets clean up these dataframes to pull out only the necessary columns
+## Cleaning Diversity data -- Want Number of synonymous and non-synonoymous polymorphic sites
+diversity.data.sub = diversity.data[,c(1,2,4)]
+## Cleaning Diversity data -- Want Number of synonymous and non-synonoymous polymorphic sites
+divergence.data.sub = divergence.data[,c(2,14:15)]
+## Cleaning JunctionSeq data
+# Remove any sites that were not tested
+junctionseq.results.body = junctionseq.results.body[!(is.na(junctionseq.results.body$pvalue)),]
+junctionseq.results.head = junctionseq.results.head[!(is.na(junctionseq.results.head$pvalue)),]
+# Lets remove any rows where the expr in males or females is less than 50
+junctionseq.results.body.filtered = junctionseq.results.body[junctionseq.results.body$expr_male > 50 & junctionseq.results.body$expr_female > 50 ,]
+junctionseq.results.head.filtered = junctionseq.results.head[junctionseq.results.head$expr_male > 50 & junctionseq.results.head$expr_female > 50 ,]
+# Filter out unncessary columns
+junctionseq.results.body.filtered.sub = junctionseq.results.body[,c(2,25)]
+junctionseq.results.head.filtered.sub = junctionseq.results.head[,c(2,25)]
+
+
+### Merge Data Juntionseq and Divergence Data
+junctionseq.body.divergence.data.tmp = merge(junctionseq.results.body.filtered.sub, divergence.data.sub, by.x = "geneID", by.y = "geneID", sort = FALSE)
+junctionseq.head.divergence.data.tmp = merge(junctionseq.results.head.filtered.sub, divergence.data.sub, by.x = "geneID", by.y = "geneID", sort = FALSE)
+# Merge with diversity data
+data = merge(junctionseq.body.divergence.data.tmp, diversity.data.sub, by.x = "geneID", by.y = "geneID", sort = FALSE)
+data = merge(junctionseq.head.divergence.data.tmp, diversity.data.sub, by.x = "geneID", by.y = "geneID", sort = FALSE)
+
+#

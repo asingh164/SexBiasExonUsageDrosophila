@@ -14,9 +14,7 @@
 
 mkdir ../fastq.trimmed.files
 
-ls RAL-786*.fastq | nice -n 15 parallel -j 40 java -jar /plas1/amardeep.singh/apps/Trimmomatic-0.39/trimmomatic-0.39.jar SE -phred33 {} \
-          /plas1/amardeep.singh/RNA.Seq.Data/fastq.trimmed.files/trimmed.{} \
-          ILLUMINACLIP:/plas1/amardeep.singh/apps/Trimmomatic-0.39/adapters/TruSeq3-SE.fa:2:30:10
+ls RAL-786*.fastq | nice -n 15 parallel -j 40 java -jar /plas1/amardeep.singh/apps/Trimmomatic-0.39/trimmomatic-0.39.jar SE -phred33 {} /plas1/amardeep.singh/RNA.Seq.Data/fastq.trimmed.files/trimmed.{} ILLUMINACLIP:/plas1/amardeep.singh/apps/Trimmomatic-0.39/adapters/TruSeq3-SE.fa:2:30:10
 
 echo DONE
 

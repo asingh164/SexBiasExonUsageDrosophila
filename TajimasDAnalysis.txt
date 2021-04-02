@@ -11,77 +11,178 @@
 ########################################################################################################################
 ########################################################################################################################
 
+#########################################################################
+###     Get list of SNPS falling within Genes in the DGRP VCF file    ###
+#########################################################################
+
+
+## Original location of DGRP VCF files containing both variant and invariants, 4fold sites: "/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs"
+##  Files are split by chromosome arm with the following format chr.XX.4fold_modified.vcf where XX is replaced with chromosome arm (or just X for x-chromosome)
+# export file paths
+export PATH_TO_DGRP_VCFS=/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs
+#export PATH_TO_DGRP_INVARIANT_VCFS_SPLIT_BY_CHROMOSOME=/plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DGRP.Genomic.Data/VCF.variant.invariant
+export PATH_TO_DMEL_GTF=/plas1/amardeep.singh/Flybase.Dmel.Genome.Release/gtf/dmel-all-r6.32.filtered.gtf
+export PATH_TO_OUTPUT=/plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/output
+
+# Add BED format to first three columns of vcf files
+# Redirect header first
+cat ${PATH_TO_DGRP_VCF}chr.2L.4fold_modified.vcf | head -1 >  ${PATH_TO_OUTPUT}/vcf.header
+cat ${PATH_TO_DGRP_VCF}chr.2L.4fold_modified.vcf | awk ' BEGIN {OFS = FS = "\t"} {print $1 "\t" $2 "\t" $2+1 "\t" $0}' > ${PATH_TO_OUTPUT}/chr.2L.4fold_modified.vcf.tmp &
+cat ${PATH_TO_DGRP_VCF}chr.2R.4fold_modified.vcf | awk ' BEGIN {OFS = FS = "\t"} {print $1 "\t" $2 "\t" $2+1 "\t" $0}' > ${PATH_TO_OUTPUT}/chr.2R.4fold_modified.vcf.tmp &
+cat ${PATH_TO_DGRP_VCF}chr.3L.4fold_modified.vcf | awk ' BEGIN {OFS = FS = "\t"} {print $1 "\t" $2 "\t" $2+1 "\t" $0}' > ${PATH_TO_OUTPUT}/chr.3L.4fold_modified.vcf.tmp &
+cat ${PATH_TO_DGRP_VCF}chr.3R.4fold_modified.vcf | awk ' BEGIN {OFS = FS = "\t"} {print $1 "\t" $2 "\t" $2+1 "\t" $0}' > ${PATH_TO_OUTPUT}/chr.3R.4fold_modified.vcf.tmp &
+cat ${PATH_TO_DGRP_VCF}chr.X.4fold_modified.vcf | awk ' BEGIN {OFS = FS = "\t"} {print $1 "\t" $2 "\t" $2+1 "\t" $0}' > ${PATH_TO_OUTPUT}/chr.X.4fold_modified.vcf.tmp &
+
+# Remove spaces from files
+ls ${PATH_TO_OUTPUT}/*.tmp | parallel "sed -i 's/ //g' "
+
+# Intersect vcf with BED formatted columns with GTF using bedtools
+ls ${PATH_TO_OUTPUT}/*.tmp | sed 's/.vcf.tmp//'  | parallel "bedtools intersect -wa -wb -header -a {}.vcf.tmp -b ${PATH_TO_DMEL_GTF} > {}.Intersect.output.vcf"
+
+# Some formatting
+# Remove all spaces
+ls ${PATH_TO_OUTPUT}/*Intersect.output.vcf | parallel "sed -i 's/ //g'" &
+ls ${PATH_TO_OUTPUT}/*Intersect.output.vcf | parallel "sed -i 's/\"//g'" &
+ls ${PATH_TO_OUTPUT}/*Intersect.output.vcf | parallel "sed -i 's/;/\t/'"
+
+# Retain relevent fields of information
+cat ${PATH_TO_OUTPUT}/chr.2L.4fold_modified.Intersect.output.vcf | cut -f 4-217,226 > chr.2L.4fold_modified.Intersect.output.vcf.tmp &
+cat ${PATH_TO_OUTPUT}/chr.2R.4fold_modified.Intersect.output.vcf | cut -f 4-217,226 > chr.2R.4fold_modified.Intersect.output.vcf.tmp &
+cat ${PATH_TO_OUTPUT}/chr.3L.4fold_modified.Intersect.output.vcf | cut -f 4-217,226 > chr.3L.4fold_modified.Intersect.output.vcf.tmp &
+cat ${PATH_TO_OUTPUT}/chr.2R.4fold_modified.Intersect.output.vcf | cut -f 4-217,226 > chr.3R.4fold_modified.Intersect.output.vcf.tmp &
+cat ${PATH_TO_OUTPUT}/chr.X.4fold_modified.Intersect.output.vcf | cut -f 4-217,226 > chr.X.4fold_modified.Intersect.output.vcf.tmp &
+
+# Filter for unique sites
+cat ${PATH_TO_OUTPUT}/chr.2L.4fold_modified.Intersect.output.vcf.tmp | awk -F"\t" '!seen[$1, $2]++' > tmp1 && mv tmp1 ${PATH_TO_OUTPUT}/chr.2L.4fold_modified.Intersect.output.vcf &
+cat ${PATH_TO_OUTPUT}/chr.2R.4fold_modified.Intersect.output.vcf.tmp | awk -F"\t" '!seen[$1, $2]++' > tmp2 && mv tmp2 ${PATH_TO_OUTPUT}/chr.2R.4fold_modified.Intersect.output.vcf &
+cat ${PATH_TO_OUTPUT}/chr.3L.4fold_modified.Intersect.output.vcf.tmp | awk -F"\t" '!seen[$1, $2]++' > tmp3 && mv tmp3 ${PATH_TO_OUTPUT}/chr.3L.4fold_modified.Intersect.output.vcf &
+cat ${PATH_TO_OUTPUT}/chr.3R.4fold_modified.Intersect.output.vcf.tmp | awk -F"\t" '!seen[$1, $2]++' > tmp4 && mv tmp4 ${PATH_TO_OUTPUT}/chr.3R.4fold_modified.Intersect.output.vcf &
+cat ${PATH_TO_OUTPUT}/chr.X.4fold_modified.Intersect.output.vcf.tmp | awk -F"\t" '!seen[$1, $2]++' > tmp5 && mv tmp5 ${PATH_TO_OUTPUT}/chr.X.4fold_modified.Intersect.output.vcf &
+
+# combine VCFs for each arm
+# First, remove header fro every VCF except for the chr2L vcf
+sed -i '/^#CHROM/d' chr.2R.4fold_modified.Intersect.output.vcf &
+sed -i '/^#CHROM/d' chr.3L.4fold_modified.Intersect.output.vcf &
+sed -i '/^#CHROM/d' chr.3R.4fold_modified.Intersect.output.vcf &
+sed -i '/^#CHROM/d' chr.X.4fold_modified.Intersect.output.vcf &
+# Combine vcfs
+cat chr.2L.4fold_modified.Intersect.output.vcf chr.2R.4fold_modified.Intersect.output.vcf chr.3L.4fold_modified.Intersect.output.vcf chr.3R.4fold_modified.Intersect.output.vcf chr.X.4fold_modified.Intersect.output.vcf > DGRP.4fold.intersect.output.vcf
+
+# Clean up intermediate files
+rm *.tmp
+
 ##################################################
 ###     Calculating Tajimas D in the DGRP      ###
 ##################################################
 
-## Original location of DGRP VCF file: "/plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.filtered.vcf"
+# The basic strategy here will be:
+# 1. Import the variant/invariant 4fold vcf into R
+# 2. Parse the file for variant sites into a separate file
+# 3. Take the variant vcf and split the file into objects, each containing all of the variant sites in a single gene
+# 4. For each unique gene vcf, make a SFS, count up the total number of 4fold sites in that gene (from the original variant/invariant VCF) and calculate TajimasD
 
-## Calculating Tajimas D at the SNP level
-vcftools --vcf /plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.filtered.vcf --TajimaD 1 --out DGRP.SNP.Level &  ## This generates estimates of Tajimas D at the SNP level
+#--- R CODE ---
+# Source the VCFtoSFS script and TajimasD from SFS screipt
+source("/plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/VCFtoSFS.R")
+source ("/plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/TajimasDfromSFS.R")
 
-# Clean out sites without any SNPs to estimates Tajima's D
-sed -i '/nan/d' /plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.SNP.Level.Tajima.D
+# Import variant/invariant VCF
+invariant.variant.vcf = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/output/DGRP.4fold.intersect.output.vcf", header = FALSE)
+# Clean up the vcf file by adding a proper header and format the geneID column
+colnames(invariant.variant.vcf) = c((as.vector(as.matrix(invariant.variant.vcf [1,])))[1:(length(invariant.variant.vcf [1,])-1)],"geneID")
+invariant.variant.vcf$geneID = substring(invariant.variant.vcf$geneID,8,18)
+# Remove first row from the VCF
+invariant.variant.vcf  = invariant.variant.vcf [-1,]
+
+# Parse VCF into file containing only variant sites
+variant.vcf = invariant.variant.vcf[invariant.variant.vcf$ALT=="A" | invariant.variant.vcf$ALT=="C"| invariant.variant.vcf$ALT=="G" | invariant.variant.vcf$ALT=="T", ]
+
+# Generate 'popmap'
+popmap.input = as.data.frame((colnames(invariant.variant.vcf)[10:(length(colnames(invariant.variant.vcf))-1)]))
+popmap.input$population = "DGRP"
+colnames(popmap.input)=c("sample.name", "population")
+
+# Loop through each gene to generate a SFS and calculate TajimasD
+geneID.index = unique(variant.vcf$geneID)
+tajimasD.output.df = as.data.frame(matrix(NA,ncol = 3, nrow = length(geneID.index)))
+colnames(tajimasD.output.df) = c("geneID","TajimasD.adjusted","NumVariantSites")
+tajimasD.output.df$geneID = geneID.index
+
+for (i in 1:length(geneID.index)){
+
+  geneID = geneID.index[i]
+  vcf.gene = variant.vcf[variant.vcf$geneID==geneID,]
+
+  # generate genotype object
+  gt = vcf2gt(vcf.gene[1:(length(names(vcf.gene))-1)],popmap.input)
+  vcf = gt$genotype
+  L = nrow(invariant.variant.vcf[invariant.variant.vcf$geneID == geneID,])
+
+  tajimasD.output.df$TajimasD.adjusted[tajimasD.output.df$geneID == geneID] = GetTajimasDFromVCF(vcf,L)[1]
+  tajimasD.output.df$NumVariantSites[tajimasD.output.df$geneID == geneID] = GetTajimasDFromVCF(vcf,L)[2]
+print(i)
+}
+write.table(tajimasD.output.df, file = "/plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/output/DGRP.TajimasD.per.gene.txt", sep = "\t", row.names=F,quote=F,col.names=T)
 
 
-#####################################################################################################################
-###   Intersect list of significant hits from JunctionSeq Analysis with with TajimasD Calculations in the DGRP    ###
-#####################################################################################################################
+################################################################################
+###   Intersect list of Genes with with TajimasD Calculations in the DGRP    ###
+################################################################################
 
 # Sort the DGRP file
 # Format the DGRP Tajimas D file to a bed format file
-cat /plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.SNP.Level.Tajima.D | awk ' BEGIN {OFS = FS = "\t"} {print $1 "\t" $2 "\t" $2+1 "\t" $4}' > /plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.SNP.Level.Tajima.D.coordinates.bed
+#cat /plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.SNP.Level.Tajima.D | awk ' BEGIN {OFS = FS = "\t"} {print $1 "\t" $2 "\t" $2+1 "\t" $4}' > /plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.SNP.Level.Tajima.D.coordinates.bed
 # Remove header from file
-sed -i '/^CHROM/d ' /plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.SNP.Level.Tajima.D.coordinates.bed
+#sed -i '/^CHROM/d ' /plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.SNP.Level.Tajima.D.coordinates.bed
 
 ## Intersect the Junctionseq significant hits bed file with the DGRP bed file
 # First, sort the bed files
-sort -k1,1 -k2,2n /plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.SNP.Level.Tajima.D.coordinates.bed > /plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.SNP.Level.Tajima.D.coordinates.sorted.bed
+#sort -k1,1 -k2,2n /plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.SNP.Level.Tajima.D.coordinates.bed > /plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.SNP.Level.Tajima.D.coordinates.sorted.bed
 # Take list of SNPs and intersect it with a GFF to find out which genes each SNP belongs to (if they fall in coding regions at all)
-bedtools intersect -wa -wb -a /plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.SNP.Level.Tajima.D.coordinates.sorted.bed -b /plas1/amardeep.singh/Flybase.Dmel.Genome.Release/gtf/dmel-all-r6.32.filtered.gtf > /plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/DGRP.SNP.Level.Intersect.Output
+#bedtools intersect -wa -wb -a /plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.SNP.Level.Tajima.D.coordinates.sorted.bed -b /plas1/amardeep.singh/Flybase.Dmel.Genome.Release/gtf/dmel-all-r6.32.filtered.gtf > /plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/DGRP.SNP.Level.Intersect.Output
 
 ## Remove duplicate records
-cat /plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/DGRP.SNP.Level.Intersect.Output | sort -u -s -k1,2 > /plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/DGRP.SNP.Level.Intersect.Filtered.Output
+#cat /plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/DGRP.SNP.Level.Intersect.Output | sort -u -s -k1,2 > /plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/DGRP.SNP.Level.Intersect.Filtered.Output
 
 # Redirect the fields of interest
-cat /plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/DGRP.SNP.Level.Intersect.Filtered.Output | awk 'BEGIN { OFS = FS = "\t" } { print $1 "\t" $2 "\t" $4 "\t" substr($13, 10,11)}' > /plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/DGRP.SNP.Level.Intersect.Filtered.Output.formatted
+#cat /plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/DGRP.SNP.Level.Intersect.Filtered.Output | awk 'BEGIN { OFS = FS = "\t" } { print $1 "\t" $2 "\t" $4 "\t" substr($13, 10,11)}' > /plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/DGRP.SNP.Level.Intersect.Filtered.Output.formatted
 
 # --- R Code ---
-# Now we are going to calculate the Tajima's D for each gene, averaged across all SNPs in a gene
-rm(list=ls())
-require(doBy)
-DGRP.data = read.table("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/DGRP.Intersect/DGRP.SNP.Level.Intersect.Filtered.Output.formatted", sep = "\t", header = FALSE)
+# Now we are going to the Tajima's D for each gene, averaged across all SNPs in a gene
+#rm(list=ls())
+#require(doBy)
+#DGRP.data = read.table("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/DGRP.Intersect/DGRP.SNP.Level.Intersect.Filtered.Output.formatted", sep = "\t", header = FALSE)
 # List of 4 fold degenerate sites (File is generated in the piN:piSAnalysis.txt script)
-diversity.4fold = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/diversity.4fold.sites", header = FALSE)
+#diversity.4fold = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/diversity.4fold.sites", header = FALSE)
 
 # Format chromosome column to be the same and retain only columns needed
-diversity.4fold$V1 = substr(diversity.4fold$V1, 4,5)
-diversity.4fold$V4 = substr(diversity.4fold$V4, 8,18)
+#diversity.4fold$V1 = substr(diversity.4fold$V1, 4,5)
+#diversity.4fold$V4 = substr(diversity.4fold$V4, 8,18)
 # Retain only columns needed
-diversity.4fold=diversity.4fold[,c(1,2,4)]
+#diversity.4fold=diversity.4fold[,c(1,2,4)]
 
 # Add an index column to each file
-diversity.4fold$index = paste(diversity.4fold$V1, diversity.4fold$V2, sep = ":")
-DGRP.data$index = paste(DGRP.data$V1, DGRP.data$V2, sep = ":")
+#diversity.4fold$index = paste(diversity.4fold$V1, diversity.4fold$V2, sep = ":")
+#DGRP.data$index = paste(DGRP.data$V1, DGRP.data$V2, sep = ":")
 
 # Remove duplicates from the degeneracy file
-diversity.4fold.unique = unique(diversity.4fold)
+#diversity.4fold.unique = unique(diversity.4fold)
 # Add column names to files
-colnames(diversity.4fold.unique) = c("chr", "pos", "geneID", "index")
-colnames(DGRP.data) = c("chr", "pos", "tajimasD","geneID", "index")
+#colnames(diversity.4fold.unique) = c("chr", "pos", "geneID", "index")
+#colnames(DGRP.data) = c("chr", "pos", "tajimasD","geneID", "index")
 # Obtain a list of the number of 4fold sites per gene
-number.4fold.per.gene = summaryBy(index ~ geneID, FUN=c(length), data = diversity.4fold.unique)
+#number.4fold.per.gene = summaryBy(index ~ geneID, FUN=c(length), data = diversity.4fold.unique)
 
 # Merge 4fold sites file with TajimasD file
-merged.data = merge(diversity.4fold.unique, DGRP.data, by = c("index", "geneID"))
-tajimasD.4fold.per.gene = summaryBy(tajimasD ~ geneID, FUN = c(mean, length), data = merged.data)
+#merged.data = merge(diversity.4fold.unique, DGRP.data, by = c("index", "geneID"))
+#tajimasD.4fold.per.gene = summaryBy(tajimasD ~ geneID, FUN = c(mean, length), data = merged.data)
 
 # Combine tajimasD per gene with data on total number of 4fold sites
-tajimasD.4fold.per.gene = merge(tajimasD.4fold.per.gene,number.4fold.per.gene, by.x = "geneID", by.y = "geneID")
-colnames(tajimasD.4fold.per.gene) = c("geneID", "tajimasD.mean", "numberOfSegregatingSites","numberOf4FoldSites")
+#tajimasD.4fold.per.gene = merge(tajimasD.4fold.per.gene,number.4fold.per.gene, by.x = "geneID", by.y = "geneID")
+#colnames(tajimasD.4fold.per.gene) = c("geneID", "tajimasD.mean", "numberOfSegregatingSites","numberOf4FoldSites")
 #tajimasD.4fold.per.gene = aggregate(merged.data[, "V3.x"], list(merged.data$V3.x), mean)
 
-write.table(tajimasD.4fold.per.gene, "/plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.TajimasD.4fold.Per.Gene", sep = "\t", quote = F, row.name = F, col.name = T)
+#write.table(tajimasD.4fold.per.gene, "/plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.TajimasD.4fold.Per.Gene", sep = "\t", quote = F, row.name = F, col.name = T)
 #\--- R CODE ---
 
 ###################################################################
@@ -95,15 +196,16 @@ require(doBy)
 # Read in JunctionSeq results
 junctionseq.results.body = read.table("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/BodyOutput/Aug1.Body.OnlyallGenes.results.txt", header = TRUE, sep = "\t")
 junctionseq.results.head = read.table("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/HeadOutput/Aug1.Head.OnlyallGenes.results.txt", header = TRUE, sep = "\t")
-# Read in Tajimas D per gene results ## 4fold sites
-tajimasD.per.gene = read.table("/plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.TajimasD.4fold.Per.Gene", header = TRUE, sep = "\t")
+# Read in Tajimas D per gene results
+tajimasD.per.gene = read.table("/plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/output/DGRP.TajimasD.per.gene.txt", header = TRUE, sep = "\t")
 # Rename the Tajima's D column
 colnames(tajimasD.per.gene)[2] = "TajimasD"
 
-# Cleaning up junctionseq files
+# Cleaning up junctionseq and Tajimas D file of NA values
 # Remove any sites that were not tested
 junctionseq.results.body = junctionseq.results.body[!(is.na(junctionseq.results.body$pvalue)),]
 junctionseq.results.head = junctionseq.results.head[!(is.na(junctionseq.results.head$pvalue)),]
+tajimasD.per.gene = tajimasD.per.gene[!(is.na(tajimasD.per.gene$TajimasD)),]
 
 # Lets remove any rows where the expr in males or females is less than 50
 junctionseq.results.body.filtered = junctionseq.results.body[junctionseq.results.body$expr_male > 50 & junctionseq.results.body$expr_female > 50 ,]
@@ -114,12 +216,12 @@ junctionseq.results.body.merged = merge(junctionseq.results.body.filtered, tajim
 junctionseq.results.head.merged = merge(junctionseq.results.head.filtered, tajimasD.per.gene, by.x = "geneID", by.y = "geneID", sort = FALSE)
 
 # Clean up data and remove duplicate genes (i.e., keep only the gene level and not exon level info)
-junctionseq.results.body.merged = junctionseq.results.body.merged[, c(1,25:28)]
+junctionseq.results.body.merged = junctionseq.results.body.merged[, c(1,25:27)]
 junctionseq.results.body.merged = junctionseq.results.body.merged[!duplicated(junctionseq.results.body.merged[1:3]),]
-junctionseq.results.body.merged = junctionseq.results.body.merged[junctionseq.results.body.merged$numberOfSegregatingSites >= 6,]
-junctionseq.results.head.merged = junctionseq.results.head.merged[, c(1,25:28)]
+#junctionseq.results.body.merged = junctionseq.results.body.merged[junctionseq.results.body.merged$numberOfSegregatingSites >= 6,]
+junctionseq.results.head.merged = junctionseq.results.head.merged[, c(1,25:27)]
 junctionseq.results.head.merged = junctionseq.results.head.merged[!duplicated(junctionseq.results.head.merged[1:3]),]
-junctionseq.results.head.merged = junctionseq.results.head.merged[junctionseq.results.head.merged$numberOfSegregatingSites >= 6,]
+#junctionseq.results.head.merged = junctionseq.results.head.merged[junctionseq.results.head.merged$numberOfSegregatingSites >= 6,]
 
 # Assign significant hits
 # Body
@@ -183,7 +285,7 @@ require(car)
 junctionseq.results.body = read.table("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/BodyOutput/Aug1.Body.OnlyallGenes.results.txt", header = TRUE, sep = "\t")
 junctionseq.results.head = read.table("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/HeadOutput/Aug1.Head.OnlyallGenes.results.txt", header = TRUE, sep = "\t")
 # Read in Tajimas D per gene results
-tajimasD.per.gene = read.table("/plas1/amardeep.singh/RNA.Seq.Data/DGRP.Genomic.Data/DGRP.TajimasD.4fold.Per.Gene", header = TRUE, sep = "\t")
+tajimasD.per.gene = read.table("/plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/output/DGRP.TajimasD.per.gene.txt", header = TRUE, sep = "\t")
 ## Load in the differential gene expression data
 DGE.data.body = read.table("/plas1/amardeep.singh/RNA.Seq.Data/GeneExpression/RAL.DifferentialGeneExpression.body.txt", header = TRUE, sep = "\t")
 DGE.data.head = read.table("/plas1/amardeep.singh/RNA.Seq.Data/GeneExpression/RAL.DifferentialGeneExpression.head.txt", header = TRUE, sep = "\t")
@@ -191,6 +293,9 @@ DGE.data.head = read.table("/plas1/amardeep.singh/RNA.Seq.Data/GeneExpression/RA
 ## Cleaning up data files
 # Rename the Tajima's D column
 colnames(tajimasD.per.gene)[2] = "TajimasD"
+# Remove genes that didn't have enough individuals with genotypic information present to calculate TajimasD
+tajimasD.per.gene = tajimasD.per.gene[!(is.na(tajimasD.per.gene$TajimasD)),]
+
 # Cleaning up junctionseq file
 # Remove any sites that were not tested
 junctionseq.results.body = junctionseq.results.body[!(is.na(junctionseq.results.body$pvalue)),]
@@ -201,16 +306,16 @@ junctionseq.results.filtered.head = junctionseq.results.head[junctionseq.results
 
 # Merge the junctionseq and TajimasD data files and clean them up
 junctionseq.results.body.merged = merge(junctionseq.results.filtered.body, tajimasD.per.gene, by.x = "geneID", by.y = "geneID", sort = FALSE)
-junctionseq.results.body.merged = junctionseq.results.body.merged[, c(1,25:28)]
+junctionseq.results.body.merged = junctionseq.results.body.merged[, c(1,25:27)]
 junctionseq.results.body.merged = junctionseq.results.body.merged[!duplicated(junctionseq.results.body.merged[1:3]),]
 
 junctionseq.results.head.merged = merge(junctionseq.results.filtered.head, tajimasD.per.gene, by.x = "geneID", by.y = "geneID", sort = FALSE)
-junctionseq.results.head.merged = junctionseq.results.head.merged[, c(1,25:28)]
+junctionseq.results.head.merged = junctionseq.results.head.merged[, c(1,25:27)]
 junctionseq.results.head.merged = junctionseq.results.head.merged[!duplicated(junctionseq.results.head.merged[1:3]),]
 
 # Filter out genes with fewer than 30 4fold sites
-junctionseq.results.body.merged = junctionseq.results.body.merged[junctionseq.results.body.merged$numberOf4FoldSites >= 30, ]
-junctionseq.results.head.merged = junctionseq.results.head.merged[junctionseq.results.head.merged$numberOf4FoldSites >= 30, ]
+#junctionseq.results.body.merged = junctionseq.results.body.merged[junctionseq.results.body.merged$numberOf4FoldSites >= 30, ]
+#junctionseq.results.head.merged = junctionseq.results.head.merged[junctionseq.results.head.merged$numberOf4FoldSites >= 30, ]
 
 # Assign significant hits
 junctionseq.results.body.merged$sig.hit = NA
@@ -230,8 +335,8 @@ junctionseq.results.body.merged.unique = merge(junctionseq.results.body.merged.u
 junctionseq.results.head.merged.unique = merge(junctionseq.results.head.merged.unique, DGE.data.head, by.x = "geneID", by.y = "FlyBaseID")
 
 # Subset out the columns of interest (i.e., gene ID, TajimasD, significant differences in exon usage, and log2FC)
-expression.data.body = junctionseq.results.body.merged.unique[, c(1,3:9)]
-expression.data.head = junctionseq.results.head.merged.unique[, c(1,3:9)]
+expression.data.body = junctionseq.results.body.merged.unique[, c(1,3:11)]
+expression.data.head = junctionseq.results.head.merged.unique[, c(1,3:11)]
 
 # Assign quantiles for sex-averaged mean expression
 expression.data.body = expression.data.body %>% mutate(sex.averaged.expression.quantile = ntile(baseMean, 3))
@@ -371,7 +476,7 @@ tajimasD.data.summary$TajimasD.Mean = tajimasD.summary$TajimasD.mean
 
 tajimasD.summary.plot = ggplot(tajimasD.data.summary, aes(y = TajimasD.Mean, x = as.factor(tissue), colour = as.factor(sig.hit))) +
                                       geom_point(aes(y = TajimasD.Mean, x = as.factor(tissue), colour = as.factor(sig.hit)),size = 10,
-                                      position = position_dodge(width = 0.5)) + scale_y_continuous(limits = c(-0.05, 0.10)) +
+                                      position = position_dodge(width = 0.5)) + scale_y_continuous(limits = c(-0.0015, 0.025)) +
                                       geom_errorbar(aes(ymin = TajimasD.lowerCI, ymax = TajimasD.upperCI, x = as.factor(tissue), colour=as.factor(sig.hit)),
                                       width = 0, position = position_dodge(width = 0.5)) +
                                       theme_bw()  + scale_colour_manual(values = c("#800080", "#65c86e")) +
@@ -379,8 +484,9 @@ tajimasD.summary.plot = ggplot(tajimasD.data.summary, aes(y = TajimasD.Mean, x =
                                             panel.border = element_rect(colour = "black", fill=NA, size=1),
                                             axis.text = element_text(face="bold", color="black",size=20, family = "Helvetica"),
                                             axis.title=element_blank(), legend.position = "none")
+tajimasD.summary.plot
 
-pdf("/plas1/amardeep.singh/tmp/TajimasD.summary.plot.filtered.sept9.pdf", height = 10, width = 5)
+pdf("/plas1/amardeep.singh/tmp/TajimasD.summary.plot.filtered.March29.pdf", height = 10, width = 5)
 tajimasD.summary.plot
 dev.off()
 
@@ -403,7 +509,7 @@ resample.data = as.data.frame(cbind(vector(mode="numeric", length = 10000 * nrow
 
 ## Loop to resample TajimasD data
 output.row.start = 1
-output.row.end = 19
+output.row.end = 18
 for (i in 1:10000){
   resampled.df=rbind( sample_n(expression.data.tajimasD.plotting[expression.data.tajimasD.plotting$sig.hit == 1 & expression.data.tajimasD.plotting$tissue == "body" & expression.data.tajimasD.plotting$log2FC.bins == 1, ], nrow(expression.data.tajimasD.plotting[expression.data.tajimasD.plotting$sig.hit == 1 & expression.data.tajimasD.plotting$tissue == "body" & expression.data.tajimasD.plotting$log2FC.bins == 1, ]), replace = TRUE),
                     sample_n(expression.data.tajimasD.plotting[expression.data.tajimasD.plotting$sig.hit == 0 & expression.data.tajimasD.plotting$tissue == "body" & expression.data.tajimasD.plotting$log2FC.bins == 1, ], nrow(expression.data.tajimasD.plotting[expression.data.tajimasD.plotting$sig.hit == 0 & expression.data.tajimasD.plotting$tissue == "body" & expression.data.tajimasD.plotting$log2FC.bins == 1, ]), replace = TRUE),
@@ -434,7 +540,7 @@ for (i in 1:10000){
                     # Output summary of resampled data to resample dataframe
                     resample.data[output.row.start:output.row.end, ] = summaryBy(TajimasD ~ log2FC.bins + sig.hit + tissue, FUN=c(mean, length), data = resampled.df)
                     output.row.start = output.row.end  + 1
-                    output.row.end = output.row.end + 19
+                    output.row.end = output.row.end + 18
                     print(i)
 }
 
@@ -488,7 +594,7 @@ resample.data = as.data.frame(cbind(vector(mode="numeric", length = 10000 * nrow
 
 ## Loop to resample TajimasD data
 output.row.start = 1
-output.row.end = 10
+output.row.end = 9
 for (i in 1:10000){
   resampled.df=rbind( sample_n(expression.data.tajimasD.plotting[expression.data.tajimasD.plotting$tissue == "body" & expression.data.tajimasD.plotting$log2FC.bins == 1, ], nrow(expression.data.tajimasD.plotting[expression.data.tajimasD.plotting$tissue == "body" & expression.data.tajimasD.plotting$log2FC.bins == 1, ]), replace = TRUE),
                       sample_n(expression.data.tajimasD.plotting[expression.data.tajimasD.plotting$tissue == "body" & expression.data.tajimasD.plotting$log2FC.bins == 2, ], nrow(expression.data.tajimasD.plotting[expression.data.tajimasD.plotting$tissue == "body" & expression.data.tajimasD.plotting$log2FC.bins == 2, ]), replace = TRUE),
@@ -505,7 +611,7 @@ for (i in 1:10000){
                     # Output summary of resampled data to resample dataframe
                     resample.data[output.row.start:output.row.end, ] = summaryBy(TajimasD ~ log2FC.bins + tissue, FUN=c(mean, length), data = resampled.df)
                     output.row.start = output.row.end  + 1
-                    output.row.end = output.row.end + 10
+                    output.row.end = output.row.end + 9
                     print(i)
 }
 
@@ -538,13 +644,16 @@ tajimasD.expression.plot = ggplot(tajimasD.data.summary, aes(y = TajimasD.Mean, 
                                       geom_errorbar(aes(ymin = TajimasD.lowerCI, ymax = TajimasD.upperCI, x = as.factor(log2FC.bins), colour=as.factor(sexbias)),
                                       width = 0, position = position_dodge(width = 0.5)) +
                                       #theme_bw()  + scale_colour_manual(values = c("#b30000","#e09999", "#0000b3","#9999e0", "#000000")) +
-                                      theme_bw()  + scale_colour_manual(values = c("#b30000", "#0000b3", "#000000")) +
+                                      theme_bw()  + scale_colour_manual(values = c("#b30000","#e09999", "#0000b3", "#000000")) +
+                                      #theme_bw()  + scale_colour_manual(values = c("#b30000", "#0000b3", "#000000")) +
                                       theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
                                             panel.border = element_rect(colour = "black", fill=NA, size=1),
                                             axis.text = element_text(face="bold", color="black",size=20, family = "Helvetica"),
                                             axis.title=element_blank(), legend.position = "none") +
                                       facet_grid(tissue ~., scales = "free")
-pdf("/plas1/amardeep.singh/tmp/TajimasD.by.log2FC.expression.filtered.noSDIU.sept15.pdf", height = 10, width = 10)
+tajimasD.expression.plot
+
+pdf("/plas1/amardeep.singh/tmp/TajimasD.by.log2FC.expression.filtered.noSDIU.March29.pdf", height = 10, width = 10)
 tajimasD.expression.plot
 dev.off()
 
@@ -603,7 +712,7 @@ tajimasD.data.summary$TajimasD.Mean = expression.data.tajimaD.summary$TajimasD.m
 
 tajimasD.sex.averaged.expression.plot = ggplot(tajimasD.data.summary, aes(y = TajimasD.Mean, x = as.factor(sex.averaged.expression.quantile), colour = as.factor(sig.hit))) +
                                       geom_point(aes(y = TajimasD.Mean, x = as.factor(sex.averaged.expression.quantile), colour = as.factor(sig.hit)),size = 10,
-                                      position = position_dodge(width = 0.5)) + ylim(-0.25, 0.2) +
+                                      position = position_dodge(width = 0.5)) + ylim(-0.05, 0.05) +
                                       geom_errorbar(aes(ymin = TajimasD.lowerCI, ymax = TajimasD.upperCI, x = as.factor(sex.averaged.expression.quantile), colour=as.factor(sig.hit)),
                                       width = 0, position = position_dodge(width = 0.5)) +
                                       theme_bw()  + scale_colour_manual(values = c("#800080", "#65c86e")) +
@@ -613,7 +722,7 @@ tajimasD.sex.averaged.expression.plot = ggplot(tajimasD.data.summary, aes(y = Ta
                                             axis.title=element_blank(), legend.position = "none") +
                                       facet_grid(tissue ~., scales = "free" )
 
-pdf("/plas1/amardeep.singh/tmp/TajimasD.by.sex.averaged.expression.quantile.filtered.sept9.pdf", height = 10, width = 10)
+pdf("/plas1/amardeep.singh/tmp/TajimasD.by.sex.averaged.expression.quantile.filtered.March9.pdf", height = 10, width = 10)
 tajimasD.sex.averaged.expression.plot
 dev.off()
 

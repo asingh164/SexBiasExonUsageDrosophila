@@ -57,8 +57,11 @@ vcf2gt<-function(f.vcf,f.popmap)
 	options(warn=-1)
 
 	# Read VCF file and popmap file.
-	vcf.gt<-as.matrix(read.table(f.vcf,sep="\t",stringsAsFactors=F)[,-c(1:9)])
-	popmap<-read.table(f.popmap,sep="\t",stringsAsFactors=F)[,2]
+	#vcf.gt<-as.matrix(read.table(f.vcf,sep="\t",stringsAsFactors=F)[,-c(1:9)])
+	#popmap<-read.table(f.popmap,sep="\t",stringsAsFactors=F)[,2]
+
+	vcf.gt = as.matrix(f.vcf[,-c(1:9)],stringsAsFactors=FALSE)
+	popmap = as.matrix(f.popmap, stringsAsFactors=FALSE)[,2]
 
 	nrow.vcf<-nrow(vcf.gt)
 	ncol.vcf<-ncol(vcf.gt)
@@ -67,7 +70,7 @@ vcf2gt<-function(f.vcf,f.popmap)
 	chrom1<-substring(vcf.gt,1,1)
 	chrom2<-substring(vcf.gt,3,3)
 	chrom<-matrix(as.integer(chrom1)+as.integer(chrom2),nrow.vcf,ncol.vcf)
-
+	chrom[chrom==2]=1 # Amardeep's edit
 	options(warn=oldw)
 
 	list(popmap=popmap,genotype=chrom)
@@ -184,7 +187,8 @@ gt2sfs.raw<-function(gt,pops)
 	n.pop<-length(pops)
 
 	# Number of chromosomes.
-	ns.chr<-sapply(pops,function(x){sum(popmap==x)})*2
+	# ns.chr<-sapply(pops,function(x){sum(popmap==x)})*2 ## Original code
+	ns.chr<-sapply(pops,function(x){sum(popmap==x)})	## Amardeep's Code
 
 	# SFS based on raw count.
 	cnt<-matrix(0,nrow.vcf,n.pop)
@@ -192,7 +196,11 @@ gt2sfs.raw<-function(gt,pops)
 	for(i in 1:n.pop)
 	{
 		index<-which(popmap==pops[i])
+		if (nrow(chrom) > 1){
 		cnt[,i]<-rowSums(chrom[,index],na.rm=T)
+	} else {
+		cnt[,i]<-sum(chrom[index],na.rm=T) 	# Amardeep added this so that instances where only a single site was variable would still pass
+	}
 		ext<-c(ext,list(0:ns.chr[i]))
 	}
 	ext<-as.matrix(expand.grid(ext))

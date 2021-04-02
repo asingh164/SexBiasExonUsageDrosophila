@@ -49,6 +49,10 @@ cat DGRP_Chr2R/*.fasta > Chr2R.fas &
 cat DGRP_Chr3L/*.fasta > Chr3L.fas &
 cat DGRP_Chr3R/*.fasta > Chr3R.fas &
 
+## WE ARE MAKING TWO VCFs HERE. THE FIRST CONTAINS ONLY VARIANT SITES AND THE SECOND CONTAINS BOTH VARIANT AND INVARIANT SITES
+
+## VARIANT 'TRADITIONAL VCF'
+
 ########################################################################
 ### Making VCF files from multi-alignment fasta files with SNP-sites ###
 ########################################################################
@@ -191,3 +195,182 @@ rm(list=ls())
 cat chr.X_modified.vcf chr.2L_modified.vcf chr.2R_modified.vcf chr.3L_modified.vcf chr.3R_modified.vcf > DGRP.filtered.vcf
 ## Add header
 cat vcf.header DGRP.filtered.vcf > tmp && mv tmp DGRP.filtered.vcf
+
+
+
+########################################################################################################################
+########################################################################################################################
+
+########################################################################################################################
+########################################################################################################################
+
+########################################################################################################################
+########################################################################################################################
+
+########################################################################################################################
+########################################################################################################################
+
+########################################################################################################################
+########################################################################################################################
+
+## INVARIANT 'NON-TRADITIONAL VCF'
+
+########################################################################
+### Making VCF files from multi-alignment fasta files with SNP-sites ###
+########################################################################
+
+# Making VCF files that contain only variant sites from .fas  multi-alignment files
+~/apps/snp-sites/bin/snp-sites -v -b -o /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DGRP.Genomic.Data/VCF.variant.invariant/Chr2L.all.sites.vcf /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DGRP.Genomic.Data/MultiFastaFiles/Chr2L.fas &
+~/apps/snp-sites/bin/snp-sites -v -b -o /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DGRP.Genomic.Data/VCF.variant.invariant/Chr2R.all.sites.vcf /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DGRP.Genomic.Data/MultiFastaFiles/Chr2R.fas &
+~/apps/snp-sites/bin/snp-sites -v -b -o /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DGRP.Genomic.Data/VCF.variant.invariant/Chr3L.all.sites.vcf /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DGRP.Genomic.Data/MultiFastaFiles/Chr3L.fas &
+~/apps/snp-sites/bin/snp-sites -v -b -o /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DGRP.Genomic.Data/VCF.variant.invariant/Chr3R.all.sites.vcf /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DGRP.Genomic.Data/MultiFastaFiles/Chr3R.fas &
+~/apps/snp-sites/bin/snp-sites -v -b -o /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DGRP.Genomic.Data/VCF.variant.invariant/ChrX.all.sites.vcf /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DGRP.Genomic.Data/MultiFastaFiles/ChrX.fas &
+
+## Prepare VCF files for liftOver to convert coordinates from release 5 (dm3) -> release 6 (dm6)
+# Redirect header to attach to VCF later
+cat Chr2L.all.sites.vcf | grep '#' > vcf.header
+
+# Remove headers from vcf files
+sed -i '/^#/d' Chr2L.all.sites.vcf &
+sed -i '/^#/d' Chr2R.all.sites.vcf &
+sed -i '/^#/d' Chr3L.all.sites.vcf &
+sed -i '/^#/d' Chr3R.all.sites.vcf &
+sed -i '/^#/d' ChrX.all.sites.vcf &
+
+# Replace Chromosome column with proper ID
+cat Chr2L.all.sites.vcf | awk -F"\t" '{OFS=FS}{ $1="2L" ; print}' > Chr2L.all.sites.tmp && mv Chr2L.all.sites.tmp Chr2L.all.sites.vcf &
+cat Chr2R.all.sites.vcf | awk -F"\t" '{OFS=FS}{ $1="2R" ; print}' > Chr2R.all.sites.tmp && mv Chr2R.all.sites.tmp Chr2R.all.sites.vcf &
+cat Chr3L.all.sites.vcf | awk -F"\t" '{OFS=FS}{ $1="3L" ; print}' > Chr3L.all.sites.tmp && mv Chr3L.all.sites.tmp Chr3L.all.sites.vcf &
+cat Chr3R.all.sites.vcf | awk -F"\t" '{OFS=FS}{ $1="3R" ; print}' > Chr3R.all.sites.tmp && mv Chr3R.all.sites.tmp Chr3R.all.sites.vcf &
+cat ChrX.all.sites.vcf | awk -F"\t" '{OFS=FS}{ $1="X" ; print}' > ChrX.all.sites.tmp && mv ChrX.all.sites.tmp ChrX.all.sites.vcf &
+rm Chr*.tmp
+
+# Add a unique ID column that can be used to reattach to lifted over coordinates
+cat Chr2L.all.sites.vcf | awk 'BEGIN {OFS=FS="\t"}{print $1 ":" $2}' | paste - Chr2L.all.sites.vcf | cut -f 1,4-$NF > Chr2L.all.sites.vcf.tmp &
+cat Chr2R.all.sites.vcf | awk 'BEGIN {OFS=FS="\t"}{print $1 ":" $2}' | paste - Chr2R.all.sites.vcf | cut -f 1,4-$NF > Chr2R.all.sites.vcf.tmp &
+cat Chr3L.all.sites.vcf | awk 'BEGIN {OFS=FS="\t"}{print $1 ":" $2}' | paste - Chr3L.all.sites.vcf | cut -f 1,4-$NF > Chr3L.all.sites.vcf.tmp &
+cat Chr3R.all.sites.vcf | awk 'BEGIN {OFS=FS="\t"}{print $1 ":" $2}' | paste - Chr3R.all.sites.vcf | cut -f 1,4-$NF > Chr3R.all.sites.vcf.tmp &
+cat ChrX.all.sites.vcf | awk 'BEGIN {OFS=FS="\t"}{print $1 ":" $2}' | paste - ChrX.all.sites.vcf | cut -f 1,4-$NF > ChrX.all.sites.vcf.tmp &
+
+# Make columns with coordinates in BED format for liftOver
+cat Chr2L.all.sites.vcf | awk 'BEGIN { OFS=FS="\t" }{print "chr" $1, $2-1, $2 }' | paste - Chr2L.all.sites.vcf > Chr2L.all.sites.vcf.for.liftover &
+cat Chr2R.all.sites.vcf | awk 'BEGIN { OFS=FS="\t" }{print "chr" $1, $2-1, $2 }' | paste - Chr2R.all.sites.vcf > Chr2R.all.sites.vcf.for.liftover &
+cat Chr3L.all.sites.vcf | awk 'BEGIN { OFS=FS="\t" }{print "chr" $1, $2-1, $2 }' | paste - Chr3L.all.sites.vcf > Chr3L.all.sites.vcf.for.liftover &
+cat Chr3R.all.sites.vcf | awk 'BEGIN { OFS=FS="\t" }{print "chr" $1, $2-1, $2 }' | paste - Chr3R.all.sites.vcf > Chr3R.all.sites.vcf.for.liftover &
+cat ChrX.all.sites.vcf | awk 'BEGIN { OFS=FS="\t" }{print "chr" $1, $2-1, $2 }' | paste - ChrX.all.sites.vcf > ChrX.all.sites.vcf.for.liftover &
+
+# Liftover from assembly dm3 to dm6
+liftOver -bedPlus=3 -tab /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DGRP.Genomic.Data/VCF.variant.invariant/Chr2L.all.sites.vcf.for.liftover /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/dm3ToDm6.over.chain /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DGRP.Genomic.Data/VCF.variant.invariant/Chr2L.liftedover.all.sites.vcf /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DGRP.Genomic.Data/VCF.variant.invariant/Chr2L.unlifted.bed &
+liftOver -bedPlus=3 -tab /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DGRP.Genomic.Data/VCF.variant.invariant/Chr2R.all.sites.vcf.for.liftover /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/dm3ToDm6.over.chain /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DGRP.Genomic.Data/VCF.variant.invariant/Chr2R.liftedover.all.sites.vcf /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DGRP.Genomic.Data/VCF.variant.invariant/Chr2R.unlifted.bed &
+liftOver -bedPlus=3 -tab /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DGRP.Genomic.Data/VCF.variant.invariant/Chr3L.all.sites.vcf.for.liftover /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/dm3ToDm6.over.chain /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DGRP.Genomic.Data/VCF.variant.invariant/Chr3L.liftedover.all.sites.vcf /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DGRP.Genomic.Data/VCF.variant.invariant/Chr3L.unlifted.bed &
+liftOver -bedPlus=3 -tab /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DGRP.Genomic.Data/VCF.variant.invariant/Chr3R.all.sites.vcf.for.liftover /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/dm3ToDm6.over.chain /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DGRP.Genomic.Data/VCF.variant.invariant/Chr3R.liftedover.all.sites.vcf /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DGRP.Genomic.Data/VCF.variant.invariant/Chr3R.unlifted.bed &
+liftOver -bedPlus=3 -tab /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DGRP.Genomic.Data/VCF.variant.invariant/ChrX.all.sites.vcf.for.liftover /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/dm3ToDm6.over.chain /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DGRP.Genomic.Data/VCF.variant.invariant/ChrX.liftedover.all.sites.vcf /plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DGRP.Genomic.Data/VCF.variant.invariant/ChrX.unlifted.bed &
+
+## Add a unique ID column with the old coordinates so that I can intersect the old and new vcfs to recover all individual genotypes
+## NOTE: THESE OUTPUT FILES ARE NOW 1 BASED!
+cat Chr2L.liftedover.all.sites.vcf | awk 'BEGIN {OFS=FS="\t"}{print $4 ":" $5, $4, $3}' > Chr2L.liftedOver.all.sites.Coordinates &
+cat Chr2R.liftedover.all.sites.vcf | awk 'BEGIN {OFS=FS="\t"}{print $4 ":" $5, $4, $3}' > Chr2R.liftedOver.all.sites.Coordinates &
+cat Chr3L.liftedover.all.sites.vcf | awk 'BEGIN {OFS=FS="\t"}{print $4 ":" $5, $4, $3}' > Chr3L.liftedOver.all.sites.Coordinates &
+cat Chr3R.liftedover.all.sites.vcf | awk 'BEGIN {OFS=FS="\t"}{print $4 ":" $5, $4, $3}' > Chr3R.liftedOver.all.sites.Coordinates &
+cat ChrX.liftedover.all.sites.vcf | awk 'BEGIN {OFS=FS="\t"}{print $4 ":" $5, $4, $3}' > ChrX.liftedOver.all.sites.Coordinates &
+
+# Now join file with new coordinates to file with genotypic info on all individuals to make VCF with release 6 coordinates
+join -j 1 -t $'\t' Chr2L.liftedOver.all.sites.Coordinates Chr2L.all.sites.vcf.tmp | cut -f 2-$NF > Chr2L.release6.all.sites.vcf &
+join -j 1 -t $'\t' Chr2R.liftedOver.all.sites.Coordinates Chr2R.all.sites.vcf.tmp | cut -f 2-$NF > Chr2R.release6.all.sites.vcf &
+join -j 1 -t $'\t' Chr3L.liftedOver.all.sites.Coordinates Chr3L.all.sites.vcf.tmp | cut -f 2-$NF > Chr3L.release6.all.sites.vcf &
+join -j 1 -t $'\t' Chr3R.liftedOver.all.sites.Coordinates Chr3R.all.sites.vcf.tmp | cut -f 2-$NF > Chr3R.release6.all.sites.vcf &
+join -j 1 -t $'\t' ChrX.liftedOver.all.sites.Coordinates ChrX.all.sites.vcf.tmp | cut -f 2-$NF > ChrX.release6.all.sites.vcf &
+
+# Remove any rows with masked genotypes
+cat Chr2L.release6.all.sites.vcf | sed '/N/d' Chr2L.release6.all.sites.vcf > Chr2L.release6.all.sites.filtered.vcf &
+cat Chr2R.release6.all.sites.vcf | sed '/N/d' Chr2R.release6.all.sites.vcf > Chr2R.release6.all.sites.filtered.vcf &
+cat Chr3L.release6.all.sites.vcf | sed '/N/d' Chr3L.release6.all.sites.vcf > Chr3L.release6.all.sites.filtered.vcf &
+cat Chr3R.release6.all.sites.vcf | sed '/N/d' Chr3R.release6.all.sites.vcf > Chr3R.release6.all.sites.filtered.vcf &
+cat ChrX.release6.all.sites.vcf | sed '/N/d' ChrX.release6.all.sites.vcf > ChrX.release6.all.sites.filtered.vcf &
+
+# Remove intermediate files
+rm Chr*.liftedOver.all.sites.Coordinates &
+rm Chr*.liftedover.all.sites.vcf &
+rm *unlifted.bed &
+rm *for.liftover &
+rm Chr*.all.sites.vcf.tmp &
+
+
+############################################
+### Convert SNP-sits VCF to "Normal VCF" ###    ## I forked this code form Ruzicka et al 2019 PLoS Bio
+############################################
+
+#----- R code -----
+rm(list=ls())
+require(matrixStats)
+
+## Modify VCF for Tajima's D analysis (r5 coordinates + remove positions where depth<20)
+
+## Import vcf files of interest ## Need to change these two depending on the specific file
+chr.vcf <- read.table("/plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DGRP.Genomic.Data/VCF.variant.invariant/ChrX.release6.all.sites.filtered.vcf")
+print("Chromosome Loaded!")
+output.name = "chrX"
+chr.number = "X"
+
+#Sanity check
+#plot(rownames(test.vcf),test.vcf$V2)
+
+#Four possible types of acceptable allele
+#No missing values
+type1 <- c("A","T","G","C")
+part1 <- subset(chr.vcf,V5 %in% type1)
+if (nrow(part1) > 0) {
+part1[part1==1] <- "1/1"
+part1[part1==0] <- "0/0"
+}
+
+#Missing value = 2
+type2 <- c("A,*","T,*","G,*","C,*")
+part2 <- subset(chr.vcf,V5 %in% type2)
+if (nrow(part2) > 0) {
+part2[part2==2] <- "./."
+part2[part2==1] <- "1/1"
+part2[part2==0] <- "0/0" }
+part2$V5 <- ifelse(part2$V5=="A,*","A",ifelse(part2$V5=="T,*","T",ifelse(part2$V5=="C,*","C",ifelse(part2$V5=="G,*","G",NA))))
+
+#Missing value = 1
+type3 <- c("*,A","*,T","*,G","*,C")
+part3 <- subset(chr.vcf,V5 %in% type3)
+if (nrow(part3) > 0) {
+part3[part3==2] <- "1/1"
+part3[part3==1] <- "./."
+part3[part3==0] <- "0/0"
+part3$V5 <- ifelse(part3$V5=="*,A","A",ifelse(part3$V5=="*,T","T",ifelse(part3$V5=="*,C","C",ifelse(part3$V5=="*,G","G",NA))))
+} else {print("Nothing in Part 3!")}
+
+#Site fixed for reference allele
+type4 <- c("*")
+part4 <- subset(chr.vcf,V5 %in% type4)
+if (nrow(part4) > 0) {
+part4[part4==0] <- "0/0"
+part4[part4==1] <- "./."
+part4$V5 <- ifelse(part4$V5=="*",".")
+} else {print("Nothing in Part 4!")}
+
+
+#Rbind parts 1,2,3,4
+vcf <- rbind(part1,part2,part3,part4)
+#Transform position column to numeric
+vcf$V2 <- as.numeric(vcf$V2)
+#Order by position column
+vcf <- vcf[order(vcf$V2),]
+#Replace chromosome column with 1
+vcf$V1 <- chr.number
+#Filter for depth (DP>19)
+vcf <- subset(vcf,rowCounts(vcf[,10:ncol(vcf)]!="./.")>19)
+vcf$V2 <- format(vcf$V2,scientific=F)
+
+write.table(vcf, file = paste("/plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DGRP.Genomic.Data/VCF.variant.invariant/", output.name, "_modified.vcf", sep = ""), sep="\t",row.names = F, quote=F, col.names=F)
+rm(list=ls())
+
+#----- /R code -----
+
+## Concatenate all VCFs and add header ## I had generated this header previously
+#cat chr.X_modified.vcf chr.2L_modified.vcf chr.2R_modified.vcf chr.3L_modified.vcf chr.3R_modified.vcf > DGRP.filtered.vcf
+## Add header
+#cat vcf.header DGRP.filtered.vcf > tmp && mv tmp DGRP.filtered.vcf

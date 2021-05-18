@@ -82,9 +82,46 @@ rm *.tmp
 # 4. For each unique gene vcf, make a SFS, count up the total number of 4fold sites in that gene (from the original variant/invariant VCF) and calculate TajimasD
 
 #--- R CODE ---
-# Source the VCFtoSFS script and TajimasD from SFS screipt
+
+# Import packages
+library(foreach)
+library(doParallel)
+
+# Source the VCFtoSFS.R script and TajimasDfromSFS.R scripts
 source("/plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/VCFtoSFS.R")
-source ("/plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/TajimasDfromSFS.R")
+#source("/plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/TajimasDfromSFS.R")
+
+
+GetTajimasDFromVCF<-function(geneID, vcf, L){
+  geneID = geneID
+  vcf = as.data.frame(vcf)
+  sampleSizePerSite<- sapply(1:(dim(vcf)[1]), function(x) sum(!is.na(vcf[x,])))
+  minAllowableSampleSize<-75
+  numExcludedSites<-sum(sampleSizePerSite < minAllowableSampleSize)
+
+  vcf.Filtered <-vcf[sampleSizePerSite>=minAllowableSampleSize, ]
+  if (nrow(vcf.Filtered) > 0){
+    sampleSizePerSite.UsableSites<- sapply(1:(dim(vcf.Filtered)[1]), function(x) sum(!is.na(vcf.Filtered[x,])))
+    numNonRefSamplesPerSite.UsableSites<- sapply(1:(dim(vcf.Filtered)[1]), function(x) sum(vcf.Filtered[x,], na.rm = TRUE))
+    minSampleSize<-min(sampleSizePerSite.UsableSites)
+
+    nSubSamples = 100; listOfTajDValues<-rep(NA, nSubSamples); listOfSValues<-rep(NA, nSubSamples)
+    for(i in 1:nSubSamples){
+      nNonRefSNPsPerSite<- sapply(1:(dim(vcf.Filtered)[1]), function(x) sum(sample(c(rep(0, sampleSizePerSite.UsableSites[x]- numNonRefSamplesPerSite.UsableSites[x]),
+                                                              rep(1, numNonRefSamplesPerSite.UsableSites[x])), size = minSampleSize, replace = FALSE)))
+      sfs<-rep(NA, dim(vcf.Filtered)[2])
+      for(j in 1:length(sfs)) sfs[j] = sum(nNonRefSNPsPerSite == j)
+      listOfTajDValues[i]<-GetTajimasD(sfs, L*(1- (numExcludedSites/(dim(vcf)[1]))), minSampleSize)
+      listOfSValues[i]<-sum(sfs)
+    }
+    returnThisTajD<-median(listOfTajDValues)
+    indexOfMedian<-which(abs(listOfTajDValues - median(listOfTajDValues)) == min(abs(listOfTajDValues - median(listOfTajDValues))))
+    returnThisS <- mean(listOfSValues[indexOfMedian])
+    return(c(geneID,returnThisTajD, returnThisS))
+  } else {
+    return(c(geneID,NA,nrow(vcf)))
+  }
+}
 
 # Import variant/invariant VCF
 invariant.variant.vcf = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/output/DGRP.4fold.intersect.output.vcf", header = FALSE)
@@ -103,13 +140,16 @@ popmap.input$population = "DGRP"
 colnames(popmap.input)=c("sample.name", "population")
 
 # Loop through each gene to generate a SFS and calculate TajimasD
-geneID.index = unique(variant.vcf$geneID)
-tajimasD.output.df = as.data.frame(matrix(NA,ncol = 3, nrow = length(geneID.index)))
-colnames(tajimasD.output.df) = c("geneID","TajimasD.adjusted","NumVariantSites")
-tajimasD.output.df$geneID = geneID.index
 
-for (i in 1:length(geneID.index)){
 
+#setup parallel backend to use many processors
+cores=detectCores() - 40
+#cl=makeCluster(cores[1]-50) #not to overload your computer
+#cl=makeCluster(100) #not to overload your computer
+doParallel::registerDoParallel(cores)
+
+#output = foreach(i=1:length(geneID.index), .combine=rbind) %dopar% {
+output = foreach(i=1:200, .combine=rbind) %dopar% {
   geneID = geneID.index[i]
   vcf.gene = variant.vcf[variant.vcf$geneID==geneID,]
 
@@ -118,11 +158,38 @@ for (i in 1:length(geneID.index)){
   vcf = gt$genotype
   L = nrow(invariant.variant.vcf[invariant.variant.vcf$geneID == geneID,])
 
-  tajimasD.output.df$TajimasD.adjusted[tajimasD.output.df$geneID == geneID] = GetTajimasDFromVCF(vcf,L)[1]
-  tajimasD.output.df$NumVariantSites[tajimasD.output.df$geneID == geneID] = GetTajimasDFromVCF(vcf,L)[2]
-print(i)
+  GetTajimasDFromVCF(geneID,vcf,L)
 }
-write.table(tajimasD.output.df, file = "/plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/output/DGRP.TajimasD.per.gene.txt", sep = "\t", row.names=F,quote=F,col.names=T)
+#stop cluster
+stopCluster(cl)
+
+# Clean up output file and write to disk
+geneID.index = unique(variant.vcf$geneID)
+tajimasD.output.df = as.data.frame(matrix(NA,ncol = 3, nrow = length(geneID.index)))
+colnames(tajimasD.output.df) = c("geneID","TajimasD.adjusted","NumVariantSites")
+tajimasD.output.df$geneID = geneID.index
+
+
+# Non parallel version #
+
+#for (i in 1:length(geneID.index)){
+
+#  geneID = geneID.index[i]
+#  vcf.gene = variant.vcf[variant.vcf$geneID==geneID,]
+
+#  # generate genotype object
+#  gt = vcf2gt(vcf.gene[1:(length(names(vcf.gene))-1)],popmap.input)
+#  vcf = gt$genotype
+#  L = nrow(invariant.variant.vcf[invariant.variant.vcf$geneID == geneID,])
+
+#  TajimasD.info = GetTajimasDFromVCF(vcf,L)
+
+#  tajimasD.output.df$TajimasD.adjusted[tajimasD.output.df$geneID == geneID] = TajimasD.info[1]
+#  tajimasD.output.df$NumVariantSites[tajimasD.output.df$geneID == geneID] = TajimasD.info[2]
+#print(i)
+#}
+
+write.table(tajimasD.output.df, file = "/plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/output/DGRP.TajimasD.per.gene_April212021.txt", sep = "\t", row.names=F,quote=F,col.names=T)
 
 
 ################################################################################
@@ -279,6 +346,8 @@ require(car)
 # Load in Tajimas D data and intersect with JunctionSeq output
 
 # --- R Code ---
+/plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/output/DGRP.TajimasD.per.gene.txt
+/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/nucleotide.diversity.per.gene.Aug10.txt
 
 ## Loading in data files
 # Read in JunctionSeq results
@@ -306,11 +375,11 @@ junctionseq.results.filtered.head = junctionseq.results.head[junctionseq.results
 
 # Merge the junctionseq and TajimasD data files and clean them up
 junctionseq.results.body.merged = merge(junctionseq.results.filtered.body, tajimasD.per.gene, by.x = "geneID", by.y = "geneID", sort = FALSE)
-junctionseq.results.body.merged = junctionseq.results.body.merged[, c(1,25:27)]
+junctionseq.results.body.merged = junctionseq.results.body.merged[, c(1,14,25:27)]
 junctionseq.results.body.merged = junctionseq.results.body.merged[!duplicated(junctionseq.results.body.merged[1:3]),]
 
 junctionseq.results.head.merged = merge(junctionseq.results.filtered.head, tajimasD.per.gene, by.x = "geneID", by.y = "geneID", sort = FALSE)
-junctionseq.results.head.merged = junctionseq.results.head.merged[, c(1,25:27)]
+junctionseq.results.head.merged = junctionseq.results.head.merged[, c(1,14,25:27)]
 junctionseq.results.head.merged = junctionseq.results.head.merged[!duplicated(junctionseq.results.head.merged[1:3]),]
 
 # Filter out genes with fewer than 30 4fold sites
@@ -335,8 +404,8 @@ junctionseq.results.body.merged.unique = merge(junctionseq.results.body.merged.u
 junctionseq.results.head.merged.unique = merge(junctionseq.results.head.merged.unique, DGE.data.head, by.x = "geneID", by.y = "FlyBaseID")
 
 # Subset out the columns of interest (i.e., gene ID, TajimasD, significant differences in exon usage, and log2FC)
-expression.data.body = junctionseq.results.body.merged.unique[, c(1,3:11)]
-expression.data.head = junctionseq.results.head.merged.unique[, c(1,3:11)]
+expression.data.body = junctionseq.results.body.merged.unique[, c(1,2:12)]
+expression.data.head = junctionseq.results.head.merged.unique[, c(1,2:12)]
 
 # Assign quantiles for sex-averaged mean expression
 expression.data.body = expression.data.body %>% mutate(sex.averaged.expression.quantile = ntile(baseMean, 3))
@@ -426,14 +495,26 @@ expression.data.head$log2FC.bins[expression.data.head$log2FC.lowerCI > 2 ] = 5
 
 expression.data.tajimasD = rbind(expression.data.head, expression.data.body)
 
+# Assign genes to chromosomes
+expression.data.tajimasD$XorAutosome = NA
+expression.data.tajimasD$XorAutosome[!(expression.data.tajimasD$chr == "X")] = 1
+expression.data.tajimasD$XorAutosome[expression.data.tajimasD$chr == "X"] = 0
+
+
 ###    Model Fitting    ###
 # Fitting with lm()
 tajimasD.model.body = lm(TajimasD ~ baseMean +abs(log2FoldChange) + sig.hit, data = expression.data.tajimasD[expression.data.tajimasD$tissue == "body", ])
 tajimasD.model.head = lm(TajimasD ~ baseMean + abs(log2FoldChange) + sig.hit, data = expression.data.tajimasD[expression.data.tajimasD$tissue == "head", ])
 # Model fitting with permuco
-# This model should read 1,000,000 iterations for each effect
-tajimasD.body.model = lmperm(TajimasD ~ baseMean + abs(log2FoldChange) + sig.hit + abs(log2FoldChange)*sig.hit, data = expression.data.tajimasD[expression.data.tajimasD$tissue == "body", ], np=10000)
-tajimasD.head.model = lmperm(TajimasD ~ baseMean + abs(log2FoldChange) + sig.hit + abs(log2FoldChange)*sig.hit, data = expression.data.tajimasD[expression.data.tajimasD$tissue == "head", ], np=10000)
+# This model should read 1,000,000 iterations for each effect w/interaction effects
+tajimasD.body.interaction.model = lmperm(TajimasD ~ baseMean + abs(log2FoldChange) + sig.hit + abs(log2FoldChange)*sig.hit, data = expression.data.tajimasD[expression.data.tajimasD$tissue == "body", ], np=10000)
+tajimasD.body.interaction.model = lmperm(TajimasD ~ baseMean + abs(log2FoldChange) + sig.hit + abs(log2FoldChange)*sig.hit, data = expression.data.tajimasD[expression.data.tajimasD$tissue == "body", ], np=10000)
+
+tajimasD.body.model = lmperm(TajimasD ~ baseMean + abs(log2FoldChange) + sig.hit + XorAutosome, data = expression.data.tajimasD[expression.data.tajimasD$tissue == "body", ], np=10000)
+tajimasD.head.model = lmperm(TajimasD ~ baseMean + abs(log2FoldChange) + sig.hit + XorAutosome, data = expression.data.tajimasD[expression.data.tajimasD$tissue == "head", ], np=10000)
+
+tajimasD.body.model
+tajimasD.head.model
 
 
 #################
@@ -722,7 +803,7 @@ tajimasD.sex.averaged.expression.plot = ggplot(tajimasD.data.summary, aes(y = Ta
                                             axis.title=element_blank(), legend.position = "none") +
                                       facet_grid(tissue ~., scales = "free" )
 
-pdf("/plas1/amardeep.singh/tmp/TajimasD.by.sex.averaged.expression.quantile.filtered.March9.pdf", height = 10, width = 10)
+pdf("/plas1/amardeep.singh/tmp/TajimasD.by.sex.averaged.expression.quantile.filtered.March29.pdf", height = 10, width = 10)
 tajimasD.sex.averaged.expression.plot
 dev.off()
 

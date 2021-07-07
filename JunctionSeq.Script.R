@@ -328,17 +328,17 @@ for (i in 1:10000){
 print(i)
 }
 
-body.lower.CI = as.vector( c( quantile(sdiu.body.fraction.resample, 0.05)[1],
-                              quantile(non.sdiu.body.fraction.resample, 0.05)[1]))
+body.lower.CI = as.vector( c( quantile(sdiu.body.fraction.resample, 0.025)[1],
+                              quantile(non.sdiu.body.fraction.resample, 0.025)[1]))
 
-body.upper.CI = as.vector( c( quantile(sdiu.body.fraction.resample, 0.95)[1],
-                              quantile(non.sdiu.body.fraction.resample, 0.95)[1]))
+body.upper.CI = as.vector( c( quantile(sdiu.body.fraction.resample, 0.975)[1],
+                              quantile(non.sdiu.body.fraction.resample, 0.975)[1]))
 
-head.lower.CI = as.vector( c( quantile(sdiu.head.fraction.resample, 0.05)[1],
-                              quantile(non.sdiu.head.fraction.resample, 0.05)[1]))
+head.lower.CI = as.vector( c( quantile(sdiu.head.fraction.resample, 0.025)[1],
+                              quantile(non.sdiu.head.fraction.resample, 0.025)[1]))
 
-head.upper.CI = as.vector( c( quantile(sdiu.head.fraction.resample, 0.95)[1],
-                              quantile(non.sdiu.head.fraction.resample, 0.95)[1]))
+head.upper.CI = as.vector( c( quantile(sdiu.head.fraction.resample, 0.975)[1],
+                              quantile(non.sdiu.head.fraction.resample, 0.975)[1]))
 
 # Make dataframe for plotting
 body.df.tmp = as.data.frame(c(sdiu.body.fraction,non.sdiu.body.fraction))

@@ -1,0 +1,13 @@
+
+# Set file paths
+export PATH_TO_GFF=/plas1/amardeep.singh/Flybase.Dmel.Genome.Release/gtf/dmel-all-r6.32.filtered.gtf
+export PATH_TO_VCF=/plas1/amardeep.singh/RNA.Seq.Data/HomologyData/Fasta.files.for.tba/output/DmelDsim.alt.vcf.gz
+export PATH_TO_BEGUN_DATA=/plas1/amardeep.singh/RNA.Seq.Data/HomologyData/begun.data.withFBgn.Oct16.txt
+
+
+# Lets pull genes locations from the GTF file and pull out the genes identified in the Begun data
+
+
+# Intersect the Dmel-Dsim VCF file with the Dmel GFF using bedtools to find only sites that fall within genes
+bedtools intersect -a ${PATH_TO_VCF} -b ${PATH_TO_GFF} -wa | sort -k1,1 -k2,2n | uniq > /plas1/amardeep.singh/RNA.Seq.Data/HomologyData/DmelDsimVCF/DmelDsim.genes.vcf
+bedtools intersect -a ${PATH_TO_VCF} -b ${PATH_TO_GFF} -wa  | uniq > /plas1/amardeep.singh/RNA.Seq.Data/HomologyData/DmelDsimVCF/DmelDsim.genes.not.uniq.vcf

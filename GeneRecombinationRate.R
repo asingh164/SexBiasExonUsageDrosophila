@@ -230,7 +230,7 @@ for (i in 1:10000){
 # Rename columns of resampled data
 colnames(resample.data) = c("sig.hit","tissue","RecombinationRate.mean","Number.of.Genes")
 
-RecombinationRate.data.summary = summaryBy(RecombinationRate.mean ~ sig.hit + tissue, FUN = function(x) c(Mean = mean(x), lower.ci = quantile(x, probs = 0.05), upper.ci=quantile(x, probs = 0.95)), data = resample.data)
+RecombinationRate.data.summary = summaryBy(RecombinationRate.mean ~ sig.hit + tissue, FUN = function(x) c(Mean = mean(x), lower.ci = quantile(x, probs = 0.025), upper.ci=quantile(x, probs = 0.975)), data = resample.data)
 colnames(RecombinationRate.data.summary) = c("sig.hit","tissue","RecombinationRate.Mean","RecombinationRate.lowerCI","RecombinationRate.upperCI")
 
 # Replace resample.data.summary "mean" with true observed mean
@@ -300,7 +300,7 @@ write.table(resample.data, file = "/plas1/amardeep.singh/RNA.Seq.Data/Recombinat
 resample.data = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/RecombinationRateData/ResampleData/Recombination.resampled.By.log2FC.txt", header = TRUE)
 
 # Rename columns of resampled data
-recombination.data.summary = summaryBy(recombinationRate ~ log2FC.bins + tissue, FUN = function(x) c(Mean = mean(x), lower.ci = quantile(x, probs = 0.05), upper.ci=quantile(x, probs = 0.95)), data = resample.data)
+recombination.data.summary = summaryBy(recombinationRate ~ log2FC.bins + tissue, FUN = function(x) c(Mean = mean(x), lower.ci = quantile(x, probs = 0.025), upper.ci=quantile(x, probs = 0.975)), data = resample.data)
 
 # Replace resample.data.summary "mean" with true observed mean
 colnames(recombination.data.summary) = c("log2FC.bins","tissue","recombinationRate.Mean","recombinationRate.lowerCI","recombinationRate.upperCI")
@@ -383,7 +383,7 @@ write.table(resample.data, file = "/plas1/amardeep.singh/RNA.Seq.Data/Recombinat
 resample.data = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/RecombinationRateData/ResampleData/Recombination.resampled.By.sex.averaged.expression.txt", header = TRUE)
 
 # Rename columns of resampled data
-recombination.data.summary = summaryBy(RecombinationRate ~ sex.averaged.expression.quantile + sig.hit + tissue, FUN = function(x) c(Mean = mean(x), lower.ci = quantile(x, probs = 0.05), upper.ci=quantile(x, probs = 0.95)), data = resample.data)
+recombination.data.summary = summaryBy(RecombinationRate ~ sex.averaged.expression.quantile + sig.hit + tissue, FUN = function(x) c(Mean = mean(x), lower.ci = quantile(x, probs = 0.025), upper.ci=quantile(x, probs = 0.975)), data = resample.data)
 
 # Replace resample.data.summary "mean" with true observed mean
 colnames(recombination.data.summary) = c("sex.averaged.expression.quantile","sig.hit","tissue","recombinationRate.Mean","recombinationRate.lowerCI","recombinationRate.upperCI")

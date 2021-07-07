@@ -327,10 +327,10 @@ body.tajimasD$tissue = "body"
 head.tajimasD$tissue = "head"
 tajimasD.summary = rbind(body.tajimasD,head.tajimasD)
 # Assign quantiles to each mean value
-tajimasD.summary$lowerCI = c( quantile(body.nonsig.hits,0.05),quantile(body.sig.hits,0.05),
-                              quantile(head.nonsig.hits,0.05),quantile(head.sig.hits,0.05))
-tajimasD.summary$upperCI = c( quantile(body.nonsig.hits,0.95),quantile(body.sig.hits,0.95),
-                              quantile(head.nonsig.hits,0.95),quantile(head.sig.hits,0.95))
+tajimasD.summary$lowerCI = c( quantile(body.nonsig.hits,0.025),quantile(body.sig.hits,0.025),
+                              quantile(head.nonsig.hits,0.025),quantile(head.sig.hits,0.025))
+tajimasD.summary$upperCI = c( quantile(body.nonsig.hits,0.975),quantile(body.sig.hits,0.975),
+                              quantile(head.nonsig.hits,0.975),quantile(head.sig.hits,0.975))
 
 
 #########################################################
@@ -549,7 +549,7 @@ for (i in 1:10000){
 # Rename columns of resampled data
 colnames(resample.data) = c("sig.hit","tissue","TajimasD.Mean","Number.of.Genes")
 
-tajimasD.data.summary = summaryBy(TajimasD.Mean ~ sig.hit + tissue, FUN = function(x) c(Mean = mean(x), lower.ci = quantile(x, probs = 0.05), upper.ci=quantile(x, probs = 0.95)), data = resample.data)
+tajimasD.data.summary = summaryBy(TajimasD.Mean ~ sig.hit + tissue, FUN = function(x) c(Mean = mean(x), lower.ci = quantile(x, probs = 0.025), upper.ci=quantile(x, probs = 0.975)), data = resample.data)
 colnames(tajimasD.data.summary) = c("sig.hit","tissue","TajimasD.Mean","TajimasD.lowerCI","TajimasD.upperCI")
 
 # Replace resample.data.summary "mean" with true observed mean
@@ -635,7 +635,7 @@ write.table(resample.data, file = "/plas1/amardeep.singh/RNA.Seq.Data/TajimasD.A
 resample.data = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/TajimasD.resampled.averaged.across.abs.gene.expression.bins.filtered.txt", header = TRUE)
 
 # Rename columns of resampled data
-tajimasD.data.summary = summaryBy(TajimasD ~ log2FC.bins + sig.hit + tissue, FUN = function(x) c(Mean = mean(x), lower.ci = quantile(x, probs = 0.05), upper.ci=quantile(x, probs = 0.95)), data = resample.data)
+tajimasD.data.summary = summaryBy(TajimasD ~ log2FC.bins + sig.hit + tissue, FUN = function(x) c(Mean = mean(x), lower.ci = quantile(x, probs = 0.025), upper.ci=quantile(x, probs = 0.975)), data = resample.data)
 
 # Replace resample.data.summary "mean" with true observed mean
 colnames(tajimasD.data.summary) = c("log2FC.bins","sig.hit","tissue","TajimasD.Mean","TajimasD.lowerCI","TajimasD.upperCI")
@@ -703,7 +703,7 @@ write.table(resample.data, file = "/plas1/amardeep.singh/RNA.Seq.Data/TajimasD.A
 resample.data = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/TajimasD.resampled.averaged.across.abs.gene.expression.bins.filtered.notsplit.by.sdiu.txt", header = TRUE)
 
 # Rename columns of resampled data
-tajimasD.data.summary = summaryBy(TajimasD ~ log2FC.bins + tissue, FUN = function(x) c(Mean = mean(x), lower.ci = quantile(x, probs = 0.05), upper.ci=quantile(x, probs = 0.95)), data = resample.data)
+tajimasD.data.summary = summaryBy(TajimasD ~ log2FC.bins + tissue, FUN = function(x) c(Mean = mean(x), lower.ci = quantile(x, probs = 0.025), upper.ci=quantile(x, probs = 0.975)), data = resample.data)
 
 # Replace resample.data.summary "mean" with true observed mean
 colnames(tajimasD.data.summary) = c("log2FC.bins","tissue","TajimasD.Mean","TajimasD.lowerCI","TajimasD.upperCI")
@@ -785,7 +785,7 @@ write.table(resample.data, file = "/plas1/amardeep.singh/RNA.Seq.Data/TajimasD.A
 resample.data = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/TajimasD.resampled.versus.sex.averaged.expression.quantile.filtered.txt", header = TRUE)
 
 # Rename columns of resampled data
-tajimasD.data.summary = summaryBy(TajimasD ~ sex.averaged.expression.quantile + sig.hit + tissue, FUN = function(x) c(Mean = mean(x), lower.ci = quantile(x, probs = 0.05), upper.ci=quantile(x, probs = 0.95)), data = resample.data)
+tajimasD.data.summary = summaryBy(TajimasD ~ sex.averaged.expression.quantile + sig.hit + tissue, FUN = function(x) c(Mean = mean(x), lower.ci = quantile(x, probs = 0.025), upper.ci=quantile(x, probs = 0.975)), data = resample.data)
 
 # Replace resample.data.summary "mean" with true observed mean
 colnames(tajimasD.data.summary) = c("sex.averaged.expression.quantile","sig.hit","tissue","TajimasD.Mean","TajimasD.lowerCI","TajimasD.upperCI")
@@ -848,7 +848,7 @@ write.table(resample.data, file = "/plas1/amardeep.singh/RNA.Seq.Data/TajimasD.A
 resample.data = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/TajimasD.resampled.versus.sex.averaged.expression.quantile.filtered.no.SDIU.txt", header = TRUE)
 
 # Rename columns of resampled data
-tajimasD.data.summary = summaryBy(TajimasD ~ sex.averaged.expression.quantile  + tissue, FUN = function(x) c(Mean = mean(x), lower.ci = quantile(x, probs = 0.05), upper.ci=quantile(x, probs = 0.95)), data = resample.data)
+tajimasD.data.summary = summaryBy(TajimasD ~ sex.averaged.expression.quantile  + tissue, FUN = function(x) c(Mean = mean(x), lower.ci = quantile(x, probs = 0.025), upper.ci=quantile(x, probs = 0.975)), data = resample.data)
 
 # Replace resample.data.summary "mean" with true observed mean
 colnames(tajimasD.data.summary) = c("sex.averaged.expression.quantile","tissue","TajimasD.Mean","TajimasD.lowerCI","TajimasD.upperCI")
@@ -983,7 +983,7 @@ write.table(resample.data, file = "/plas1/amardeep.singh/RNA.Seq.Data/TajimasD.A
 resample.data = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/TajimasD.resampled.parsed.by.abs.gene.expression.txt.filtered", header = TRUE)
 
 # Rename columns of resampled data
-tajimasD.data.summary = summaryBy(TajimasD ~ sex.averaged.expression.quantile + sex.averaged.log2FC.quantile + sig.hit + tissue, FUN = function(x) c(Mean = mean(x), lower.ci = quantile(x, probs = 0.05), upper.ci=quantile(x, probs = 0.95)), data = resample.data)
+tajimasD.data.summary = summaryBy(TajimasD ~ sex.averaged.expression.quantile + sex.averaged.log2FC.quantile + sig.hit + tissue, FUN = function(x) c(Mean = mean(x), lower.ci = quantile(x, probs = 0.025), upper.ci=quantile(x, probs = 0.975)), data = resample.data)
 colnames(tajimasD.data.summary) = c("sex.averaged.expression.quantile","sex.averaged.log2FC.quantile","sig.hit","tissue","TajimasD.Mean","TajimasD.lowerCI","TajimasD.upperCI")
 
 # Replace resample.data.summary "mean" with true observed mean
@@ -1106,76 +1106,76 @@ for (i in 1:10000){
 print (i)
 }
 
-body.lower.CI = as.vector( c(  quantile(body.sig.hits.quantile.1, 0.05)[1],
-                          quantile(body.sig.hits.quantile.2, 0.05)[1],
-                          quantile(body.sig.hits.quantile.3, 0.05)[1],
-                          quantile(body.sig.hits.quantile.4, 0.05)[1],
-                          quantile(body.sig.hits.quantile.5, 0.05)[1],
-                          quantile(body.sig.hits.quantile.6, 0.05)[1],
-                          #quantile(body.sig.hits.quantile.7, 0.05)[1],
-                          #quantile(body.sig.hits.quantile.8, 0.05)[1],
-                          quantile(body.non.sig.hits.quantile.1, 0.05)[1],
-                          quantile(body.non.sig.hits.quantile.2, 0.05)[1],
-                          quantile(body.non.sig.hits.quantile.3, 0.05)[1],
-                          quantile(body.non.sig.hits.quantile.4, 0.05)[1],
-                          quantile(body.non.sig.hits.quantile.5, 0.05)[1],
-                          quantile(body.non.sig.hits.quantile.6, 0.05)[1]))
-                          #quantile(body.non.sig.hits.quantile.7, 0.05)[1],
-                          #quantile(body.non.sig.hits.quantile.8, 0.05)[1]))
+body.lower.CI = as.vector( c(  quantile(body.sig.hits.quantile.1, 0.025)[1],
+                          quantile(body.sig.hits.quantile.2, 0.025)[1],
+                          quantile(body.sig.hits.quantile.3, 0.025)[1],
+                          quantile(body.sig.hits.quantile.4, 0.025)[1],
+                          quantile(body.sig.hits.quantile.5, 0.025)[1],
+                          quantile(body.sig.hits.quantile.6, 0.025)[1],
+                          #quantile(body.sig.hits.quantile.7, 0.025)[1],
+                          #quantile(body.sig.hits.quantile.8, 0.025)[1],
+                          quantile(body.non.sig.hits.quantile.1, 0.025)[1],
+                          quantile(body.non.sig.hits.quantile.2, 0.025)[1],
+                          quantile(body.non.sig.hits.quantile.3, 0.025)[1],
+                          quantile(body.non.sig.hits.quantile.4, 0.025)[1],
+                          quantile(body.non.sig.hits.quantile.5, 0.025)[1],
+                          quantile(body.non.sig.hits.quantile.6, 0.025)[1]))
+                          #quantile(body.non.sig.hits.quantile.7, 0.025)[1],
+                          #quantile(body.non.sig.hits.quantile.8, 0.025)[1]))
 
 
-body.upper.CI = as.vector( c( quantile(body.sig.hits.quantile.1, 0.95)[1],
-                         quantile(body.sig.hits.quantile.2, 0.95)[1],
-                         quantile(body.sig.hits.quantile.3, 0.95)[1],
-                         quantile(body.sig.hits.quantile.4, 0.95)[1],
-                         quantile(body.sig.hits.quantile.5, 0.95)[1],
-                         quantile(body.sig.hits.quantile.6, 0.95)[1],
-                         #quantile(body.sig.hits.quantile.7, 0.95)[1],
-                         #quantile(body.sig.hits.quantile.8, 0.95)[1],
-                         quantile(body.non.sig.hits.quantile.1, 0.95)[1],
-                         quantile(body.non.sig.hits.quantile.2, 0.95)[1],
-                         quantile(body.non.sig.hits.quantile.3, 0.95)[1],
-                         quantile(body.non.sig.hits.quantile.4, 0.95)[1],
-                         quantile(body.non.sig.hits.quantile.5, 0.95)[1],
-                         quantile(body.non.sig.hits.quantile.6, 0.95)[1]))
-                         #quantile(body.non.sig.hits.quantile.7, 0.95)[1],
-                         #quantile(body.non.sig.hits.quantile.8, 0.95)[1]))
+body.upper.CI = as.vector( c( quantile(body.sig.hits.quantile.1, 0.975)[1],
+                         quantile(body.sig.hits.quantile.2, 0.975)[1],
+                         quantile(body.sig.hits.quantile.3, 0.975)[1],
+                         quantile(body.sig.hits.quantile.4, 0.975)[1],
+                         quantile(body.sig.hits.quantile.5, 0.975)[1],
+                         quantile(body.sig.hits.quantile.6, 0.975)[1],
+                         #quantile(body.sig.hits.quantile.7, 0.975)[1],
+                         #quantile(body.sig.hits.quantile.8, 0.975)[1],
+                         quantile(body.non.sig.hits.quantile.1, 0.975)[1],
+                         quantile(body.non.sig.hits.quantile.2, 0.975)[1],
+                         quantile(body.non.sig.hits.quantile.3, 0.975)[1],
+                         quantile(body.non.sig.hits.quantile.4, 0.975)[1],
+                         quantile(body.non.sig.hits.quantile.5, 0.975)[1],
+                         quantile(body.non.sig.hits.quantile.6, 0.975)[1]))
+                         #quantile(body.non.sig.hits.quantile.7, 0.975)[1],
+                         #quantile(body.non.sig.hits.quantile.8, 0.975)[1]))
 
 
-head.lower.CI = as.vector( c(  quantile(head.sig.hits.quantile.1, 0.05)[1],
-                          quantile(head.sig.hits.quantile.2, 0.05)[1],
-                          quantile(head.sig.hits.quantile.3, 0.05)[1],
-                          quantile(head.sig.hits.quantile.4, 0.05)[1],
-                          quantile(head.sig.hits.quantile.5, 0.05)[1],
-                          quantile(head.sig.hits.quantile.6, 0.05)[1],
-                          #quantile(head.sig.hits.quantile.7, 0.05)[1],
-                          #quantile(head.sig.hits.quantile.8, 0.05)[1],
-                          quantile(head.non.sig.hits.quantile.1, 0.05)[1],
-                          quantile(head.non.sig.hits.quantile.2, 0.05)[1],
-                          quantile(head.non.sig.hits.quantile.3, 0.05)[1],
-                          quantile(head.non.sig.hits.quantile.4, 0.05)[1],
-                          quantile(head.non.sig.hits.quantile.5, 0.05)[1],
-                          quantile(head.non.sig.hits.quantile.6, 0.05)[1]))
-                          #quantile(head.non.sig.hits.quantile.7, 0.05)[1],
-                          #quantile(head.non.sig.hits.quantile.8, 0.05)[1]))
+head.lower.CI = as.vector( c(  quantile(head.sig.hits.quantile.1, 0.025)[1],
+                          quantile(head.sig.hits.quantile.2, 0.025)[1],
+                          quantile(head.sig.hits.quantile.3, 0.025)[1],
+                          quantile(head.sig.hits.quantile.4, 0.025)[1],
+                          quantile(head.sig.hits.quantile.5, 0.025)[1],
+                          quantile(head.sig.hits.quantile.6, 0.025)[1],
+                          #quantile(head.sig.hits.quantile.7, 0.025)[1],
+                          #quantile(head.sig.hits.quantile.8, 0.025)[1],
+                          quantile(head.non.sig.hits.quantile.1, 0.025)[1],
+                          quantile(head.non.sig.hits.quantile.2, 0.025)[1],
+                          quantile(head.non.sig.hits.quantile.3, 0.025)[1],
+                          quantile(head.non.sig.hits.quantile.4, 0.025)[1],
+                          quantile(head.non.sig.hits.quantile.5, 0.025)[1],
+                          quantile(head.non.sig.hits.quantile.6, 0.025)[1]))
+                          #quantile(head.non.sig.hits.quantile.7, 0.025)[1],
+                          #quantile(head.non.sig.hits.quantile.8, 0.025)[1]))
 
 
-head.upper.CI = as.vector( c( quantile(head.sig.hits.quantile.1, 0.95)[1],
-                         quantile(head.sig.hits.quantile.2, 0.95)[1],
-                         quantile(head.sig.hits.quantile.3, 0.95)[1],
-                         quantile(head.sig.hits.quantile.4, 0.95)[1],
-                         quantile(head.sig.hits.quantile.5, 0.95)[1],
-                         quantile(head.sig.hits.quantile.6, 0.95)[1],
-                         #quantile(head.sig.hits.quantile.7, 0.95)[1],
-                         #quantile(head.sig.hits.quantile.8, 0.95)[1],
-                         quantile(head.non.sig.hits.quantile.1, 0.95)[1],
-                         quantile(head.non.sig.hits.quantile.2, 0.95)[1],
-                         quantile(head.non.sig.hits.quantile.3, 0.95)[1],
-                         quantile(head.non.sig.hits.quantile.4, 0.95)[1],
-                         quantile(head.non.sig.hits.quantile.5, 0.95)[1],
-                         quantile(head.non.sig.hits.quantile.6, 0.95)[1]))
-                         #quantile(head.non.sig.hits.quantile.7, 0.95)[1],
-                         #quantile(head.non.sig.hits.quantile.8, 0.95)[1])
+head.upper.CI = as.vector( c( quantile(head.sig.hits.quantile.1, 0.975)[1],
+                         quantile(head.sig.hits.quantile.2, 0.975)[1],
+                         quantile(head.sig.hits.quantile.3, 0.975)[1],
+                         quantile(head.sig.hits.quantile.4, 0.975)[1],
+                         quantile(head.sig.hits.quantile.5, 0.975)[1],
+                         quantile(head.sig.hits.quantile.6, 0.975)[1],
+                         #quantile(head.sig.hits.quantile.7, 0.975)[1],
+                         #quantile(head.sig.hits.quantile.8, 0.975)[1],
+                         quantile(head.non.sig.hits.quantile.1, 0.975)[1],
+                         quantile(head.non.sig.hits.quantile.2, 0.975)[1],
+                         quantile(head.non.sig.hits.quantile.3, 0.975)[1],
+                         quantile(head.non.sig.hits.quantile.4, 0.975)[1],
+                         quantile(head.non.sig.hits.quantile.5, 0.975)[1],
+                         quantile(head.non.sig.hits.quantile.6, 0.975)[1]))
+                         #quantile(head.non.sig.hits.quantile.7, 0.975)[1],
+                         #quantile(head.non.sig.hits.quantile.8, 0.975)[1])
 
 
 
@@ -1353,76 +1353,76 @@ for (i in 1:10000){
 print (i)
 }
 
-body.lower.CI = as.vector( c(  quantile(body.sig.hits.quantile.1, 0.05)[1],
-                          quantile(body.sig.hits.quantile.2, 0.05)[1],
-                          quantile(body.sig.hits.quantile.3, 0.05)[1],
-                          quantile(body.sig.hits.quantile.4, 0.05)[1],
-                          quantile(body.sig.hits.quantile.5, 0.05)[1],
-                          quantile(body.sig.hits.quantile.6, 0.05)[1],
-                          #quantile(body.sig.hits.quantile.7, 0.05)[1],
-                          #quantile(body.sig.hits.quantile.8, 0.05)[1],
-                          quantile(body.non.sig.hits.quantile.1, 0.05)[1],
-                          quantile(body.non.sig.hits.quantile.2, 0.05)[1],
-                          quantile(body.non.sig.hits.quantile.3, 0.05)[1],
-                          quantile(body.non.sig.hits.quantile.4, 0.05)[1],
-                          quantile(body.non.sig.hits.quantile.5, 0.05)[1],
-                          quantile(body.non.sig.hits.quantile.6, 0.05)[1]))
-                          #quantile(body.non.sig.hits.quantile.7, 0.05)[1],
-                          #quantile(body.non.sig.hits.quantile.8, 0.05)[1]))
+body.lower.CI = as.vector( c(  quantile(body.sig.hits.quantile.1, 0.025)[1],
+                          quantile(body.sig.hits.quantile.2, 0.025)[1],
+                          quantile(body.sig.hits.quantile.3, 0.025)[1],
+                          quantile(body.sig.hits.quantile.4, 0.025)[1],
+                          quantile(body.sig.hits.quantile.5, 0.025)[1],
+                          quantile(body.sig.hits.quantile.6, 0.025)[1],
+                          #quantile(body.sig.hits.quantile.7, 0.025)[1],
+                          #quantile(body.sig.hits.quantile.8, 0.025)[1],
+                          quantile(body.non.sig.hits.quantile.1, 0.025)[1],
+                          quantile(body.non.sig.hits.quantile.2, 0.025)[1],
+                          quantile(body.non.sig.hits.quantile.3, 0.025)[1],
+                          quantile(body.non.sig.hits.quantile.4, 0.025)[1],
+                          quantile(body.non.sig.hits.quantile.5, 0.025)[1],
+                          quantile(body.non.sig.hits.quantile.6, 0.025)[1]))
+                          #quantile(body.non.sig.hits.quantile.7, 0.025)[1],
+                          #quantile(body.non.sig.hits.quantile.8, 0.025)[1]))
 
 
-body.upper.CI = as.vector( c( quantile(body.sig.hits.quantile.1, 0.95)[1],
-                         quantile(body.sig.hits.quantile.2, 0.95)[1],
-                         quantile(body.sig.hits.quantile.3, 0.95)[1],
-                         quantile(body.sig.hits.quantile.4, 0.95)[1],
-                         quantile(body.sig.hits.quantile.5, 0.95)[1],
-                         quantile(body.sig.hits.quantile.6, 0.95)[1],
-                         #quantile(body.sig.hits.quantile.7, 0.95)[1],
-                         #quantile(body.sig.hits.quantile.8, 0.95)[1],
-                         quantile(body.non.sig.hits.quantile.1, 0.95)[1],
-                         quantile(body.non.sig.hits.quantile.2, 0.95)[1],
-                         quantile(body.non.sig.hits.quantile.3, 0.95)[1],
-                         quantile(body.non.sig.hits.quantile.4, 0.95)[1],
-                         quantile(body.non.sig.hits.quantile.5, 0.95)[1],
-                         quantile(body.non.sig.hits.quantile.6, 0.95)[1]))
-                         #quantile(body.non.sig.hits.quantile.7, 0.95)[1],
-                         #quantile(body.non.sig.hits.quantile.8, 0.95)[1]))
+body.upper.CI = as.vector( c( quantile(body.sig.hits.quantile.1, 0.975)[1],
+                         quantile(body.sig.hits.quantile.2, 0.975)[1],
+                         quantile(body.sig.hits.quantile.3, 0.975)[1],
+                         quantile(body.sig.hits.quantile.4, 0.975)[1],
+                         quantile(body.sig.hits.quantile.5, 0.975)[1],
+                         quantile(body.sig.hits.quantile.6, 0.975)[1],
+                         #quantile(body.sig.hits.quantile.7, 0.975)[1],
+                         #quantile(body.sig.hits.quantile.8, 0.975)[1],
+                         quantile(body.non.sig.hits.quantile.1, 0.975)[1],
+                         quantile(body.non.sig.hits.quantile.2, 0.975)[1],
+                         quantile(body.non.sig.hits.quantile.3, 0.975)[1],
+                         quantile(body.non.sig.hits.quantile.4, 0.975)[1],
+                         quantile(body.non.sig.hits.quantile.5, 0.975)[1],
+                         quantile(body.non.sig.hits.quantile.6, 0.975)[1]))
+                         #quantile(body.non.sig.hits.quantile.7, 0.975)[1],
+                         #quantile(body.non.sig.hits.quantile.8, 0.975)[1]))
 
 
-head.lower.CI = as.vector( c(  quantile(head.sig.hits.quantile.1, 0.05)[1],
-                          quantile(head.sig.hits.quantile.2, 0.05)[1],
-                          quantile(head.sig.hits.quantile.3, 0.05)[1],
-                          quantile(head.sig.hits.quantile.4, 0.05)[1],
-                          quantile(head.sig.hits.quantile.5, 0.05)[1],
-                          quantile(head.sig.hits.quantile.6, 0.05)[1],
-                          #quantile(head.sig.hits.quantile.7, 0.05)[1],
-                          #quantile(head.sig.hits.quantile.8, 0.05)[1],
-                          quantile(head.non.sig.hits.quantile.1, 0.05)[1],
-                          quantile(head.non.sig.hits.quantile.2, 0.05)[1],
-                          quantile(head.non.sig.hits.quantile.3, 0.05)[1],
-                          quantile(head.non.sig.hits.quantile.4, 0.05)[1],
-                          quantile(head.non.sig.hits.quantile.5, 0.05)[1],
-                          quantile(head.non.sig.hits.quantile.6, 0.05)[1]))
-                          #quantile(head.non.sig.hits.quantile.7, 0.05)[1],
-                          #quantile(head.non.sig.hits.quantile.8, 0.05)[1]))
+head.lower.CI = as.vector( c(  quantile(head.sig.hits.quantile.1, 0.025)[1],
+                          quantile(head.sig.hits.quantile.2, 0.025)[1],
+                          quantile(head.sig.hits.quantile.3, 0.025)[1],
+                          quantile(head.sig.hits.quantile.4, 0.025)[1],
+                          quantile(head.sig.hits.quantile.5, 0.025)[1],
+                          quantile(head.sig.hits.quantile.6, 0.025)[1],
+                          #quantile(head.sig.hits.quantile.7, 0.025)[1],
+                          #quantile(head.sig.hits.quantile.8, 0.025)[1],
+                          quantile(head.non.sig.hits.quantile.1, 0.025)[1],
+                          quantile(head.non.sig.hits.quantile.2, 0.025)[1],
+                          quantile(head.non.sig.hits.quantile.3, 0.025)[1],
+                          quantile(head.non.sig.hits.quantile.4, 0.025)[1],
+                          quantile(head.non.sig.hits.quantile.5, 0.025)[1],
+                          quantile(head.non.sig.hits.quantile.6, 0.025)[1]))
+                          #quantile(head.non.sig.hits.quantile.7, 0.025)[1],
+                          #quantile(head.non.sig.hits.quantile.8, 0.025)[1]))
 
 
-head.upper.CI = as.vector( c( quantile(head.sig.hits.quantile.1, 0.95)[1],
-                         quantile(head.sig.hits.quantile.2, 0.95)[1],
-                         quantile(head.sig.hits.quantile.3, 0.95)[1],
-                         quantile(head.sig.hits.quantile.4, 0.95)[1],
-                         quantile(head.sig.hits.quantile.5, 0.95)[1],
-                         quantile(head.sig.hits.quantile.6, 0.95)[1],
-                         #quantile(head.sig.hits.quantile.7, 0.95)[1],
-                         #quantile(head.sig.hits.quantile.8, 0.95)[1],
-                         quantile(head.non.sig.hits.quantile.1, 0.95)[1],
-                         quantile(head.non.sig.hits.quantile.2, 0.95)[1],
-                         quantile(head.non.sig.hits.quantile.3, 0.95)[1],
-                         quantile(head.non.sig.hits.quantile.4, 0.95)[1],
-                         quantile(head.non.sig.hits.quantile.5, 0.95)[1],
-                         quantile(head.non.sig.hits.quantile.6, 0.95)[1]))
-                         #quantile(head.non.sig.hits.quantile.7, 0.95)[1],
-                         #quantile(head.non.sig.hits.quantile.8, 0.95)[1])
+head.upper.CI = as.vector( c( quantile(head.sig.hits.quantile.1, 0.975)[1],
+                         quantile(head.sig.hits.quantile.2, 0.975)[1],
+                         quantile(head.sig.hits.quantile.3, 0.975)[1],
+                         quantile(head.sig.hits.quantile.4, 0.975)[1],
+                         quantile(head.sig.hits.quantile.5, 0.975)[1],
+                         quantile(head.sig.hits.quantile.6, 0.975)[1],
+                         #quantile(head.sig.hits.quantile.7, 0.975)[1],
+                         #quantile(head.sig.hits.quantile.8, 0.975)[1],
+                         quantile(head.non.sig.hits.quantile.1, 0.975)[1],
+                         quantile(head.non.sig.hits.quantile.2, 0.975)[1],
+                         quantile(head.non.sig.hits.quantile.3, 0.975)[1],
+                         quantile(head.non.sig.hits.quantile.4, 0.975)[1],
+                         quantile(head.non.sig.hits.quantile.5, 0.975)[1],
+                         quantile(head.non.sig.hits.quantile.6, 0.975)[1]))
+                         #quantile(head.non.sig.hits.quantile.7, 0.975)[1],
+                         #quantile(head.non.sig.hits.quantile.8, 0.975)[1])
 
 
 
@@ -1785,8 +1785,8 @@ for (i in 1:10000) {
 
 mean(sig.hits)
 mean(nonsig.hits)
-quantile(sig.hits, c(0.05,0.95))
-quantile(nonsig.hits, c(0.05,0.95))
+quantile(sig.hits, c(0.025,0.975))
+quantile(nonsig.hits, c(0.025,0.975))
 
 ###################################################################
 ###            Comparing Gene Expression and TajimasD           ###
@@ -1897,40 +1897,40 @@ for (i in 1:10000){
   non.sig.hits.quantile.7[i] = mean(sample(non.sig.hits$TajimasD[non.sig.hits$quartile == 7], length(non.sig.hits$TajimasD[non.sig.hits$quartile == 7]), replace = TRUE))
   non.sig.hits.quantile.8[i] = mean(sample(non.sig.hits$TajimasD[non.sig.hits$quartile == 8], length(non.sig.hits$TajimasD[non.sig.hits$quartile == 8]), replace = TRUE))
 }
-lower.CI = as.vector( c(  quantile(sig.hits.quantile.1, 0.05)[1],
-                          quantile(sig.hits.quantile.2, 0.05)[1],
-                          quantile(sig.hits.quantile.3, 0.05)[1],
-                          quantile(sig.hits.quantile.4, 0.05)[1],
-                          quantile(sig.hits.quantile.5, 0.05)[1],
-                          quantile(sig.hits.quantile.6, 0.05)[1],
-                          quantile(sig.hits.quantile.7, 0.05)[1],
-                          quantile(sig.hits.quantile.8, 0.05)[1],
-                          quantile(non.sig.hits.quantile.1, 0.05)[1],
-                          quantile(non.sig.hits.quantile.2, 0.05)[1],
-                          quantile(non.sig.hits.quantile.3, 0.05)[1],
-                          quantile(non.sig.hits.quantile.4, 0.05)[1],
-                          quantile(non.sig.hits.quantile.5, 0.05)[1],
-                          quantile(non.sig.hits.quantile.6, 0.05)[1],
-                          quantile(non.sig.hits.quantile.7, 0.05)[1],
-                          quantile(non.sig.hits.quantile.8, 0.05)[1])
+lower.CI = as.vector( c(  quantile(sig.hits.quantile.1, 0.025)[1],
+                          quantile(sig.hits.quantile.2, 0.025)[1],
+                          quantile(sig.hits.quantile.3, 0.025)[1],
+                          quantile(sig.hits.quantile.4, 0.025)[1],
+                          quantile(sig.hits.quantile.5, 0.025)[1],
+                          quantile(sig.hits.quantile.6, 0.025)[1],
+                          quantile(sig.hits.quantile.7, 0.025)[1],
+                          quantile(sig.hits.quantile.8, 0.025)[1],
+                          quantile(non.sig.hits.quantile.1, 0.025)[1],
+                          quantile(non.sig.hits.quantile.2, 0.025)[1],
+                          quantile(non.sig.hits.quantile.3, 0.025)[1],
+                          quantile(non.sig.hits.quantile.4, 0.025)[1],
+                          quantile(non.sig.hits.quantile.5, 0.025)[1],
+                          quantile(non.sig.hits.quantile.6, 0.025)[1],
+                          quantile(non.sig.hits.quantile.7, 0.025)[1],
+                          quantile(non.sig.hits.quantile.8, 0.025)[1])
                           )
 
-upper.CI = as.vector( c( quantile(sig.hits.quantile.1, 0.95)[1],
-                         quantile(sig.hits.quantile.2, 0.95)[1],
-                         quantile(sig.hits.quantile.3, 0.95)[1],
-                         quantile(sig.hits.quantile.4, 0.95)[1],
-                         quantile(sig.hits.quantile.5, 0.95)[1],
-                         quantile(sig.hits.quantile.6, 0.95)[1],
-                         quantile(sig.hits.quantile.7, 0.95)[1],
-                         quantile(sig.hits.quantile.8, 0.95)[1],
-                         quantile(non.sig.hits.quantile.1, 0.95)[1],
-                         quantile(non.sig.hits.quantile.2, 0.95)[1],
-                         quantile(non.sig.hits.quantile.3, 0.95)[1],
-                         quantile(non.sig.hits.quantile.4, 0.95)[1],
-                         quantile(non.sig.hits.quantile.5, 0.95)[1],
-                         quantile(non.sig.hits.quantile.6, 0.95)[1],
-                         quantile(non.sig.hits.quantile.7, 0.95)[1],
-                         quantile(non.sig.hits.quantile.8, 0.95)[1])
+upper.CI = as.vector( c( quantile(sig.hits.quantile.1, 0.975)[1],
+                         quantile(sig.hits.quantile.2, 0.975)[1],
+                         quantile(sig.hits.quantile.3, 0.975)[1],
+                         quantile(sig.hits.quantile.4, 0.975)[1],
+                         quantile(sig.hits.quantile.5, 0.975)[1],
+                         quantile(sig.hits.quantile.6, 0.975)[1],
+                         quantile(sig.hits.quantile.7, 0.975)[1],
+                         quantile(sig.hits.quantile.8, 0.975)[1],
+                         quantile(non.sig.hits.quantile.1, 0.975)[1],
+                         quantile(non.sig.hits.quantile.2, 0.975)[1],
+                         quantile(non.sig.hits.quantile.3, 0.975)[1],
+                         quantile(non.sig.hits.quantile.4, 0.975)[1],
+                         quantile(non.sig.hits.quantile.5, 0.975)[1],
+                         quantile(non.sig.hits.quantile.6, 0.975)[1],
+                         quantile(non.sig.hits.quantile.7, 0.975)[1],
+                         quantile(non.sig.hits.quantile.8, 0.975)[1])
                          )
 
 

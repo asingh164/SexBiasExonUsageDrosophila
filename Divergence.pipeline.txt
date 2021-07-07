@@ -59,3 +59,26 @@ data = merge(junctionseq.body.divergence.data.tmp, diversity.data.sub, by.x = "g
 data = merge(junctionseq.head.divergence.data.tmp, diversity.data.sub, by.x = "geneID", by.y = "geneID", sort = FALSE)
 
 #
+
+
+
+
+
+
+### June 2021 LastZ pipeline
+
+# First, create a 2bit formatted query and target file
+faToTwoBit Dmel.modified.fasta Dmel.modified.2bit
+faToTwoBit Dsim.modified.fasta Dsim.modified.2bit
+
+# Run lastZ on fasta files
+bash lastZ.alignment.sh -fastaA -fastaB -outputFile
+
+# Generate a chain file from the alignment
+chain_out = out_prefix + '.chain'
+axtChain_cmd = ('axtChain '
+                '-linearGap=loose ' +
+                lastz_output + ' ' +
+                target_2bit + ' ' +
+                query_2bit + ' ' +
+                chain_out)

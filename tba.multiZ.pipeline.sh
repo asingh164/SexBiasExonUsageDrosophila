@@ -1,5 +1,8 @@
 # tba/multiZ pipeline
 
+# This pipeline will take fasta files from the species we are interested in aligning (focusing on Dmel and Dsim) and
+# producing MAF files and then converting MAF to VCf files
+
 ## 1. Prepare the FASTA references for each species
 sed -i 's/^>/>Dmel./' D.melanogaster
 sed -i 's/^>/>Dsim./' D.simulans
@@ -44,6 +47,17 @@ input.file.compression=gzip
 output.log=$(DATA).maffilter.log //Output log file
 maf.filter=VcfOutput(file=./DmelDsim.alt.vcf.gz,compression=gzip,reference=Dmel,genotypes=(Dmel,Dsim),all=yes) //A coma separated list of filters, here empty (the program only read the input file and exits)
 
+#4. Filter MAF file for any alignment scores below 11793 (75th quantile)
+maf.filter=QualFilter(file = ./test.gz, compression=gzip,species=(Dmel,Dsim), window.size=10, window.step=1,                      \
+        min.qual=0.8,                       \
+        file=data.trash_qual.maf.gz,        \
+        compression=gzip),                  \
+    [...]
+
+
+
+
+############## D E P R E C A T E D     C O D E    ##############
 # maffilter param=option_file
 
 # Pull MAF file alignment scores and alignment lengths

@@ -575,7 +575,7 @@ resample.data = read.table("/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/p
 # Rename columns of resampled data
 colnames(resample.data) = c("sig.hit","tissue","piNpiS","Number.of.Genes")
 
-piNpiS.data.summary = summaryBy(piNpiS ~ sig.hit + tissue, FUN = function(x) c(Median = mean(x), lower.ci = quantile(x, probs = 0.05), upper.ci=quantile(x, probs = 0.95)), data = resample.data)
+piNpiS.data.summary = summaryBy(piNpiS ~ sig.hit + tissue, FUN = function(x) c(Median = mean(x), lower.ci = quantile(x, probs = 0.025), upper.ci=quantile(x, probs = 0.975)), data = resample.data)
 colnames(piNpiS.data.summary)[4:5] = c("piNpiS.lowerCI","piNpiS.upperCI")
 
 # Replace resample.data.summary "mean" with true observed mean
@@ -660,7 +660,7 @@ resample.data = read.table("/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/p
 colnames(resample.data) = c("log2FC.bins","sig.hit","tissue","piNpiS","number.of.genes")
 
 # Rename columns of resampled data
-piNpiS.data.summary = summaryBy(piNpiS ~ log2FC.bins + sig.hit + tissue, FUN = function(x) c(Median = mean(x), lower.ci = quantile(x, probs = 0.05), upper.ci=quantile(x, probs = 0.95)), data = resample.data)
+piNpiS.data.summary = summaryBy(piNpiS ~ log2FC.bins + sig.hit + tissue, FUN = function(x) c(Median = mean(x), lower.ci = quantile(x, probs = 0.025), upper.ci=quantile(x, probs = 0.975)), data = resample.data)
 
 # Replace resample.data.summary "mean" with true observed mean
 colnames(piNpiS.data.summary) = c("log2FC.bins","sig.hit","tissue","piNpiS.Median","piNpiS.lowerCI","piNpiS.upperCI")
@@ -734,7 +734,7 @@ resample.data = read.table("/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/p
 colnames(resample.data) = c("log2FC.bins","tissue","piNpiS","number.of.genes")
 
 # Rename columns of resampled data
-piNpiS.data.summary = summaryBy(piNpiS ~ log2FC.bins + tissue, FUN = function(x) c(Median = mean(x), lower.ci = quantile(x, probs = 0.05), upper.ci=quantile(x, probs = 0.95)), data = resample.data)
+piNpiS.data.summary = summaryBy(piNpiS ~ log2FC.bins + tissue, FUN = function(x) c(Median = mean(x), lower.ci = quantile(x, probs = 0.025), upper.ci=quantile(x, probs = 0.975)), data = resample.data)
 
 # Replace resample.data.summary "mean" with true observed mean
 colnames(piNpiS.data.summary) = c("log2FC.bins","tissue","piNpiS.Median","piNpiS.lowerCI","piNpiS.upperCI")
@@ -816,7 +816,7 @@ resample.data = read.table("/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/p
 colnames(resample.data) = c("sex.averaged.expression.quantile","sig.hit","tissue","piNpiS","number.of.genes")
 
 # Rename columns of resampled data
-piNpiS.data.summary = summaryBy(piNpiS ~ sex.averaged.expression.quantile + sig.hit + tissue, FUN = function(x) c(Median = mean(x), lower.ci = quantile(x, probs = 0.05), upper.ci=quantile(x, probs = 0.95)), data = resample.data)
+piNpiS.data.summary = summaryBy(piNpiS ~ sex.averaged.expression.quantile + sig.hit + tissue, FUN = function(x) c(Median = mean(x), lower.ci = quantile(x, probs = 0.025), upper.ci=quantile(x, probs = 0.975)), data = resample.data)
 
 # Replace resample.data.summary "mean" with true observed mean
 colnames(piNpiS.data.summary) = c("average.expression","sig.hit","tissue","piNpiS.Median","piNpiS.lowerCI","piNpiS.upperCI")
@@ -881,7 +881,7 @@ resample.data = read.table("/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/p
 colnames(resample.data) = c("sex.averaged.expression.quantile","tissue","piNpiS","number.of.genes")
 
 # Rename columns of resampled data
-piNpiS.data.summary = summaryBy(piNpiS ~ sex.averaged.expression.quantile + tissue, FUN = function(x) c(Median = mean(x), lower.ci = quantile(x, probs = 0.05), upper.ci=quantile(x, probs = 0.95)), data = resample.data)
+piNpiS.data.summary = summaryBy(piNpiS ~ sex.averaged.expression.quantile + tissue, FUN = function(x) c(Median = mean(x), lower.ci = quantile(x, probs = 0.025), upper.ci=quantile(x, probs = 0.975)), data = resample.data)
 
 # Replace resample.data.summary "mean" with true observed mean
 colnames(piNpiS.data.summary) = c("average.expression","tissue","piNpiS.Median","piNpiS.lowerCI","piNpiS.upperCI")
@@ -1017,7 +1017,7 @@ write.table(resample.data, file = "/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Ana
 resample.data = read.table("/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/piNpiS.parsed.by.abs.expression.txt.filtered", header = TRUE, sep = "\t")
 
 # Rename columns of resampled data
-piNpiS.data.summary.by.abs.expression = summaryBy(piNpiS.median ~ sex.averaged.expression.quantile + sex.averagedlog2FC.quantile + sig.hit + tissue, FUN = function(x) c(Median = median(x), lower.ci = quantile(x, probs = 0.05), upper.ci=quantile(x, probs = 0.95)), data = resample.data)
+piNpiS.data.summary.by.abs.expression = summaryBy(piNpiS.median ~ sex.averaged.expression.quantile + sex.averagedlog2FC.quantile + sig.hit + tissue, FUN = function(x) c(Median = median(x), lower.ci = quantile(x, probs = 0.025), upper.ci=quantile(x, probs = 0.975)), data = resample.data)
 
 # Replace resample.data.summary "mean" with true observed mean
 colnames(piNpiS.data.summary.by.abs.expression) = c("sex.averaged.expression.quantile", "sex.averagedlog2FC.quantile", "sig.hit", "tissue", "piNpiS.Median","piNpiS.lowerCI","piNpiS.upperCI")

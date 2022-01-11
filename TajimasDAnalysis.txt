@@ -126,10 +126,13 @@ GetTajimasDFromVCF<-function(geneID, vcf, L){
 # Import variant/invariant VCF
 invariant.variant.vcf = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/TajimasD.Analysis/output/DGRP.4fold.intersect.output.vcf", header = FALSE)
 # Clean up the vcf file by adding a proper header and format the geneID column
-colnames(invariant.variant.vcf) = c((as.vector(as.matrix(invariant.variant.vcf [1,])))[1:(length(invariant.variant.vcf [1,])-1)],"geneID")
+First, keep only GT information for each sample
+invariant.variant.vcf[,c(10:39)] = apply(invariant.variant.vcf[,c(10:39)], 2, function(x)  gsub("\\:.*","",x))
+
+colnames(invariant.variant.vcf) = c((as.vector(as.matrix(invariant.variant.vcf[1,])))[1:(length(invariant.variant.vcf[1,])-1)],"geneID")
 invariant.variant.vcf$geneID = substring(invariant.variant.vcf$geneID,8,18)
 # Remove first row from the VCF
-invariant.variant.vcf  = invariant.variant.vcf [-1,]
+#invariant.variant.vcf  = invariant.variant.vcf [-1,]
 
 # Parse VCF into file containing only variant sites
 variant.vcf = invariant.variant.vcf[invariant.variant.vcf$ALT=="A" | invariant.variant.vcf$ALT=="C"| invariant.variant.vcf$ALT=="G" | invariant.variant.vcf$ALT=="T", ]
@@ -369,7 +372,7 @@ tajimasD.per.gene = tajimasD.per.gene[!(is.na(tajimasD.per.gene$TajimasD)),]
 # Remove any sites that were not tested
 junctionseq.results.body = junctionseq.results.body[!(is.na(junctionseq.results.body$pvalue)),]
 junctionseq.results.head = junctionseq.results.head[!(is.na(junctionseq.results.head$pvalue)),]
-# Lets remove any rows where the expr in males or females is less than 10 in the junctionseq data
+# Lets remove any rows where the expr in males or females is less than 50 in the junctionseq data
 junctionseq.results.filtered.body = junctionseq.results.body[junctionseq.results.body$expr_male > 50 & junctionseq.results.body$expr_female > 50,]
 junctionseq.results.filtered.head = junctionseq.results.head[junctionseq.results.head$expr_male > 50 & junctionseq.results.head$expr_female > 50,]
 
@@ -453,10 +456,10 @@ male.biased.head.intermediateexp$sex.averaged.log2FC.quantile = male.biased.head
 male.biased.head.highexp$sex.averaged.log2FC.quantile = male.biased.head.highexp$sex.averaged.log2FC.quantile + 3
 
 # Combine back into male-biased and female-biased dataframes
-male.biased.body = rbind(male.biased.body.lowexp, male.biased.body.intermediateexp,male.biased.body.highexp)
-male.biased.head = rbind(male.biased.head.lowexp, male.biased.head.intermediateexp,male.biased.head.highexp)
-female.biased.body = rbind(female.biased.body.lowexp, female.biased.body.intermediateexp,female.biased.body.highexp)
-female.biased.head = rbind(female.biased.head.lowexp, female.biased.head.intermediateexp,female.biased.head.highexp)
+male.biased.body = rbind(male.biased.body.lowexp, male.biased.body.intermediateexp, male.biased.body.highexp)
+male.biased.head = rbind(male.biased.head.lowexp, male.biased.head.intermediateexp, male.biased.head.highexp)
+female.biased.body = rbind(female.biased.body.lowexp, female.biased.body.intermediateexp, emale.biased.body.highexp)
+female.biased.head = rbind(female.biased.head.lowexp, female.biased.head.intermediateexp, female.biased.head.highexp)
 
 # Assign quantile for both MBG and FBG overall
 male.biased.body = male.biased.body %>% mutate(log2FC.quantile = ntile(log2FoldChange, 3))
@@ -506,7 +509,7 @@ expression.data.tajimasD$XorAutosome[expression.data.tajimasD$chr == "X"] = 0
 tajimasD.model.body = lm(TajimasD ~ baseMean +abs(log2FoldChange) + sig.hit, data = expression.data.tajimasD[expression.data.tajimasD$tissue == "body", ])
 tajimasD.model.head = lm(TajimasD ~ baseMean + abs(log2FoldChange) + sig.hit, data = expression.data.tajimasD[expression.data.tajimasD$tissue == "head", ])
 # Model fitting with permuco
-# This model should read 1,000,000 iterations for each effect w/interaction effects
+# This model should read 10,000 iterations for each effect w/interaction effects
 tajimasD.body.interaction.model = lmperm(TajimasD ~ baseMean + abs(log2FoldChange) + sig.hit + abs(log2FoldChange)*sig.hit, data = expression.data.tajimasD[expression.data.tajimasD$tissue == "body", ], np=10000)
 tajimasD.body.interaction.model = lmperm(TajimasD ~ baseMean + abs(log2FoldChange) + sig.hit + abs(log2FoldChange)*sig.hit, data = expression.data.tajimasD[expression.data.tajimasD$tissue == "body", ], np=10000)
 

@@ -11,10 +11,10 @@
 # GTF file
 # wget ftp://ftp.ensemblgenomes.org/pub/metazoa/release-46/fasta/drosophila_melanogaster/
 
-# This script requires R package which can be downloaded through Bioconductor
+# This script requires the 'JunctionSeq' R packages which can be downloaded through Bioconductor
 
 ### Script Details ###
-# This script is written primarily in R, Bash commands are denoted by #---- BASH ---- and end with # ---- ----
+# This script is written primarily in R, Bash commands are denoted by #---- Linux ---- and end with # ---- ----
 
 
 # ---- Linux ----

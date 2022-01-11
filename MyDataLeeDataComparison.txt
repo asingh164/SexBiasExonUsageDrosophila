@@ -1,0 +1,7 @@
+lee.my.merged$my.pN.ps = as.numeric(lee.my.merged$NumNS.Filtered)/as.numeric(lee.my.merged$NumS.Filtered)
+lee.my.merged$lee.pN.ps = as.numeric(lee.my.merged$unNSpoly_mel)/as.numeric(lee.my.merged$unSpoly_mel)
+
+
+lee.data$DOS = (as.numeric(lee.data$unNSfix_mel) / ( as.numeric(lee.data$unNSfix_mel) + as.numeric(lee.data$unSfix_mel) ) ) + (as.numeric(lee.data$unNSpoly_mel) / (as.numeric(lee.data$unNSpoly_mel) + as.numeric(lee.data$unSpoly_mel)))
+lee.data$DOS.div = (as.numeric(lee.data$unNSfix_mel) / ( as.numeric(lee.data$unNSfix_mel) + as.numeric(lee.data$unSfix_mel) ) )
+lee.data$DOS.pol =  (as.numeric(lee.data$unNSpoly_mel) / (as.numeric(lee.data$unNSpoly_mel) + as.numeric(lee.data$unSpoly_mel)))

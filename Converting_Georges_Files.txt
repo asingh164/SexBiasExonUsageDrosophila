@@ -1,0 +1,319 @@
+# Converting George's files into a format for 'HomologyAnalysis.txt' script
+
+# 1. Intersect with GFF to clean for SNPs falling into genes
+
+###########################
+###1. Interect with GFF ###
+###########################
+
+# Export PATHs
+export PATH_TO_NON_SYN=/plas1/amardeep.singh/RNA.Seq.Data/FilesFromGeorge/MISS_no_chemo_sfs_AS_Dec23.txt
+export PATH_TO_SYN=/plas1/amardeep.singh/RNA.Seq.Data/FilesFromGeorge/SYN_no_chemo_sfs_AS_Dec23.txt
+export PATH_TO_GFF=/plas1/amardeep.singh/Ensembl.Dmel.Genome.Release/gtf/Dmel_genes.gff # This GFF just has coordinates for genes
+export PATH_TO_LIFTOVER_CHAIN=/plas1/amardeep.singh/GenomicsMaleFemaleArchitecture/GenomicData/DmelChainFiles/dm3ToDm6.over.chain
+
+# retain only necessary fields and output with first three fields in BED format
+cat ${PATH_TO_NON_SYN} | awk 'BEGIN {OFS = FS = "\t"} {print "chr" $2 "\t" $3-1 "\t" $3 "\t" $2 "\t" $1 "\t" $194 "\t" $195}' >  MISS_no_chemo_sfs.bed &
+cat ${PATH_TO_SYN} | awk 'BEGIN {OFS = FS = "\t"} {print "chr" $2 "\t" $3-1 "\t" $3 "\t" $2 "\t" $1 "\t" $194 "\t" $195}' >  SYN_no_chemo_sfs.bed &
+
+# I manually added a # to the header of these files (MISS_no_chemo_sfs.bed and SYN_no_chemo_sfs.bed)
+
+# Update coordinates from version 5 to version 6
+liftOver -bedPlus=3 MISS_no_chemo_sfs.bed ${PATH_TO_LIFTOVER_CHAIN} MISS_no_chemo_sfs_release6.bed MISS_unlifted.bed &
+liftOver -bedPlus=3 SYN_no_chemo_sfs.bed ${PATH_TO_LIFTOVER_CHAIN} SYN_no_chemo_sfs_release6.bed SYN_unlifted.bed &
+
+# Reformat
+cat MISS_no_chemo_sfs_release6.bed | awk 'BEGIN {OFS = FS = "\t"} {print $4 "\t" $2 "\t" $3 "\t" $5 "\t" $6 "\t" $7}'> tmp && mv tmp MISS_no_chemo_sfs_release6.bed
+cat SYN_no_chemo_sfs_release6.bed | awk 'BEGIN {OFS = FS = "\t"} {print $4 "\t" $2 "\t" $3 "\t" $5 "\t" $6 "\t" $7}'> tmp && mv tmp SYN_no_chemo_sfs_release6.bed
+
+# Intersect with gene coordinates file
+bedtools intersect -a MISS_no_chemo_sfs_release6.bed -b ${PATH_TO_GFF} -wao | awk 'BEGIN {OFS = FS = "\t"} {print $1 "\t" $3 "\t" "\t" $4 "\t" $5 "\t" $6 "\t" $15 }' > MISS_no_chemo_sfs_FINAL.txt &
+bedtools intersect -a SYN_no_chemo_sfs_release6.bed -b ${PATH_TO_GFF} -wao | awk 'BEGIN {OFS = FS = "\t"} {print $1 "\t" $3 "\t" "\t" $4 "\t" $5 "\t" $6 "\t" $15 }' > SYN_no_chemo_sfs_FINAL.txt &
+
+# Clean up intermediate Files
+rm *unlifted*
+rm *.bed
+
+
+###########################
+###2. Format file in R  ###
+###########################
+
+#---- R   C O  D E ----#
+
+# Load in packages
+require(doBy)
+
+NonSyn_data = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/FilesFromGeorge/MISS_no_chemo_sfs_FINAL.txt", header = F)
+Syn_data = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/FilesFromGeorge/SYN_no_chemo_sfs_FINAL.txt", header = F)
+
+NonSyn_data = read.delim("MISS_no_chemo_sfs_FINAL.txt", header = F)
+Syn_data = read.delim("SYN_no_chemo_sfs_FINAL.txt", header = F)
+
+
+# Some data wrangling to format the dataframes
+NonSyn_data$V7 = substring(NonSyn_data$V7, 9, 19)
+Syn_data$V7 = substring(Syn_data$V7, 9, 19)
+NonSyn_data = NonSyn_data[,c(1,2,4:7)]
+Syn_data = Syn_data[,c(1,2,4:7)]
+
+colnames(NonSyn_data) = c("CHROM", "POS", "ALT", "ALT_COUNT", "ALT_FREQ", "GeneID")
+colnames(Syn_data) = c("CHROM", "POS", "ALT", "ALT_COUNT", "ALT_FREQ", "GeneID")
+# Something has gone wrong above and I'm too lazy to fix it. Specifically, the issue with George's files where some 1s were converted to 2s wasn't fixed, so Ive implemented a fix here instead
+# Fixing the number of non-ref alleles
+NonSyn_data$ALT_COUNT = NonSyn_data$ALT_FREQ * 190
+Syn_data$ALT_COUNT = Syn_data$ALT_FREQ * 190
+
+# Filter invariant sites
+NonSyn_data = NonSyn_data[!(NonSyn_data$ALT_COUNT == 190), ]
+Syn_data = Syn_data[!(Syn_data$ALT_COUNT == 190), ]
+
+# Determine minor allele frequency
+NonSyn_data$MAF = NA
+Syn_data$MAF = NA
+NonSyn_data[NonSyn_data$ALT_FREQ < 0.5,]$MAF = NonSyn_data$ALT_FREQ[NonSyn_data$ALT_FREQ < 0.5]
+NonSyn_data[NonSyn_data$ALT_FREQ >= 0.5,]$MAF = 1 - NonSyn_data$ALT_FREQ[NonSyn_data$ALT_FREQ >= 0.5]
+Syn_data[Syn_data$ALT_FREQ < 0.5,]$MAF = Syn_data$ALT_FREQ[Syn_data$ALT_FREQ < 0.5]
+Syn_data[Syn_data$ALT_FREQ >= 0.5,]$MAF = 1 - Syn_data$ALT_FREQ[Syn_data$ALT_FREQ >= 0.5]
+
+# Summarize per gene, the number of NS and SYN sites
+Syn_data_summary = Syn_data %>% count(GeneID, sort = FALSE)
+NonSyn_data_summary = NonSyn_data %>% count(GeneID, sort = FALSE)
+
+## Functions to calculate number of polymorphic sites with a MAF filter
+get_P_min <- function(geneotypeData, geneID, MAFcutoff){
+  snpDataFrame <- geneotypeData[geneotypeData$GeneID == geneID, ]
+  snpDataFrame$weights = as.numeric(snpDataFrame$MAF > MAFcutoff)
+  return(sum(snpDataFrame$weights))
+}
+ListOfPMin=function(geneotypeData, MAFcutoff){
+  UniqueGeneIDs = unique(geneotypeData$GeneID)
+  P = sapply(1:length(UniqueGeneIDs), function(x) get_P_min(geneotypeData,UniqueGeneIDs[x], MAFcutoff))
+  return(as.data.frame(cbind(UniqueGeneIDs,P)))
+}
+
+## Functions to calculate number of polymorphic sites, weighting by pi
+get_P_pi <- function(geneotypeData, geneID){
+  snpDataFrame <- geneotypeData[geneotypeData$GeneID == geneID, ]
+  snpDataFrame$weights = 2*(snpDataFrame$ALT_FREQ)*(1-snpDataFrame$ALT_FREQ)
+  return(sum(snpDataFrame$weights))
+}
+ListOfP_pi=function(geneotypeData){
+  UniqueGeneIDs = unique(geneotypeData$GeneID)
+  P = sapply(1:length(UniqueGeneIDs), function(x) get_P_pi(geneotypeData,UniqueGeneIDs[x]))
+  return(as.data.frame(cbind(UniqueGeneIDs,P)))
+}
+
+## Calculating DoS using a MAF filter
+get_DoS_minfreq = function(SynDF, NonSynDF, DivergentDF, geneID, MAFcutoff){
+  ## this part here should make it work even if some genes are lacking variable syn on nonsyn sites
+  PSyn = 0
+  if(geneID %in% SynDF$GeneID){
+    PSyn = get_P_min(SynDF,geneID, MAFcutoff)
+    }
+  PNonSyn = 0
+  if(geneID %in% NonSynDF$GeneID) {
+    PNonSyn = get_P_min(NonSynDF,geneID,MAFcutoff)
+    }
+
+    Ds = NA
+    if(geneID %in% DivergentDF$geneID){
+    Ds = DivergentDF$fixS[DivergentDF$geneID == geneID]
+    }
+    Dn = NA
+    if(geneID %in% DivergentDF$geneID){
+    Dn = DivergentDF$fixN[DivergentDF$geneID == geneID]
+    }
+DoS = Dn/(Dn + Ds) - PNonSyn/(PNonSyn + PSyn)
+DoS_weight = 1/( 1/(Dn + Ds) + 1/(PNonSyn + PSyn) )
+
+return(c(DoS, DoS_weight))
+
+}
+
+ListOfDoS_maf=function(SynDF,NonSynDF,DivergentDF,MAFcutoff){
+  UniqueGeneIDs = unique(union(SynDF$GeneID, NonSynDF$GeneID))
+  DoS = sapply(1:length(UniqueGeneIDs), function(x) get_DoS_minfreq(SynDF,NonSynDF,DivergentDF,UniqueGeneIDs[x],MAFcutoff))
+  return(as.data.frame(cbind(UniqueGeneIDs,DoS)))
+}
+
+
+## Calculating DoS using pi as a weight
+get_DoS_pi = function(SynDF, NonSynDF, DivergentDF, geneID){
+  PSyn = 0
+  if(geneID %in% SynDF$GeneID){
+    PSyn = get_P_pi(SynDF,geneID)
+    }
+  PNonSyn = 0
+  if(geneID %in% NonSynDF$GeneID) {
+    PNonSyn = get_P_pi(NonSynDF,geneID)
+    }
+
+  Ds = NA
+  if(geneID %in% DivergentDF$geneID){
+    Ds = DivergentDF$fixS[DivergentDF$geneID == geneID]
+  }
+  Dn = NA
+  if(geneID %in% DivergentDF$geneID){
+    Dn = DivergentDF$fixN[DivergentDF$geneID == geneID]
+  }
+
+DoS = Dn/(Dn + Ds) - PNonSyn/(PNonSyn + PSyn)
+
+return(c(DoS))
+
+}
+
+ListOfDoS_pi=function(SynDF,NonSynDF,DivergentDF){
+  UniqueGeneIDs = unique(union(SynDF$GeneID, NonSynDF$GeneID))
+  DoS = sapply(1:length(UniqueGeneIDs), function(x) get_DoS_pi(SynDF,NonSynDF,DivergentDF,UniqueGeneIDs[x]))
+  return(as.data.frame(cbind(UniqueGeneIDs,DoS)))
+}
+
+
+# Function to perform a MK-test
+
+get_MK_pvalue = function(SynDF, NonSynDF, DivergentDF, geneID, MAFcutoff){
+  ## this part here should make it work even if some genes are lacking variable syn on nonsyn sites
+  PSyn = 0
+  if(geneID %in% SynDF$GeneID){
+    PSyn = get_P_min(SynDF,geneID, MAFcutoff)
+    }
+  PNonSyn = 0
+  if(geneID %in% NonSynDF$GeneID) {
+    PNonSyn = get_P_min(NonSynDF,geneID,MAFcutoff)
+    }
+
+    Ds = NA
+    if(geneID %in% DivergentDF$geneID){
+    Ds = DivergentDF$fixS[DivergentDF$geneID == geneID]
+    }
+    Dn = NA
+    if(geneID %in% DivergentDF$geneID){
+    Dn = DivergentDF$fixN[DivergentDF$geneID == geneID]
+    }
+
+
+    contingency.table = matrix(NA, ncol = 2, nrow = 2)
+    contingency.table[1,1] = as.numeric(PSyn)
+    contingency.table[1,2] = as.numeric(PNonSyn)
+    contingency.table[2,1] = as.numeric(Ds)
+    contingency.table[2,2] = as.numeric(Dn)
+
+    two.tailed = NA
+    adaptive = NA
+    purifying = NA
+    if ( !(is.na(Ds)) & !(is.na(Dn)) ){
+      two.tailed = fisher.test(contingency.table)$p.value
+      adaptive = fisher.test(contingency.table,alternative="greater")$p.value # Need to confirm direction (might be purifying)
+      purifying = fisher.test(contingency.table,alternative="less")$p.value
+      }
+
+    return(c(as.numeric(PSyn),PNonSyn,Ds,Dn,two.tailed,adaptive,purifying))
+}
+
+Perform_MK_tests=function(SynDF,NonSynDF,DivergentDF,MAFcutoff){
+  UniqueGeneIDs = unique(union(SynDF$GeneID, NonSynDF$GeneID))
+  MK_output = sapply(1:length(UniqueGeneIDs), function(x) get_MK_pvalue(SynDF,NonSynDF,DivergentDF,UniqueGeneIDs[x],MAFcutoff))
+  return(as.data.frame(cbind(UniqueGeneIDs,MK_output)))
+}
+
+
+
+# Calculate P using a minimum MAF filter
+PSyn = ListOfPMin(Syn_data, 0)
+PSyn_maf2 = ListOfPMin(Syn_data, 0.02)
+PSyn_maf10 = ListOfPMin(Syn_data, 0.1)
+PSyn_maf15 = ListOfPMin(Syn_data, 0.15)
+PNonSyn = ListOfPMin(NonSyn_data, 0)
+PNonSyn_maf2 = ListOfPMin(NonSyn_data, 0.02)
+PNonSyn_maf10 = ListOfPMin(NonSyn_data, 0.1)
+PNonSyn_maf15 = ListOfPMin(NonSyn_data, 0.15)
+
+# Calculate P using pi as a weight
+PSyn_pi = ListOfP_pi(Syn_data)
+PNonSyn_pi = ListOfP_pi(NonSyn_data)
+
+
+# combine begun data with polymorphism data
+merge(begun.data.with.fbgn,
+
+# Calculate DoS using DoS weights
+DoS = ListOfDoS(Syn_data, NonSyn_data, begun.data.with.fbgn, 0)
+DoS_2 = ListOfDoS(Syn_data, NonSyn_data, begun.data.with.fbgn, 0.02)
+DoS_10 = ListOfDoS(Syn_data, NonSyn_data, begun.data.with.fbgn, 0.1)
+DoS_15 = ListOfDoS(Syn_data, NonSyn_data, begun.data.with.fbgn, 0.15)
+
+# Calculate DoS pi
+DoS_pi= ListOfDoS_pi(Syn_data, NonSyn_data, begun.data.with.fbgn)
+
+# Perform MK tests
+MK_tests=Perform_MK_tests(Syn_data, NonSyn_data, begun.data.with.fbgn, 0)
+MK_tests_02=Perform_MK_tests(Syn_data, NonSyn_data, begun.data.with.fbgn, 0.02)
+MK_tests_10=Perform_MK_tests(Syn_data, NonSyn_data, begun.data.with.fbgn, 0.1)
+MK_tests_15=Perform_MK_tests(Syn_data, NonSyn_data, begun.data.with.fbgn, 0.15)
+
+
+
+
+
+
+
+
+
+for (i in nrow(snpDataFrame)){
+    pos = pos + 1
+    snpData_subset = snpDataFrame[snpDataFrame$GeneID == i,]
+    pi[pos] = sum(2 * snpData_subset$ALT_FREQ * (1- snpData_subset$ALT_FREQ)) / nrow(snpData_subset)
+    print(pos)
+  }
+return(as.data.frame(cbind(GeneID,pi)))
+}
+
+
+# Calculate piS and piN per gene.
+# get a list of unique GeneIDs
+Syn_geneIDs = unique(Syn_data$GeneID)
+NonSyn_geneIDs = unique(NonSyn_data$GeneID)
+
+get_pi = function(snpDataFrame,MAFcutoff){
+  # Subset data for MAF cutoff
+  snpDataFrame= snpDataFrame[snpDataFrame$MAF >= MAFcutoff,]
+  GeneID = unique(snpDataFrame$GeneID)
+  pi=vector(length = length(geneIDs), mode = "numeric")
+  pos = 0
+  for (i in GeneID){
+    pos = pos + 1
+    snpData_subset = snpDataFrame[snpDataFrame$GeneID == i,]
+    pi[pos] = sum(2 * snpData_subset$ALT_FREQ * (1- snpData_subset$ALT_FREQ)) / nrow(snpData_subset)
+    print(pos)
+  }
+return(as.data.frame(cbind(GeneID,pi)))
+}
+
+piS = get_pi(Syn_data, 0)
+piN = get_pi(NonSyn_data, 0)
+
+piS_maf2 = get_pi(Syn_data, 0.02)
+piN_maf2 = get_pi(NonSyn_data, 0.02)
+
+piS_maf10 = get_pi(Syn_data, 0.1)
+piN_maf10 = get_pi(NonSyn_data, 0.1)
+
+piS_maf15 = get_pi(Syn_data, 0.15)
+piN_maf15 = get_pi(NonSyn_data, 0.15)
+
+# Merge pi data with gene IDs
+Syn_data_summary = merge(Syn_data_summary, piS, by = "GeneID", sort = FALSE, all = TRUE)
+Syn_data_summary = merge(Syn_data_summary, piS_maf2, by = "GeneID", sort = FALSE, all = TRUE)
+Syn_data_summary = merge(Syn_data_summary, piS_maf10, by = "GeneID", sort = FALSE, all = TRUE)
+Syn_data_summary = merge(Syn_data_summary, piS_maf15, by = "GeneID", sort = FALSE, all = TRUE)
+NonSyn_data_summary = merge(NonSyn_data_summary, piN, by = "GeneID", sort = FALSE, all = TRUE)
+NonSyn_data_summary = merge(NonSyn_data_summary, piN_maf2, by = "GeneID", sort = FALSE, all = TRUE)
+NonSyn_data_summary = merge(NonSyn_data_summary, piN_maf10, by = "GeneID", sort = FALSE, all = TRUE)
+NonSyn_data_summary = merge(NonSyn_data_summary, piN_maf15, by = "GeneID", sort = FALSE, all = TRUE)
+colnames(Syn_data_summary) = c("geneID", "Total.Syn.sites", "piS", "piS_maf2", "piS_maf10", "piS_maf15")
+colnames(NonSyn_data_summary) = c("geneID", "Total.NS.sites", "piN", "piN_maf2", "piN_maf10", "piN_maf15")
+
+
+# Calculate allele frequencies

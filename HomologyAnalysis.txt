@@ -1,13 +1,849 @@
-
 # Set file paths
 export PATH_TO_GFF=/plas1/amardeep.singh/Flybase.Dmel.Genome.Release/gtf/dmel-all-r6.32.filtered.gtf
-export PATH_TO_VCF=/plas1/amardeep.singh/RNA.Seq.Data/HomologyData/Fasta.files.for.tba/output/DmelDsim.alt.vcf.gz
-export PATH_TO_BEGUN_DATA=/plas1/amardeep.singh/RNA.Seq.Data/HomologyData/begun.data.withFBgn.Oct16.txt
+export PATH_TO_BEGUN_DATA=/plas1/amardeep.singh/RNA.Seq.Data/HomologyData/Begun_et_al_SupTable1.txt
+export PATH_TO_POLYMORPHISM_DATA=/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/nucleotide.diversity.per.gene.MAF.filtered.Jul292021.txt
+
+# Pull information from the Begun dataset that we want
+cat ${PATH_TO_BEGUN_DATA} | grep -v '^#' | cut -f1,2,3,26,28 > HomologyAnalysisJun2021/Begun.Num.Divergent.Sites.txt
+
+# Combine divergent sites data with Dmel FBgn symbols
+# --- R Code ---
+rm(list=ls())
+# load packages
+require(ggplot2)
+require(dplyr)
+require(doBy)
+require(permuco)
+
+# Read in necessary data
+FBgn.CG.Symbols = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/HomologyData/HomologyAnalysisJun2021/begun.gene.symbol.fbgn.txt")
+begun.data = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/HomologyData/HomologyAnalysisJun2021/Begun.Num.Divergent.Sites.txt")
+begun.data.full = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/HomologyData/HomologyAnalysisJun2021/begun.data.txt")
+lee.data = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/HomologyData/MK_Q30_filtered.txt")
+dmel.polymorphism.filtered.10 = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/nucleotide.diversity.per.gene.MAF.filtered.Jul292021.txt")
+dmel.polymorphism.filtered.15 = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/nucleotide.diversity.per.gene.MAF.filtered.15perct.Sept92021.txt")
+dmel.polymorphism.filtered.02 =  read.delim("/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/nucleotide.diversity.per.gene.MAF.filtered.02perct.Sept242021.txt")
+dmel.polymorphism = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/nucleotide.diversity.per.gene.Aug10.txt")
+dmel.pi.filtered = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/nucleotide.diversity.per.gene.MAF.filtered.02perct.Sept242021.txt")
+dmel.pi = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/nucleotide.diversity.per.gene.Aug10.txt")
 
 
-# Lets pull genes locations from the GTF file and pull out the genes identified in the Begun data
+# Read in JunctionSeq and DESeq2 results
+junctionseq.results.body = read.table("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/BodyOutput/Aug1.Body.OnlyallGenes.results.txt", header = TRUE, sep = "\t")
+junctionseq.results.head = read.table("/plas1/amardeep.singh/RNA.Seq.Data/JunctionSeq.Files/HeadOutput/Aug1.Head.OnlyallGenes.results.txt", header = TRUE, sep = "\t")
+DGE.data.body = read.table("/plas1/amardeep.singh/RNA.Seq.Data/GeneExpression/RAL.DifferentialGeneExpression.body.txt", header = TRUE, sep = "\t")
+DGE.data.head = read.table("/plas1/amardeep.singh/RNA.Seq.Data/GeneExpression/RAL.DifferentialGeneExpression.head.txt", header = TRUE, sep = "\t")
+
+# Format polymorphism data to pull out number of ns and syn polymorphic sites
+dmel.polymorphism = dmel.polymorphism[,c(1,4,7)]
+dmel.polymorphism.filtered.10 = dmel.polymorphism.filtered.10[,c(1,4,7)]
+dmel.polymorphism.filtered.15 = dmel.polymorphism.filtered.15[,c(1,4,7)]
+dmel.polymorphism.filtered.02 = dmel.polymorphism.filtered.02[,c(1,4,7)]
+
+# Remove 'gene_id' from each gene ID in the first column (make it consistent with the divergence dataset)
+dmel.polymorphism$geneID = sub("gene_id","",dmel.polymorphism$geneID)
+dmel.polymorphism.filtered.10$geneID = sub("gene_id","",dmel.polymorphism.filtered.10$geneID)
+dmel.polymorphism.filtered.15$geneID = sub("gene_id","",dmel.polymorphism.filtered.15$geneID)
+dmel.polymorphism.filtered.02$geneID = sub("gene_id","",dmel.polymorphism.filtered.02$geneID)
+dmel.pi$geneID = sub("gene_id","",dmel.pi$geneID)
+
+# Format gene symbols data to match Begun datasets and the Lee dataset before merging
+begun.data$CG = substr(begun.data$CG,1,nchar(begun.data$CG)-3)
+begun.data.full$CG = substr(begun.data.full$CG,1,nchar(begun.data.full$CG)-3)
+lee.data$CG = substr(lee.data$CG,1,nchar(lee.data$CG)-3)
+
+# Merge dataframes based on CG code
+begun.data.with.fbgn = merge(FBgn.CG.Symbols, begun.data, by.x = "GeneSymbol", by.y = "CG", sort=FALSE)
+
+# Retain only complete cases
+begun.data.with.fbgn = begun.data.with.fbgn[complete.cases(begun.data.with.fbgn),]
+# Merge divergence data with polymorphism data
+polymorphism.divergence.data = merge(dmel.polymorphism, begun.data.with.fbgn, by.x = "geneID", by.y = "geneID")
+polymorphism.divergence.data.filtered.10 = merge(dmel.polymorphism.filtered.10, begun.data.with.fbgn, by.x = "geneID", by.y = "geneID")
+polymorphism.divergence.data.filtered.15 = merge(dmel.polymorphism.filtered.15, begun.data.with.fbgn, by.x = "geneID", by.y = "geneID")
+polymorphism.divergence.data.filtered.02 = merge(dmel.polymorphism.filtered.02, begun.data.with.fbgn, by.x = "geneID", by.y = "geneID")
+
+# Format 'polymorphism.divergence.data'
+polymorphism.divergence.data = polymorphism.divergence.data[,c(1,4,5,6,3,2,7,8)]
+polymorphism.divergence.data.filtered.10 = polymorphism.divergence.data.filtered.10[,c(1,4,5,6,3,2,7,8)]
+polymorphism.divergence.data.filtered.15 = polymorphism.divergence.data.filtered.15[,c(1,4,5,6,3,2,7,8)]
+polymorphism.divergence.data.filtered.02 = polymorphism.divergence.data.filtered.02[,c(1,4,5,6,3,2,7,8)]
+
+colnames(polymorphism.divergence.data)[3] = "CHROM"
+colnames(polymorphism.divergence.data.filtered.10)[3] = "CHROM"
+colnames(polymorphism.divergence.data.filtered.15)[3] = "CHROM"
+colnames(polymorphism.divergence.data.filtered.02)[3] = "CHROM"
+
+# Perform M-K test on maf (10%) filtered data
+for (i in 1:nrow(polymorphism.divergence.data.filtered.10)){
+x=polymorphism.divergence.data.filtered.10[i,c(5:8)]
+
+  contingency.table.filtered.10 = matrix(NA, ncol = 2, nrow = 2)
+  contingency.table.filtered.10[1,1] = as.numeric(x[3])
+  contingency.table.filtered.10[1,2] = as.numeric(x[1])
+  contingency.table.filtered.10[2,1] = as.numeric(x[4])
+  contingency.table.filtered.10[2,2] = as.numeric(x[2])
+
+  polymorphism.divergence.data.filtered.10$mktest.pvalue.two.tailed[i] = fisher.test(contingency.table.filtered.10)$p.value
+  polymorphism.divergence.data.filtered.10$mktest.pvalue.adaptive.filtered.10[i] = fisher.test(contingency.table.filtered.10,alternative="greater")$p.value
+  polymorphism.divergence.data.filtered.10$mktest.pvalue.purifying.filtered.10[i] = fisher.test(contingency.table.filtered.10,alternative="less")$p.value
+print(i)
+}
+
+# Perform M-K test on maf (15%) filtered data
+for (i in 1:nrow(polymorphism.divergence.data.filtered.15)){
+x=polymorphism.divergence.data.filtered.15[i,c(5:8)]
+
+  contingency.table.filtered.15 = matrix(NA, ncol = 2, nrow = 2)
+  contingency.table.filtered.15[1,1] = as.numeric(x[3])
+  contingency.table.filtered.15[1,2] = as.numeric(x[1])
+  contingency.table.filtered.15[2,1] = as.numeric(x[4])
+  contingency.table.filtered.15[2,2] = as.numeric(x[2])
+
+  polymorphism.divergence.data.filtered.15$mktest.pvalue.two.tailed[i] = fisher.test(contingency.table.filtered.15)$p.value
+  polymorphism.divergence.data.filtered.15$mktest.pvalue.adaptive.filtered.15[i] = fisher.test(contingency.table.filtered.15,alternative="greater")$p.value
+  polymorphism.divergence.data.filtered.15$mktest.pvalue.purifying.filtered.15[i] = fisher.test(contingency.table.filtered.15,alternative="less")$p.value
+print(i)
+}
+
+# Perform M-K test on maf (2%) filtered data
+for (i in 1:nrow(polymorphism.divergence.data.filtered.02)){
+x=polymorphism.divergence.data.filtered.02[i,c(5:8)]
+
+  contingency.table.filtered.02 = matrix(NA, ncol = 2, nrow = 2)
+  contingency.table.filtered.02[1,1] = as.numeric(x[3])
+  contingency.table.filtered.02[1,2] = as.numeric(x[1])
+  contingency.table.filtered.02[2,1] = as.numeric(x[4])
+  contingency.table.filtered.02[2,2] = as.numeric(x[2])
+
+  polymorphism.divergence.data.filtered.02$mktest.pvalue.two.tailed[i] = fisher.test(contingency.table.filtered.02)$p.value
+  polymorphism.divergence.data.filtered.02$mktest.pvalue.adaptive.filtered.02[i] = fisher.test(contingency.table.filtered.02,alternative="greater")$p.value
+  polymorphism.divergence.data.filtered.02$mktest.pvalue.purifying.filtered.02[i] = fisher.test(contingency.table.filtered.02,alternative="less")$p.value
+print(i)
+}
+
+# Perform M-K test on maf unfiltered data
+for (i in 1:nrow(polymorphism.divergence.data)){
+  x=polymorphism.divergence.data[i,c(5:8)]
+
+  contingency.table = matrix(NA, ncol = 2, nrow = 2)
+  contingency.table[1,1] = as.numeric(x[3])
+  contingency.table[1,2] = as.numeric(x[1])
+  contingency.table[2,1] = as.numeric(x[4])
+  contingency.table[2,2] = as.numeric(x[2])
+
+  polymorphism.divergence.data$mktest.pvalue.two.tailed[i] = fisher.test(contingency.table)$p.value
+  polymorphism.divergence.data$mktest.pvalue.adaptive[i] = fisher.test(contingency.table,alternative="greater")$p.value
+  polymorphism.divergence.data$mktest.pvalue.purifying[i] = fisher.test(contingency.table,alternative="less")$p.value
+print(i)
+}
+
+# Edit column names
+colnames(polymorphism.divergence.data)[c(5,6,9:11)] = c("NumNS.Unfiltered", "NumS.Unfiltered", "mktest.pvalue.twotailed.unfiltered", "mktest.pvalue.adaptive.unfiltered", "mktest.pvalue.purifying.unfiltered")
+colnames(polymorphism.divergence.data.filtered.10)[c(5,6,9:11)] = c("NumNS.Filtered.10", "NumS.Filtered.10", "mktest.pvalue.twotailed.filtered.10", "mktest.pvalue.adaptive.filtered.10", "mktest.pvalue.purifying.filtered.10")
+colnames(polymorphism.divergence.data.filtered.15)[c(5,6,9:11)] = c("NumNS.Filtered.15", "NumS.Filtered.15", "mktest.pvalue.twotailed.filtered.15", "mktest.pvalue.adaptive.filtered.15", "mktest.pvalue.purifying.filtered.15")
+colnames(polymorphism.divergence.data.filtered.02)[c(5,6,9:11)] = c("NumNS.Filtered.02", "NumS.Filtered.02", "mktest.pvalue.twotailed.filtered.02", "mktest.pvalue.adaptive.filtered.02", "mktest.pvalue.purifying.filtered.02")
+
+merged.data.tmp = merge(polymorphism.divergence.data,polymorphism.divergence.data.filtered.10[,c(1,5,6,9:11)], by.x = "geneID", by.y = "geneID")
+merged.data.tmp2 = merge(merged.data.tmp,polymorphism.divergence.data.filtered.15[,c(1,5,6,9:11)], by.x = "geneID", by.y = "geneID")
+merged.data = merge(merged.data.tmp2,polymorphism.divergence.data.filtered.02[,c(1,5,6,9:11)], by.x = "geneID", by.y = "geneID")
+
+# Add estimates of pi from my data
+merged.data = merge(merged.data, dmel.pi, by = "geneID")
+rm(merged.data.tmp, merged.data.tmp2)
+#plot(merged.data$mktest.pvalue.adaptive.filtered.10 ~ merged.data$mktest.pvalue.adaptive.filtered.15)
+
+# Calculate DOS statistics + weights
+merged.data$DOS.unfiltered = ( as.numeric(merged.data$fixN) / ( as.numeric(merged.data$fixN) + as.numeric(merged.data$fixS) ) ) - (as.numeric(merged.data$NumNS.Unfiltered) / (as.numeric(merged.data$NumNS.Unfiltered) + as.numeric(merged.data$NumS.Unfiltered)))
+merged.data$DOS.filtered.10 = ( as.numeric(merged.data$fixN) / ( as.numeric(merged.data$fixN) + as.numeric(merged.data$fixS) ) ) - (as.numeric(merged.data$NumNS.Filtered.10) / (as.numeric(merged.data$NumNS.Filtered.10) + as.numeric(merged.data$NumS.Filtered.10)))
+merged.data$DOS.filtered.15 = ( as.numeric(merged.data$fixN) / ( as.numeric(merged.data$fixN) + as.numeric(merged.data$fixS) ) ) - (as.numeric(merged.data$NumNS.Filtered.15) / (as.numeric(merged.data$NumNS.Filtered.15) + as.numeric(merged.data$NumS.Filtered.15)))
+merged.data$DOS.filtered.02 = ( as.numeric(merged.data$fixN) / ( as.numeric(merged.data$fixN) + as.numeric(merged.data$fixS) ) ) - (as.numeric(merged.data$NumNS.Filtered.02) / (as.numeric(merged.data$NumNS.Filtered.02) + as.numeric(merged.data$NumS.Filtered.02)))
+merged.data$DOS.unfiltered.weight = 1 / ( 1 / (as.numeric(merged.data$fixN) + as.numeric(merged.data$fixS)) ) + (1 / (as.numeric(merged.data$NumNS.Unfiltered) + as.numeric(merged.data$NumS.Unfiltered) ) )
+merged.data$DOS.filtered.10.weight = 1 / ( 1 / (as.numeric(merged.data$fixN) + as.numeric(merged.data$fixS)) ) + (1 / (as.numeric(merged.data$NumNS.Filtered.10) + as.numeric(merged.data$NumS.Filtered.10) ) )
+merged.data$DOS.filtered.15.weight = 1 / ( 1 / (as.numeric(merged.data$fixN) + as.numeric(merged.data$fixS)) ) + (1 / (as.numeric(merged.data$NumNS.Filtered.15) + as.numeric(merged.data$NumS.Filtered.15) ) )
+merged.data$DOS.filtered.02.weight = 1 / ( 1 / (as.numeric(merged.data$fixN) + as.numeric(merged.data$fixS)) ) + (1 / (as.numeric(merged.data$NumNS.Filtered.02) + as.numeric(merged.data$NumS.Filtered.02) ) )
+
+merged.data$DOS.pi = ( merged.data$fixN / (merged.data$fixN + merged.data$fixS) ) - ( merged.data$piN / (merged.data$piN + merged.data$piS ) )
+merged.data$RecipWeight_D = 1 / (merged.data$fixN + merged.data$fixS)
+merged.data$RecipWeight_P = 1 / (merged.data$Total.NS.sites + merged.data$Total.Syn.sites)
+merged.data$RecipWeight_P_v2 = 1 / (merged.data$Total.NS.sites*merged.data$piN + merged.data$Total.Syn.sites*merged.data$piS)
+merged.data$AneilGuessAtWeightingFactorForDoS_pi = 1/(merged.data$RecipWeight_D + merged.data$RecipWeight_P)
+merged.data$AneilGuessAtWeightingFactorForDoS_pi_v2 = 1/(merged.data$RecipWeight_D  + merged.data$RecipWeight_P_v2)
+
+merged.data$DOS.unfiltered.div = ( as.numeric(merged.data$fixN) / ( as.numeric(merged.data$fixN) + as.numeric(merged.data$fixS) ) )
+merged.data$DOS.filtered.10.div = ( as.numeric(merged.data$fixN) / ( as.numeric(merged.data$fixN) + as.numeric(merged.data$fixS) ) )
+merged.data$DOS.filtered.15.div = ( as.numeric(merged.data$fixN) / ( as.numeric(merged.data$fixN) + as.numeric(merged.data$fixS) ) )
+
+merged.data$DOS.unfiltered.pol = (as.numeric(merged.data$NumNS.Unfiltered) / (as.numeric(merged.data$NumNS.Unfiltered) + as.numeric(merged.data$NumS.Unfiltered)))
+merged.data$DOS.filtered.10.pol = (as.numeric(merged.data$NumNS.Filtered.10) / (as.numeric(merged.data$NumNS.Filtered.10) + as.numeric(merged.data$NumS.Filtered.10)))
+merged.data$DOS.filtered.15.pol = (as.numeric(merged.data$NumNS.Filtered.15) / (as.numeric(merged.data$NumNS.Filtered.15) + as.numeric(merged.data$NumS.Filtered.15)))
 
 
-# Intersect the Dmel-Dsim VCF file with the Dmel GFF using bedtools to find only sites that fall within genes
-bedtools intersect -a ${PATH_TO_VCF} -b ${PATH_TO_GFF} -wa | sort -k1,1 -k2,2n | uniq > /plas1/amardeep.singh/RNA.Seq.Data/HomologyData/DmelDsimVCF/DmelDsim.genes.vcf
-bedtools intersect -a ${PATH_TO_VCF} -b ${PATH_TO_GFF} -wa  | uniq > /plas1/amardeep.singh/RNA.Seq.Data/HomologyData/DmelDsimVCF/DmelDsim.genes.not.uniq.vcf
+# Merge polymorphism and divergence data with SDIU and SBGE data
+
+# Merge divergence data with data on SDIU and SBGE
+# Format SDIU file
+# Remove any sites that were not tested
+junctionseq.results.body = junctionseq.results.body[!(is.na(junctionseq.results.body$pvalue)),]
+junctionseq.results.head = junctionseq.results.head[!(is.na(junctionseq.results.head$pvalue)),]
+# Lets remove any rows where the expr in males or females is less than 50 in the junctionseq data
+junctionseq.results.filtered.body = junctionseq.results.body[junctionseq.results.body$expr_male > 50 & junctionseq.results.body$expr_female > 50,]
+junctionseq.results.filtered.head = junctionseq.results.head[junctionseq.results.head$expr_male > 50 & junctionseq.results.head$expr_female > 50,]
+# Remove any untested rows
+junctionseq.results.filtered.body = junctionseq.results.filtered.body[junctionseq.results.filtered.body$testable == "TRUE",]
+junctionseq.results.filtered.head = junctionseq.results.filtered.head[junctionseq.results.filtered.head$testable == "TRUE",]
+# Subset out only fields of interest and remove duplicates
+junctionseq.results.filtered.body = junctionseq.results.filtered.body[,c(2,25)]
+junctionseq.results.filtered.head = junctionseq.results.filtered.head[,c(2,25)]
+junctionseq.results.filtered.body = junctionseq.results.filtered.body[!duplicated(junctionseq.results.filtered.body[1:2]),]
+junctionseq.results.filtered.head = junctionseq.results.filtered.head[!duplicated(junctionseq.results.filtered.head[1:2]),]
+# Retain complete cases
+junctionseq.results.filtered.body=junctionseq.results.filtered.body[complete.cases(junctionseq.results.filtered.body),]
+junctionseq.results.filtered.head=junctionseq.results.filtered.head[complete.cases(junctionseq.results.filtered.head),]
+
+# Assign significant hits
+junctionseq.results.filtered.body$SDIU.Body = NA
+junctionseq.results.filtered.body$SDIU.Body[junctionseq.results.filtered.body$geneWisePadj <= 0.01] = 1
+junctionseq.results.filtered.body$SDIU.Body[!(junctionseq.results.filtered.body$geneWisePadj <= 0.01)] = 0
+junctionseq.results.filtered.head$SDIU.Head = NA
+junctionseq.results.filtered.head$SDIU.Head[junctionseq.results.filtered.head$geneWisePadj <= 0.01] = 1
+junctionseq.results.filtered.head$SDIU.Head[!(junctionseq.results.filtered.head$geneWisePadj <= 0.01)] = 0
+
+# Merge head and body SDIU head and body data
+junctionseq.results = merge(junctionseq.results.filtered.body[,c(1,3)],junctionseq.results.filtered.head[,c(1,3)], by="geneID")
+
+#  Modify SBGE data before merging together
+DGE.data.body = DGE.data.body[,c(1:4)]
+DGE.data.head = DGE.data.head[,c(1:4)]
+colnames(DGE.data.body) = c("geneID", "body.baseMean", "body.log2FC", "body.lfcSE")
+colnames(DGE.data.head) = c("geneID", "head.baseMean", "head.log2FC", "head.lfcSE")
+SBGE.data = merge(DGE.data.body,DGE.data.head, by = "geneID")
+
+# Merge SBGE data to Junctionseq data
+junctionseq.SBGE.data = merge(junctionseq.results, SBGE.data, by = "geneID")
+
+# Merge junctionseq/SBGE results with divergence results and retain geneID and whether the gene exhibits SDIU or not
+polymorphism.divergence.data = merge(junctionseq.SBGE.data,merged.data, by="geneID")
+
+# Assign quantiles for sex-averaged mean expression
+polymorphism.divergence.data = polymorphism.divergence.data %>% mutate(body.sex.averaged.expression.quantile = ntile(body.baseMean, 3))
+polymorphism.divergence.data = polymorphism.divergence.data %>% mutate(head.sex.averaged.expression.quantile = ntile(head.baseMean, 3))
+
+# Assign quantiles for sex-biased expression
+
+# Separate out genes into male and female biased gene expression per tissue
+male.biased.body = polymorphism.divergence.data[polymorphism.divergence.data$body.log2FC > 0,]
+female.biased.body = polymorphism.divergence.data[polymorphism.divergence.data$body.log2FC < 0,]
+male.biased.head = polymorphism.divergence.data[polymorphism.divergence.data$head.log2FC > 0,]
+female.biased.head = polymorphism.divergence.data[polymorphism.divergence.data$head.log2FC < 0,]
+
+# Remove any rows that have an NA added to them
+male.biased.body = male.biased.body[!(is.na(male.biased.body$body.log2FC)),]
+female.biased.body = female.biased.body[!(is.na(female.biased.body$body.log2FC)),]
+male.biased.head = male.biased.head[!(is.na(male.biased.head$head.log2FC)),]
+female.biased.head = female.biased.head[!(is.na(female.biased.head$head.log2FC)),]
+
+# Assign quantile for both MBG and FBG overall
+male.biased.body = male.biased.body %>% mutate(log2FC.body.quantile = ntile(body.log2FC, 3))
+male.biased.head = male.biased.head %>% mutate(log2FC.head.quantile = ntile(head.log2FC, 3))
+female.biased.body = female.biased.body %>% mutate(log2FC.body.quantile = ntile(body.log2FC, 3))
+female.biased.head = female.biased.head %>% mutate(log2FC.head.quantile = ntile(head.log2FC, 3))
+# Add a value of three to the male-biased gene quantiles
+male.biased.body$log2FC.body.quantile = male.biased.body$log2FC.body.quantile + 3
+male.biased.head$log2FC.head.quantile = male.biased.head$log2FC.head.quantile + 3
+
+
+# Assign quantile for both MBG and FBG within each sex-averaged expression quantile ## Careful in using this variable, it is only relevant when parsed by sex-averaged gene expression!
+male.biased.body.lowexp = male.biased.body[male.biased.body$body.sex.averaged.expression.quantile == 1,] %>% mutate(sex.averaged.body.log2FC.quantile = ntile(body.log2FC, 3))
+male.biased.body.intermediateexp = male.biased.body[male.biased.body$body.sex.averaged.expression.quantile == 2,] %>% mutate(sex.averaged.body.log2FC.quantile = ntile(body.log2FC, 3))
+male.biased.body.highexp = male.biased.body[male.biased.body$body.sex.averaged.expression.quantile == 3,] %>% mutate(sex.averaged.body.log2FC.quantile = ntile(body.log2FC, 3))
+male.biased.head.lowexp = male.biased.head[male.biased.head$head.sex.averaged.expression.quantile == 1,] %>% mutate(sex.averaged.head.log2FC.quantile = ntile(head.log2FC, 3))
+male.biased.head.intermediateexp = male.biased.head[male.biased.head$head.sex.averaged.expression.quantile == 2,] %>% mutate(sex.averaged.head.log2FC.quantile = ntile(head.log2FC, 3))
+male.biased.head.highexp = male.biased.head[male.biased.head$head.sex.averaged.expression.quantile == 3,] %>% mutate(sex.averaged.head.log2FC.quantile = ntile(head.log2FC, 3))
+
+female.biased.body.lowexp = female.biased.body[female.biased.body$body.sex.averaged.expression.quantile == 1,] %>% mutate(sex.averaged.body.log2FC.quantile = ntile(body.log2FC, 3))
+female.biased.body.intermediateexp = female.biased.body[female.biased.body$body.sex.averaged.expression.quantile == 2,] %>% mutate(sex.averaged.body.log2FC.quantile = ntile(body.log2FC, 3))
+female.biased.body.highexp = female.biased.body[female.biased.body$body.sex.averaged.expression.quantile == 3,] %>% mutate(sex.averaged.body.log2FC.quantile = ntile(body.log2FC, 3))
+female.biased.head.lowexp = female.biased.head[female.biased.head$head.sex.averaged.expression.quantile == 1,] %>% mutate(sex.averaged.head.log2FC.quantile = ntile(head.log2FC, 3))
+female.biased.head.intermediateexp = female.biased.head[female.biased.head$head.sex.averaged.expression.quantile == 2,] %>% mutate(sex.averaged.head.log2FC.quantile = ntile(head.log2FC, 3))
+female.biased.head.highexp = female.biased.head[female.biased.head$head.sex.averaged.expression.quantile == 3,] %>% mutate(sex.averaged.head.log2FC.quantile = ntile(head.log2FC, 3))
+
+# For the male genes, lets add 3 to each quantile
+male.biased.body.lowexp$sex.averaged.body.log2FC.quantile = male.biased.body.lowexp$sex.averaged.body.log2FC.quantile + 3
+male.biased.body.intermediateexp$sex.averaged.body.log2FC.quantile = male.biased.body.intermediateexp$sex.averaged.body.log2FC.quantile + 3
+male.biased.body.highexp$sex.averaged.body.log2FC.quantile = male.biased.body.highexp$sex.averaged.body.log2FC.quantile + 3
+male.biased.head.lowexp$sex.averaged.head.log2FC.quantile = male.biased.head.lowexp$sex.averaged.head.log2FC.quantile + 3
+male.biased.head.intermediateexp$sex.averaged.head.log2FC.quantile = male.biased.head.intermediateexp$sex.averaged.head.log2FC.quantile + 3
+male.biased.head.highexp$sex.averaged.head.log2FC.quantile = male.biased.head.highexp$sex.averaged.head.log2FC.quantile + 3
+
+# Combine back into male-biased and female-biased dataframes
+male.biased.body = rbind(male.biased.body.lowexp, male.biased.body.intermediateexp, male.biased.body.highexp)
+male.biased.head = rbind(male.biased.head.lowexp, male.biased.head.intermediateexp, male.biased.head.highexp)
+female.biased.body = rbind(female.biased.body.lowexp, female.biased.body.intermediateexp, female.biased.body.highexp)
+female.biased.head = rbind(female.biased.head.lowexp, female.biased.head.intermediateexp, female.biased.head.highexp)
+
+# Rowbind head and body data between sexes
+body.data = rbind(male.biased.body, female.biased.body)
+head.data = rbind(male.biased.head, female.biased.head)
+body.data.backup = body.data
+head.data.backup = head.data
+
+# Merge head and body data back
+# Take only new columns from head data sets
+head.data = head.data[,c(1,22,23,64)]
+
+# Combine back with body data
+polymorphism.divergence.data = merge(body.data, head.data, by = "geneID", all = TRUE, sort = FALSE)
+
+# Couple more house keeping items
+polymorphism.divergence.data$XorAutosome[polymorphism.divergence.data$CHROM == "X"] = "X"
+polymorphism.divergence.data$XorAutosome[polymorphism.divergence.data$CHROM != "X"] = "Autosome"
+
+
+# Fitting models
+polymorphism.divergence.data.autosome = polymorphism.divergence.data[polymorphism.divergence.data$CHROM != "X",]
+
+par(mfrow = c(2,2))
+
+# Unfiltered Data
+boxplot(DOS.pi ~ log2FC.body.quantile, data = polymorphism.divergence.data.autosome)
+boxplot(DOS.pi ~ log2FC.head.quantile, data = polymorphism.divergence.data.autosome)
+boxplot(DOS.pi ~ SDIU.Body, data = polymorphism.divergence.data.autosome)
+boxplot(DOS.pi ~ SDIU.Head, data = polymorphism.divergence.data.autosome)
+
+plot()
+
+
+model.body.unfiltered = lm(DOS.unfiltered ~ abs(body.log2FC) + SDIU.Body + body.baseMean, weights = DOS.unfiltered.weight, data = polymorphism.divergence.data.autosome)
+model.head.unfiltered = lm(DOS.unfiltered ~ abs(head.log2FC) + SDIU.Head + head.baseMean, weights = DOS.unfiltered.weight, data = polymorphism.divergence.data.autosome)
+
+# MAF Filtered at 0.15 using traditional DOS
+boxplot(DOS.filtered.15 ~ log2FC.body.quantile, data = polymorphism.divergence.data.autosome)
+boxplot(DOS.filtered.15 ~ log2FC.head.quantile, data = polymorphism.divergence.data.autosome)
+boxplot(DOS.filtered.15 ~ SDIU.Body, data = polymorphism.divergence.data.autosome)
+boxplot(DOS.filtered.15 ~ SDIU.Head, data = polymorphism.divergence.data.autosome)
+
+model.body.filtered = lm(DOS.filtered.15 ~ abs(body.log2FC) + SDIU.Body + body.baseMean, weights = DOS.filtered.15.weight, data = polymorphism.divergence.data.autosome)
+model.head.filtered = lm(DOS.filtered.15 ~ abs(head.log2FC) + SDIU.Head + head.baseMean, weights = DOS.filtered.15.weight, data = polymorphism.divergence.data.autosome)
+
+
+# MAF filtered at 0.02 using DOS pi
+boxplot(DOS.pi ~ log2FC.body.quantile, data = polymorphism.divergence.data.autosome)
+boxplot(DOS.pi ~ log2FC.head.quantile, data = polymorphism.divergence.data.autosome)
+boxplot(DOS.pi ~ SDIU.Body, data = polymorphism.divergence.data.autosome)
+boxplot(DOS.pi ~ SDIU.Head, data = polymorphism.divergence.data.autosome)
+
+model.body = lm(DOS.pi ~  abs(body.log2FC) + SDIU.Body + body.baseMean, data = polymorphism.divergence.data.autosome)
+model.head = lm(DOS.pi ~ abs(head.log2FC) + SDIU.Head + head.baseMean, data = polymorphism.divergence.data.autosome)
+
+
+
+tajimasD.body.model = lmperm((DOS.pi ~  abs(body.log2FC) + SDIU.Body + body.baseMean, weights = AneilGuessAtWeightingFactorForDoS_pi, data = polymorphism.divergence.data.autosome), np=10000)
+model.head_lmperm = lmperm(formula = DOS.pi ~  abs(head.log2FC) + SDIU.Head + head.baseMean, data = polymorphism.divergence.data.autosome, np=10000)
+
+
+
+
+
+
+
+
+## Fitting models
+
+
+
+# Merge my data with Lee Dataset
+lee.data.subset = lee.data[,c(1,4:7,10)]
+lee.data.subset = lee.data.subset[!(lee.data.subset$unNSpoly_mel=="F" | lee.data.subset$unNSfix_mel=="F" | lee.data.subset$unSpoly_mel=="F" | lee.data.subset$unSfix_mel=="F"), ]
+lee.data.subset = lee.data.subset[complete.cases(lee.data.subset),]
+merged.lee = merge(merged.data, lee.data.subset, by.x = "GeneSymbol", by.y = "CG")
+merged.lee$DOS.lee = ( as.numeric(merged.lee$unNSfix_mel) / ( as.numeric(merged.lee$unNSfix_mel) + as.numeric(merged.lee$unSfix_mel) ) ) - (as.numeric(merged.lee$unNSpoly_mel) / (as.numeric(merged.lee$unNSpoly_mel) + as.numeric(merged.lee$unSpoly_mel)))
+merged.lee$DOS.unfiltered = ( as.numeric(merged.lee$fixN) / ( as.numeric(merged.lee$fixN) + as.numeric(merged.lee$fixS) ) ) - (as.numeric(merged.lee$NumNS.Unfiltered) / (as.numeric(merged.lee$NumNS.Unfiltered) + as.numeric(merged.lee$NumS.Unfiltered)))
+merged.lee$DOS.filtered.10 = ( as.numeric(merged.lee$fixN) / ( as.numeric(merged.lee$fixN) + as.numeric(merged.lee$fixS) ) ) - (as.numeric(merged.lee$NumNS.Filtered.10) / (as.numeric(merged.lee$NumNS.Filtered.10) + as.numeric(merged.lee$NumS.Filtered.10)))
+merged.lee$DOS.filtered.15 = ( as.numeric(merged.lee$fixN) / ( as.numeric(merged.lee$fixN) + as.numeric(merged.lee$fixS) ) ) - (as.numeric(merged.lee$NumNS.Filtered.15) / (as.numeric(merged.lee$NumNS.Filtered.15) + as.numeric(merged.lee$NumS.Filtered.15)))
+merged.lee$DOS.unfiltered.weight = 1 / ( 1 / (as.numeric(merged.lee$fixN) + as.numeric(merged.lee$fixS)) ) + (1 / (as.numeric(merged.lee$NumNS.Unfiltered) + as.numeric(merged.lee$NumS.Unfiltered) ) )
+merged.lee$DOS.filtered.10.weight = 1 / ( 1 / (as.numeric(merged.lee$fixN) + as.numeric(merged.lee$fixS)) ) + (1 / (as.numeric(merged.lee$NumNS.Filtered.10) + as.numeric(merged.lee$NumS.Filtered.10) ) )
+merged.lee$DOS.filtered.15.weight = 1 / ( 1 / (as.numeric(merged.lee$fixN) + as.numeric(merged.lee$fixS)) ) + (1 / (as.numeric(merged.lee$NumNS.Filtered.15) + as.numeric(merged.lee$NumS.Filtered.15) ) )
+
+merged.lee$DOS.pi = ( merged.lee$fixN / (merged.lee$fixN + merged.lee$fixS) ) - ( merged.lee$piN / (merged.lee$piN + merged.lee$piS ) )
+merged.lee$RecipWeight_D = 1 / (merged.lee$fixN + merged.lee$fixS)
+merged.lee$RecipWeight_P = 1 / (merged.lee$Total.NS.sites + merged.lee$Total.Syn.sites)
+merged.lee$AneilGuessAtWeightingFactorForDoS_pi = 1/(merged.lee$RecipWeight_D + merged.lee$RecipWeight_P)
+
+merged.lee$DOS.lee.div = ( as.numeric(merged.lee$unNSfix_mel) / ( as.numeric(merged.lee$unNSfix_mel) + as.numeric(merged.lee$unSfix_mel) ) )
+merged.lee$DOS.unfiltered.div = ( as.numeric(merged.lee$fixN) / ( as.numeric(merged.lee$fixN) + as.numeric(merged.lee$fixS) ) )
+merged.lee$DOS.filtered.10.div = ( as.numeric(merged.lee$fixN) / ( as.numeric(merged.lee$fixN) + as.numeric(merged.lee$fixS) ) )
+merged.lee$DOS.filtered.15.div = ( as.numeric(merged.lee$fixN) / ( as.numeric(merged.lee$fixN) + as.numeric(merged.lee$fixS) ) )
+
+merged.lee$DOS.lee.pol = (as.numeric(merged.lee$unNSpoly_mel) / (as.numeric(merged.lee$unNSpoly_mel) + as.numeric(merged.lee$unSpoly_mel)))
+merged.lee$DOS.unfiltered.pol = (as.numeric(merged.lee$NumNS.Unfiltered) / (as.numeric(merged.lee$NumNS.Unfiltered) + as.numeric(merged.lee$NumS.Unfiltered)))
+merged.lee$DOS.filtered.10.pol = (as.numeric(merged.lee$NumNS.Filtered.10) / (as.numeric(merged.lee$NumNS.Filtered.10) + as.numeric(merged.lee$NumS.Filtered.10)))
+merged.lee$DOS.filtered.15.pol = (as.numeric(merged.lee$NumNS.Filtered.15) / (as.numeric(merged.lee$NumNS.Filtered.15) + as.numeric(merged.lee$NumS.Filtered.15)))
+
+
+plot(as.numeric(merged.lee$DOS.lee) ~ as.numeric(merged.lee$DOS.unfiltered))
+
+
+# Sanity check ## Re-do Lee data MKtests
+# Perform M-K test on Lee data
+
+# Filter rows with no data
+lee.data.subset = lee.data[,c(1,4:7,10)]
+lee.data.subset = lee.data.subset[!(lee.data.subset$unNSpoly_mel=="F" | lee.data.subset$unNSfix_mel=="F" | lee.data.subset$unSpoly_mel=="F" | lee.data.subset$unSfix_mel=="F"), ]
+lee.data.subset = lee.data.subset[complete.cases(lee.data.subset),]
+for (i in 1:nrow(lee.data.subset)){
+  x=lee.data.subset[i,c(2:5)]
+  contingency.table.lee = matrix(NA, ncol = 2, nrow = 2)
+  contingency.table.lee[1,1] = as.numeric(x[2])
+  contingency.table.lee[1,2] = as.numeric(x[1])
+  contingency.table.lee[2,1] = as.numeric(x[4])
+  contingency.table.lee[2,2] = as.numeric(x[3])
+
+  lee.data.subset$mktest.pvalue.two.tailed[i] = fisher.test(contingency.table.lee)$p.value
+  lee.data.subset$mktest.pvalue.adaptive[i] = fisher.test(contingency.table.lee,alternative="greater")$p.value
+  lee.data.subset$mktest.pvalue.purifying[i] = fisher.test(contingency.table.lee,alternative="less")$p.value
+print(i)
+}
+
+
+# Compare MK test p-values with those from the Begun data in simulans
+begun.mel.merged = merge(begun.data.full, polymorphism.divergence.data, by.x = "CG", by.y = "GeneSymbol", sort = FALSE)
+begun.mel.merged.filtered = merge(begun.data.full, polymorphism.divergence.data.filtered, by.x = "CG", by.y = "GeneSymbol", sort = FALSE)
+
+begun.merged.fil.unfil = merge(begun.mel.merged, begun.mel.merged.filtered, by="CG")
+
+
+pval.summary = matrix(NA, nrow = 4, ncol = 4)
+colnames(pval.summary) = c("Filtered_p<0.05", "Filtered_0.05<p<0.1", "Filtered_0.1<P<0.95", "Filtered_0.95<P<1")
+rownames(pval.summary) = c("Unfiltered_p<0.05", "Unfiltered_0.05<p<0.1", "Unfiltered_0.1<P<0.95", "Unfiltered_0.95<P<1")
+
+pval.summary[1,1] = nrow(merged.data[merged.data$mktest.pvalue.adaptive < 0.05 & merged.data$mktest.pvalue.adaptive.filtered < 0.05,])
+pval.summary[1,2] = nrow(merged.data[merged.data$mktest.pvalue.adaptive < 0.05 & merged.data$mktest.pvalue.adaptive.filtered >= 0.05 & merged.data$mktest.pvalue.adaptive.filtered < 0.1,])
+pval.summary[1,3] = nrow(merged.data[merged.data$mktest.pvalue.adaptive < 0.05 & merged.data$mktest.pvalue.adaptive.filtered >= 0.1 & merged.data$mktest.pvalue.adaptive.filtered < 0.95,])
+pval.summary[1,4] = nrow(merged.data[merged.data$mktest.pvalue.adaptive < 0.05 & merged.data$mktest.pvalue.adaptive.filtered >= 0.95,])
+
+pval.summary[2,1] = nrow(merged.data[merged.data$mktest.pvalue.adaptive >= 0.05 & merged.data$mktest.pvalue.adaptive < 0.1 & merged.data$mktest.pvalue.adaptive.filtered < 0.05,])
+pval.summary[2,2] = nrow(merged.data[merged.data$mktest.pvalue.adaptive >= 0.05 & merged.data$mktest.pvalue.adaptive < 0.1 & merged.data$mktest.pvalue.adaptive.filtered >= 0.05 & merged.data$mktest.pvalue.adaptive.filtered <0.1,])
+pval.summary[2,3] = nrow(merged.data[merged.data$mktest.pvalue.adaptive >= 0.05 & merged.data$mktest.pvalue.adaptive < 0.1 & merged.data$mktest.pvalue.adaptive.filtered >= 0.1 & merged.data$mktest.pvalue.adaptive.filtered <0.95,])
+pval.summary[2,4] = nrow(merged.data[merged.data$mktest.pvalue.adaptive >= 0.05 & merged.data$mktest.pvalue.adaptive < 0.1 & merged.data$mktest.pvalue.adaptive.filtered >= 0.95,])
+
+pval.summary[3,1] = nrow(merged.data[merged.data$mktest.pvalue.adaptive >= 0.1 & merged.data$mktest.pvalue.adaptive < 0.95 & merged.data$mktest.pvalue.adaptive.filtered < 0.05,])
+pval.summary[3,2] = nrow(merged.data[merged.data$mktest.pvalue.adaptive >= 0.1 & merged.data$mktest.pvalue.adaptive < 0.95 & merged.data$mktest.pvalue.adaptive.filtered >= 0.05 & merged.data$mktest.pvalue.adaptive.filtered <0.1,])
+pval.summary[3,3] = nrow(merged.data[merged.data$mktest.pvalue.adaptive >= 0.1 & merged.data$mktest.pvalue.adaptive < 0.95 & merged.data$mktest.pvalue.adaptive.filtered >= 0.1 & merged.data$mktest.pvalue.adaptive.filtered <0.95,])
+pval.summary[3,4] = nrow(merged.data[merged.data$mktest.pvalue.adaptive >= 0.1 & merged.data$mktest.pvalue.adaptive < 0.95 & merged.data$mktest.pvalue.adaptive.filtered >= 0.95,])
+
+pval.summary[4,1] = nrow(merged.data[merged.data$mktest.pvalue.adaptive > 0.95 & merged.data$mktest.pvalue.adaptive.filtered < 0.05,])
+pval.summary[4,2] = nrow(merged.data[merged.data$mktest.pvalue.adaptive > 0.95 & merged.data$mktest.pvalue.adaptive.filtered >= 0.05 & merged.data$mktest.pvalue.adaptive.filtered <0.1,])
+pval.summary[4,3] = nrow(merged.data[merged.data$mktest.pvalue.adaptive > 0.95 & merged.data$mktest.pvalue.adaptive.filtered >= 0.1 & merged.data$mktest.pvalue.adaptive.filtered <0.95,])
+pval.summary[4,4] = nrow(merged.data[merged.data$mktest.pvalue.adaptive > 0.95 & merged.data$mktest.pvalue.adaptive.filtered >= 0.95,])
+
+# Simulans versus unfiltered
+pval.summary.unfil.sim = matrix(NA, nrow = 4, ncol = 4)
+colnames(pval.summary.unfil.sim) = c("Sim_p<0.05", "Sim_0.05<p<0.1", "Sim_0.1<P<0.95", "Sim_0.95<P<1")
+rownames(pval.summary.unfil.sim) = c("Mel_p<0.05", "Mel_0.05<p<0.1", "Mel_0.1<P<0.95", "Mel_0.95<P<1")
+
+pval.summary.unfil.sim[1,1] = nrow(begun.merged.fil.unfil[begun.merged.fil.unfil$mktest.pvalue.adaptive < 0.05 & begun.merged.fil.unfil$unpolMKFETpval.y < 0.05,])
+pval.summary.unfil.sim[1,2] = nrow(begun.merged.fil.unfil[begun.merged.fil.unfil$mktest.pvalue.adaptive < 0.05 & begun.merged.fil.unfil$unpolMKFETpval.y >= 0.05 & begun.merged.fil.unfil$unpolMKFETpval.y < 0.1,])
+pval.summary.unfil.sim[1,3] = nrow(begun.merged.fil.unfil[begun.merged.fil.unfil$mktest.pvalue.adaptive < 0.05 & begun.merged.fil.unfil$unpolMKFETpval.y >= 0.1 & begun.merged.fil.unfil$unpolMKFETpval.y < 0.95,])
+pval.summary.unfil.sim[1,4] = nrow(begun.merged.fil.unfil[begun.merged.fil.unfil$mktest.pvalue.adaptive < 0.05 & begun.merged.fil.unfil$unpolMKFETpval.y >= 0.95,])
+
+pval.summary.unfil.sim[2,1] = nrow(begun.merged.fil.unfil[begun.merged.fil.unfil$mktest.pvalue.adaptive >= 0.05 & begun.merged.fil.unfil$mktest.pvalue.adaptive < 0.1 & begun.merged.fil.unfil$unpolMKFETpval.y < 0.05,])
+pval.summary.unfil.sim[2,2] = nrow(begun.merged.fil.unfil[begun.merged.fil.unfil$mktest.pvalue.adaptive >= 0.05 & begun.merged.fil.unfil$mktest.pvalue.adaptive < 0.1 & begun.merged.fil.unfil$unpolMKFETpval.y >= 0.05 & begun.merged.fil.unfil$unpolMKFETpval.y <0.1,])
+pval.summary.unfil.sim[2,3] = nrow(begun.merged.fil.unfil[begun.merged.fil.unfil$mktest.pvalue.adaptive >= 0.05 & begun.merged.fil.unfil$mktest.pvalue.adaptive < 0.1 & begun.merged.fil.unfil$unpolMKFETpval.y >= 0.1 & begun.merged.fil.unfil$unpolMKFETpval.y<0.95,])
+pval.summary.unfil.sim[2,4] = nrow(begun.merged.fil.unfil[begun.merged.fil.unfil$mktest.pvalue.adaptive >= 0.05 & begun.merged.fil.unfil$mktest.pvalue.adaptive < 0.1 & begun.merged.fil.unfil$unpolMKFETpval.y >= 0.95,])
+
+pval.summary.unfil.sim[3,1] = nrow(begun.merged.fil.unfil[begun.merged.fil.unfil$mktest.pvalue.adaptive >= 0.1 & begun.merged.fil.unfil$mktest.pvalue.adaptive < 0.95 & begun.merged.fil.unfil$unpolMKFETpval.y < 0.05,])
+pval.summary.unfil.sim[3,2] = nrow(begun.merged.fil.unfil[begun.merged.fil.unfil$mktest.pvalue.adaptive >= 0.1 & begun.merged.fil.unfil$mktest.pvalue.adaptive < 0.95 & begun.merged.fil.unfil$unpolMKFETpval.y >= 0.05 & begun.merged.fil.unfil$unpolMKFETpval.y <0.1,])
+pval.summary.unfil.sim[3,3] = nrow(begun.merged.fil.unfil[begun.merged.fil.unfil$mktest.pvalue.adaptive >= 0.1 & begun.merged.fil.unfil$mktest.pvalue.adaptive < 0.95 & begun.merged.fil.unfil$unpolMKFETpval.y >= 0.1 & begun.merged.fil.unfil$unpolMKFETpval.y <0.95,])
+pval.summary.unfil.sim[3,4] = nrow(begun.merged.fil.unfil[begun.merged.fil.unfil$mktest.pvalue.adaptive >= 0.1 & begun.merged.fil.unfil$mktest.pvalue.adaptive < 0.95 & begun.merged.fil.unfil$unpolMKFETpval.y >= 0.95,])
+
+pval.summary.unfil.sim[4,1] = nrow(begun.merged.fil.unfil[begun.merged.fil.unfil$mktest.pvalue.adaptive > 0.95 & begun.merged.fil.unfil$unpolMKFETpval.y < 0.05,])
+pval.summary.unfil.sim[4,2] = nrow(begun.merged.fil.unfil[begun.merged.fil.unfil$mktest.pvalue.adaptive > 0.95 & begun.merged.fil.unfil$unpolMKFETpval.y >= 0.05 & begun.merged.fil.unfil$unpolMKFETpval.y <0.1,])
+pval.summary.unfil.sim[4,3] = nrow(begun.merged.fil.unfil[begun.merged.fil.unfil$mktest.pvalue.adaptive > 0.95 & begun.merged.fil.unfil$unpolMKFETpval.y >= 0.1 & begun.merged.fil.unfil$unpolMKFETpval.y <0.95,])
+pval.summary.unfil.sim[4,4] = nrow(begun.merged.fil.unfil[begun.merged.fil.unfil$mktest.pvalue.adaptive > 0.95 & begun.merged.fil.unfil$unpolMKFETpval.y >= 0.95,])
+
+# Simulans versus filtered
+pval.summary.fil.sim = matrix(NA, nrow = 4, ncol = 4)
+colnames(pval.summary.fil.sim) = c("Sim_p<0.05", "Sim_0.05<p<0.1", "Sim_0.1<P<0.95", "Sim_0.95<P<1")
+rownames(pval.summary.fil.sim) = c("Mel_p<0.05", "Mel_0.05<p<0.1", "Mel_0.1<P<0.95", "Mel_0.95<P<1")
+
+pval.summary.fil.sim[1,1] = nrow(begun.merged.fil.unfil[begun.merged.fil.unfil$mktest.pvalue.adaptive.filtered < 0.05 & begun.merged.fil.unfil$unpolMKFETpval.y < 0.05,])
+pval.summary.fil.sim[1,2] = nrow(begun.merged.fil.unfil[begun.merged.fil.unfil$mktest.pvalue.adaptive.filtered < 0.05 & begun.merged.fil.unfil$unpolMKFETpval.y >= 0.05 & begun.merged.fil.unfil$unpolMKFETpval.y < 0.1,])
+pval.summary.fil.sim[1,3] = nrow(begun.merged.fil.unfil[begun.merged.fil.unfil$mktest.pvalue.adaptive.filtered < 0.05 & begun.merged.fil.unfil$unpolMKFETpval.y >= 0.1 & begun.merged.fil.unfil$unpolMKFETpval.y < 0.95,])
+pval.summary.fil.sim[1,4] = nrow(begun.merged.fil.unfil[begun.merged.fil.unfil$mktest.pvalue.adaptive.filtered < 0.05 & begun.merged.fil.unfil$unpolMKFETpval.y >= 0.95,])
+
+pval.summary.fil.sim[2,1] = nrow(begun.merged.fil.unfil[begun.merged.fil.unfil$mktest.pvalue.adaptive.filtered >= 0.05 & begun.merged.fil.unfil$mktest.pvalue.adaptive.filtered < 0.1 & begun.merged.fil.unfil$unpolMKFETpval.y < 0.05,])
+pval.summary.fil.sim[2,2] = nrow(begun.merged.fil.unfil[begun.merged.fil.unfil$mktest.pvalue.adaptive.filtered >= 0.05 & begun.merged.fil.unfil$mktest.pvalue.adaptive.filtered < 0.1 & begun.merged.fil.unfil$unpolMKFETpval.y >= 0.05 & begun.merged.fil.unfil$unpolMKFETpval.y <0.1,])
+pval.summary.fil.sim[2,3] = nrow(begun.merged.fil.unfil[begun.merged.fil.unfil$mktest.pvalue.adaptive.filtered >= 0.05 & begun.merged.fil.unfil$mktest.pvalue.adaptive.filtered < 0.1 & begun.merged.fil.unfil$unpolMKFETpval.y >= 0.1 & begun.merged.fil.unfil$unpolMKFETpval.y<0.95,])
+pval.summary.fil.sim[2,4] = nrow(begun.merged.fil.unfil[begun.merged.fil.unfil$mktest.pvalue.adaptive.filtered >= 0.05 & begun.merged.fil.unfil$mktest.pvalue.adaptive.filtered < 0.1 & begun.merged.fil.unfil$unpolMKFETpval.y >= 0.95,])
+
+pval.summary.fil.sim[3,1] = nrow(begun.merged.fil.unfil[begun.merged.fil.unfil$mktest.pvalue.adaptive.filtered >= 0.1 & begun.merged.fil.unfil$mktest.pvalue.adaptive.filtered < 0.95 & begun.merged.fil.unfil$unpolMKFETpval.y < 0.05,])
+pval.summary.fil.sim[3,2] = nrow(begun.merged.fil.unfil[begun.merged.fil.unfil$mktest.pvalue.adaptive.filtered >= 0.1 & begun.merged.fil.unfil$mktest.pvalue.adaptive.filtered < 0.95 & begun.merged.fil.unfil$unpolMKFETpval.y >= 0.05 & begun.merged.fil.unfil$unpolMKFETpval.y <0.1,])
+pval.summary.fil.sim[3,3] = nrow(begun.merged.fil.unfil[begun.merged.fil.unfil$mktest.pvalue.adaptive.filtered >= 0.1 & begun.merged.fil.unfil$mktest.pvalue.adaptive.filtered < 0.95 & begun.merged.fil.unfil$unpolMKFETpval.y >= 0.1 & begun.merged.fil.unfil$unpolMKFETpval.y <0.95,])
+pval.summary.fil.sim[3,4] = nrow(begun.merged.fil.unfil[begun.merged.fil.unfil$mktest.pvalue.adaptive.filtered >= 0.1 & begun.merged.fil.unfil$mktest.pvalue.adaptive.filtered < 0.95 & begun.merged.fil.unfil$unpolMKFETpval.y >= 0.95,])
+
+pval.summary.fil.sim[4,1] = nrow(begun.merged.fil.unfil[begun.merged.fil.unfil$mktest.pvalue.adaptive.filtered > 0.95 & begun.merged.fil.unfil$unpolMKFETpval.y < 0.05,])
+pval.summary.fil.sim[4,2] = nrow(begun.merged.fil.unfil[begun.merged.fil.unfil$mktest.pvalue.adaptive.filtered > 0.95 & begun.merged.fil.unfil$unpolMKFETpval.y >= 0.05 & begun.merged.fil.unfil$unpolMKFETpval.y <0.1,])
+pval.summary.fil.sim[4,3] = nrow(begun.merged.fil.unfil[begun.merged.fil.unfil$mktest.pvalue.adaptive.filtered > 0.95 & begun.merged.fil.unfil$unpolMKFETpval.y >= 0.1 & begun.merged.fil.unfil$unpolMKFETpval.y <0.95,])
+pval.summary.fil.sim[4,4] = nrow(begun.merged.fil.unfil[begun.merged.fil.unfil$mktest.pvalue.adaptive.filtered > 0.95 & begun.merged.fil.unfil$unpolMKFETpval.y >= 0.95,])
+
+
+# Simulans versus filtered
+pval.summary.fil.sim.pur = matrix(NA, nrow = 4, ncol = 4)
+colnames(pval.summary.fil.sim.pur) = c("Sim_p<0.05", "Sim_0.05<p<0.1", "Sim_0.1<P<0.95", "Sim_0.95<P<1")
+rownames(pval.summary.fil.sim.pur) = c("Mel_p<0.05", "Mel_0.05<p<0.1", "Mel_0.1<P<0.95", "Mel_0.95<P<1")
+
+pval.summary.fil.sim[1,1] = nrow(begun.merged.fil.unfil[begun.merged.fil.unfil$mktest.pvalue.adaptive.filtered < 0.05 & begun.merged.fil.unfil$unpolMKFETpval.y < 0.05,])
+pval.summary.fil.sim[1,2] = nrow(begun.merged.fil.unfil[begun.merged.fil.unfil$mktest.pvalue.adaptive.filtered < 0.05 & begun.merged.fil.unfil$unpolMKFETpval.y >= 0.05 & begun.merged.fil.unfil$unpolMKFETpval.y < 0.1,])
+pval.summary.fil.sim[1,3] = nrow(begun.merged.fil.unfil[begun.merged.fil.unfil$mktest.pvalue.adaptive.filtered < 0.05 & begun.merged.fil.unfil$unpolMKFETpval.y >= 0.1 & begun.merged.fil.unfil$unpolMKFETpval.y < 0.95,])
+pval.summary.fil.sim[1,4] = nrow(begun.merged.fil.unfil[begun.merged.fil.unfil$mktest.pvalue.adaptive.filtered < 0.05 & begun.merged.fil.unfil$unpolMKFETpval.y >= 0.95,])
+
+pval.summary.fil.sim[2,1] = nrow(begun.merged.fil.unfil[begun.merged.fil.unfil$mktest.pvalue.adaptive.filtered >= 0.05 & begun.merged.fil.unfil$mktest.pvalue.adaptive.filtered < 0.1 & begun.merged.fil.unfil$unpolMKFETpval.y < 0.05,])
+pval.summary.fil.sim[2,2] = nrow(begun.merged.fil.unfil[begun.merged.fil.unfil$mktest.pvalue.adaptive.filtered >= 0.05 & begun.merged.fil.unfil$mktest.pvalue.adaptive.filtered < 0.1 & begun.merged.fil.unfil$unpolMKFETpval.y >= 0.05 & begun.merged.fil.unfil$unpolMKFETpval.y <0.1,])
+pval.summary.fil.sim[2,3] = nrow(begun.merged.fil.unfil[begun.merged.fil.unfil$mktest.pvalue.adaptive.filtered >= 0.05 & begun.merged.fil.unfil$mktest.pvalue.adaptive.filtered < 0.1 & begun.merged.fil.unfil$unpolMKFETpval.y >= 0.1 & begun.merged.fil.unfil$unpolMKFETpval.y<0.95,])
+pval.summary.fil.sim[2,4] = nrow(begun.merged.fil.unfil[begun.merged.fil.unfil$mktest.pvalue.adaptive.filtered >= 0.05 & begun.merged.fil.unfil$mktest.pvalue.adaptive.filtered < 0.1 & begun.merged.fil.unfil$unpolMKFETpval.y >= 0.95,])
+
+pval.summary.fil.sim[3,1] = nrow(begun.merged.fil.unfil[begun.merged.fil.unfil$mktest.pvalue.adaptive.filtered >= 0.1 & begun.merged.fil.unfil$mktest.pvalue.adaptive.filtered < 0.95 & begun.merged.fil.unfil$unpolMKFETpval.y < 0.05,])
+pval.summary.fil.sim[3,2] = nrow(begun.merged.fil.unfil[begun.merged.fil.unfil$mktest.pvalue.adaptive.filtered >= 0.1 & begun.merged.fil.unfil$mktest.pvalue.adaptive.filtered < 0.95 & begun.merged.fil.unfil$unpolMKFETpval.y >= 0.05 & begun.merged.fil.unfil$unpolMKFETpval.y <0.1,])
+pval.summary.fil.sim[3,3] = nrow(begun.merged.fil.unfil[begun.merged.fil.unfil$mktest.pvalue.adaptive.filtered >= 0.1 & begun.merged.fil.unfil$mktest.pvalue.adaptive.filtered < 0.95 & begun.merged.fil.unfil$unpolMKFETpval.y >= 0.1 & begun.merged.fil.unfil$unpolMKFETpval.y <0.95,])
+pval.summary.fil.sim[3,4] = nrow(begun.merged.fil.unfil[begun.merged.fil.unfil$mktest.pvalue.adaptive.filtered >= 0.1 & begun.merged.fil.unfil$mktest.pvalue.adaptive.filtered < 0.95 & begun.merged.fil.unfil$unpolMKFETpval.y >= 0.95,])
+
+pval.summary.fil.sim[4,1] = nrow(begun.merged.fil.unfil[begun.merged.fil.unfil$mktest.pvalue.adaptive.filtered > 0.95 & begun.merged.fil.unfil$unpolMKFETpval.y < 0.05,])
+pval.summary.fil.sim[4,2] = nrow(begun.merged.fil.unfil[begun.merged.fil.unfil$mktest.pvalue.adaptive.filtered > 0.95 & begun.merged.fil.unfil$unpolMKFETpval.y >= 0.05 & begun.merged.fil.unfil$unpolMKFETpval.y <0.1,])
+pval.summary.fil.sim[4,3] = nrow(begun.merged.fil.unfil[begun.merged.fil.unfil$mktest.pvalue.adaptive.filtered > 0.95 & begun.merged.fil.unfil$unpolMKFETpval.y >= 0.1 & begun.merged.fil.unfil$unpolMKFETpval.y <0.95,])
+pval.summary.fil.sim[4,4] = nrow(begun.merged.fil.unfil[begun.merged.fil.unfil$mktest.pvalue.adaptive.filtered > 0.95 & begun.merged.fil.unfil$unpolMKFETpval.y >= 0.95,])
+
+## Lee dataset
+
+# Melanogaster versus Melanogaster
+mk.data = merged.lee
+
+pval.summary.lee = matrix(NA, nrow = 4, ncol = 4)
+colnames(pval.summary.lee) = c("My_p<0.05", "My_0.05<p<0.1", "My_0.1<P<0.95", "My_0.95<P<1")
+rownames(pval.summary.lee) = c("Lee_p<0.05", "Lee_0.05<p<0.1", "Lee_0.1<P<0.95", "Lee_0.95<P<1")
+
+pval.summary.lee[1,1] = nrow(mk.data[mk.data$unFETpval_mel < 0.05 & mk.data$mktest.pvalue.twotailed.filtered.10 < 0.05,])
+pval.summary.lee[1,2] = nrow(mk.data[mk.data$unFETpval_mel < 0.05 & mk.data$mktest.pvalue.twotailed.filtered.10 >= 0.05 & mk.data$mktest.pvalue.twotailed.filtered.10 < 0.1,])
+pval.summary.lee[1,3] = nrow(mk.data[mk.data$unFETpval_mel < 0.05 & mk.data$mktest.pvalue.twotailed.filtered.10 >= 0.1 & mk.data$mktest.pvalue.twotailed.filtered.10 < 0.95,])
+pval.summary.lee[1,4] = nrow(mk.data[mk.data$unFETpval_mel < 0.05 & mk.data$mktest.pvalue.twotailed.filtered.10 >= 0.95,])
+
+pval.summary.lee[2,1] = nrow(mk.data[mk.data$unFETpval_mel >= 0.05 & mk.data$unFETpval_mel < 0.1 & mk.data$mktest.pvalue.twotailed.filtered.10 < 0.05,])
+pval.summary.lee[2,2] = nrow(mk.data[mk.data$unFETpval_mel >= 0.05 & mk.data$unFETpval_mel < 0.1 & mk.data$mktest.pvalue.twotailed.filtered.10 >= 0.05 & mk.data$mktest.pvalue.twotailed.filtered.10 <0.1,])
+pval.summary.lee[2,3] = nrow(mk.data[mk.data$unFETpval_mel >= 0.05 & mk.data$unFETpval_mel < 0.1 & mk.data$mktest.pvalue.twotailed.filtered.10 >= 0.1 & mk.data$mktest.pvalue.twotailed.filtered.10<0.95,])
+pval.summary.lee[2,4] = nrow(mk.data[mk.data$unFETpval_mel >= 0.05 & mk.data$unFETpval_mel < 0.1 & mk.data$mktest.pvalue.twotailed.filtered.10 >= 0.95,])
+
+pval.summary.lee[3,1] = nrow(mk.data[mk.data$unFETpval_mel >= 0.1 & mk.data$unFETpval_mel < 0.95 & mk.data$mktest.pvalue.twotailed.filtered.10 < 0.05,])
+pval.summary.lee[3,2] = nrow(mk.data[mk.data$unFETpval_mel >= 0.1 & mk.data$unFETpval_mel < 0.95 & mk.data$mktest.pvalue.twotailed.filtered.10 >= 0.05 & mk.data$mktest.pvalue.twotailed.filtered.10 <0.1,])
+pval.summary.lee[3,3] = nrow(mk.data[mk.data$unFETpval_mel >= 0.1 & mk.data$unFETpval_mel < 0.95 & mk.data$mktest.pvalue.twotailed.filtered.10 >= 0.1 & mk.data$mktest.pvalue.twotailed.filtered.10 <0.95,])
+pval.summary.lee[3,4] = nrow(mk.data[mk.data$unFETpval_mel >= 0.1 & mk.data$unFETpval_mel < 0.95 & mk.data$mktest.pvalue.twotailed.filtered.10 >= 0.95,])
+
+pval.summary.lee[4,1] = nrow(mk.data[mk.data$unFETpval_mel > 0.95 & mk.data$mktest.pvalue.twotailed.filtered.10 < 0.05,])
+pval.summary.lee[4,2] = nrow(mk.data[mk.data$unFETpval_mel > 0.95 & mk.data$mktest.pvalue.twotailed.filtered.10 >= 0.05 & mk.data$mktest.pvalue.twotailed.filtered.10 <0.1,])
+pval.summary.lee[4,3] = nrow(mk.data[mk.data$unFETpval_mel > 0.95 & mk.data$mktest.pvalue.twotailed.filtered.10 >= 0.1 & mk.data$mktest.pvalue.twotailed.filtered.10 <0.95,])
+pval.summary.lee[4,4] = nrow(mk.data[mk.data$unFETpval_mel > 0.95 & mk.data$mktest.pvalue.twotailed.filtered.10 >= 0.95,])
+pval.summary.lee
+
+
+## Simulants versus Mel
+pval.summary.lee = matrix(NA, nrow = 4, ncol = 4)
+colnames(pval.summary.lee) = c("My_p<0.05", "My_0.05<p<0.1", "My_0.1<P<0.95", "My_0.95<P<1")
+rownames(pval.summary.lee) = c("Lee_p<0.05", "Lee_0.05<p<0.1", "Lee_0.1<P<0.95", "Lee_0.95<P<1")
+
+pval.summary.lee[1,1] = nrow(mk.data[mk.data$unFETpval_mel < 0.05 & mk.data$unFETpval_sim < 0.05,])
+pval.summary.lee[1,2] = nrow(mk.data[mk.data$unFETpval_mel < 0.05 & mk.data$unFETpval_sim >= 0.05 & mk.data$unFETpval_sim < 0.1,])
+pval.summary.lee[1,3] = nrow(mk.data[mk.data$unFETpval_mel < 0.05 & mk.data$unFETpval_sim >= 0.1 & mk.data$unFETpval_sim < 0.95,])
+pval.summary.lee[1,4] = nrow(mk.data[mk.data$unFETpval_mel < 0.05 & mk.data$unFETpval_sim >= 0.95,])
+
+pval.summary.lee[2,1] = nrow(mk.data[mk.data$unFETpval_mel >= 0.05 & mk.data$unFETpval_mel < 0.1 & mk.data$unFETpval_sim < 0.05,])
+pval.summary.lee[2,2] = nrow(mk.data[mk.data$unFETpval_mel >= 0.05 & mk.data$unFETpval_mel < 0.1 & mk.data$unFETpval_sim >= 0.05 & mk.data$unFETpval_sim <0.1,])
+pval.summary.lee[2,3] = nrow(mk.data[mk.data$unFETpval_mel >= 0.05 & mk.data$unFETpval_mel < 0.1 & mk.data$unFETpval_sim >= 0.1 & mk.data$unFETpval_sim<0.95,])
+pval.summary.lee[2,4] = nrow(mk.data[mk.data$unFETpval_mel >= 0.05 & mk.data$unFETpval_mel < 0.1 & mk.data$unFETpval_sim >= 0.95,])
+
+pval.summary.lee[3,1] = nrow(mk.data[mk.data$unFETpval_mel >= 0.1 & mk.data$unFETpval_mel < 0.95 & mk.data$unFETpval_sim < 0.05,])
+pval.summary.lee[3,2] = nrow(mk.data[mk.data$unFETpval_mel >= 0.1 & mk.data$unFETpval_mel < 0.95 & mk.data$unFETpval_sim >= 0.05 & mk.data$unFETpval_sim <0.1,])
+pval.summary.lee[3,3] = nrow(mk.data[mk.data$unFETpval_mel >= 0.1 & mk.data$unFETpval_mel < 0.95 & mk.data$unFETpval_sim >= 0.1 & mk.data$unFETpval_sim <0.95,])
+pval.summary.lee[3,4] = nrow(mk.data[mk.data$unFETpval_mel >= 0.1 & mk.data$unFETpval_mel < 0.95 & mk.data$unFETpval_sim >= 0.95,])
+
+pval.summary.lee[4,1] = nrow(mk.data[mk.data$unFETpval_mel > 0.95 & mk.data$unFETpval_sim < 0.05,])
+pval.summary.lee[4,2] = nrow(mk.data[mk.data$unFETpval_mel > 0.95 & mk.data$unFETpval_sim >= 0.05 & mk.data$unFETpval_sim <0.1,])
+pval.summary.lee[4,3] = nrow(mk.data[mk.data$unFETpval_mel > 0.95 & mk.data$unFETpval_sim >= 0.1 & mk.data$unFETpval_sim <0.95,])
+pval.summary.lee[4,4] = nrow(mk.data[mk.data$unFETpval_mel > 0.95 & mk.data$unFETpval_sim >= 0.95,])
+
+
+
+Rows: mk test based on filtered SNPs for D. mel
+a) Number of genes with p < 0.05
+b) Number of genes with 0.05 <= p < 0.1
+c) Number of genes with 0.1 <= p < 0.95
+d) Number of genes with 0.95 <= p < = 1
+
+Columns:  Same as rows but mk test based on unfiltered SNPs for D. mel
+
+
+polymorphism.divergence.data=polymorphism.divergence.data.filtered
+
+# Calculate dN/dS and piN/piS (i.e., numbers of divergent and polymorphic sites of each level of degeneracy)
+polymorphism.divergence.data$dN.dS = polymorphism.divergence.data$fixN / polymorphism.divergence.data$fixS
+polymorphism.divergence.data$piN.piS = polymorphism.divergence.data$N.NS.Polymorphisms / polymorphism.divergence.data$N.Syn.Polymorphisms
+
+# Calculate Direction of Selection (DoS) statistic and DoS weighting factor (DoS.weight)
+polymorphism.divergence.data$DoS = (polymorphism.divergence.data$fixN / (polymorphism.divergence.data$fixN+polymorphism.divergence.data$fixS)) +
+                                      (polymorphism.divergence.data$NumNS.Filtered / (polymorphism.divergence.data$NumNS.Filtered+polymorphism.divergence.data$NumS.Filtered))
+
+polymorphism.divergence.data$DoS.weight = 1 / ( (1 / (polymorphism.divergence.data$fixN+polymorphism.divergence.data$fixS)) +
+                                      (1 / (polymorphism.divergence.data$N.NS.Polymorphisms+polymorphism.divergence.data$N.Syn.Polymorphisms)))
+# Calculate alpha (Eyre-Walker 2002)
+polymorphism.divergence.data$alpha = 1 - ( (polymorphism.divergence.data$fixS*polymorphism.divergence.data$N.NS.Polymorphisms) / (polymorphism.divergence.data$fixN * polymorphism.divergence.data$N.Syn.Polymorphisms)
+
+polymorphism.divergence.data = merge(body.data, head.data, by = "geneID", all = TRUE, sort = FALSE)
+
+polymorphism.divergence.data = merge(polymorphism.divergence.data, dmel.pi, by = "geneID")
+polymorphism.divergence.data$DOS.pi
+
+polymorphism.divergence.data$DOS.pi = ( polymorphism.divergence.data$fixN / (polymorphism.divergence.data$fixN + polymorphism.divergence.data$fixS) ) - ( polymorphism.divergence.data$piN / (polymorphism.divergence.data$piN + polymorphism.divergence.data$piS ) )
+polymorphism.divergence.data$RecipWeight_D = 1 / (polymorphism.divergence.data$fixN + polymorphism.divergence.data$fixS)
+polymorphism.divergence.data$RecipWeight_P = 1 / (polymorphism.divergence.data$Total.NS.sites + polymorphism.divergence.data$Total.Syn.sites)
+polymorphism.divergence.data$AneilGuessAtWeightingFactorForDoS_pi = 1/(polymorphism.divergence.data$RecipWeight_D + polymorphism.divergence.data$RecipWeight_P)
+
+polymorphism.divergence.data$DOS.unfiltered = ( as.numeric(polymorphism.divergence.data$fixN) / ( as.numeric(polymorphism.divergence.data$fixN) + as.numeric(polymorphism.divergence.data$fixS) ) ) - (as.numeric(polymorphism.divergence.data$NumNS.Unfiltered) / (as.numeric(polymorphism.divergence.data$NumNS.Unfiltered) + as.numeric(polymorphism.divergence.data$NumS.Unfiltered)))
+polymorphism.divergence.data$DOS.filtered.10 = ( as.numeric(polymorphism.divergence.data$fixN) / ( as.numeric(polymorphism.divergence.data$fixN) + as.numeric(polymorphism.divergence.data$fixS) ) ) - (as.numeric(polymorphism.divergence.data$NumNS.Filtered.10) / (as.numeric(polymorphism.divergence.data$NumNS.Filtered.10) + as.numeric(polymorphism.divergence.data$NumS.Filtered.10)))
+polymorphism.divergence.data$DOS.filtered.15 = ( as.numeric(polymorphism.divergence.data$fixN) / ( as.numeric(polymorphism.divergence.data$fixN) + as.numeric(polymorphism.divergence.data$fixS) ) ) - (as.numeric(polymorphism.divergence.data$NumNS.Filtered.15) / (as.numeric(polymorphism.divergence.data$NumNS.Filtered.15) + as.numeric(polymorphism.divergence.data$NumS.Filtered.15)))
+
+polymorphism.divergence.data$DOS.unfiltered.weight = 1 / ( 1 / (as.numeric(polymorphism.divergence.data$fixN) + as.numeric(polymorphism.divergence.data$fixS)) ) + (1 / (as.numeric(polymorphism.divergence.data$NumNS.Unfiltered) + as.numeric(polymorphism.divergence.data$NumS.Unfiltered) ) )
+#polymorphism.divergence.data$DOS.filtered.10.weight = 1 / ( 1 / (as.numeric(polymorphism.divergence.data$fixN) + as.numeric(polymorphism.divergence.data$fixS)) ) + (1 / (as.numeric(polymorphism.divergence.data$NumNS.Filtered.10) + as.numeric(polymorphism.divergence.data$NumS.Filtered.10) ) )
+polymorphism.divergence.data$DOS.filtered.15.weight = 1 / ( 1 / (as.numeric(polymorphism.divergence.data$fixN) + as.numeric(polymorphism.divergence.data$fixS)) ) + (1 / (as.numeric(polymorphism.divergence.data$NumNS.Filtered.15) + as.numeric(polymorphism.divergence.data$NumS.Filtered.15) ) )
+
+
+polymorphism.divergence.data.autosome = polymorphism.divergence.data[polymorphism.divergence.data$CHROM != "X",]
+
+par(mfrow = c(2,2))
+boxplot(DOS.unfiltered ~ log2FC.body.quantile, data = polymorphism.divergence.data.autosome)
+boxplot(DOS.unfiltered ~ log2FC.head.quantile, data = polymorphism.divergence.data.autosome)
+boxplot(DOS.unfiltered ~ SDIU.Body, data = polymorphism.divergence.data.autosome)
+boxplot(DOS.unfiltered ~ SDIU.Head, data = polymorphism.divergence.data.autosome)
+
+model.body.unfiltered = lm(DOS.unfiltered ~ abs(body.log2FC) + SDIU.Body + body.baseMean, weights = DOS.unfiltered.weight, data = polymorphism.divergence.data.autosome)
+model.head.unfiltered = lm(DOS.unfiltered ~ abs(head.log2FC) + SDIU.Head + head.baseMean, weights = DOS.unfiltered.weight, data = polymorphism.divergence.data.autosome)
+
+
+boxplot(DOS.filtered.15 ~ log2FC.body.quantile, data = polymorphism.divergence.data.autosome)
+boxplot(DOS.filtered.15 ~ log2FC.head.quantile, data = polymorphism.divergence.data.autosome)
+boxplot(DOS.filtered.15 ~ SDIU.Body, data = polymorphism.divergence.data.autosome)
+boxplot(DOS.filtered.15 ~ SDIU.Head, data = polymorphism.divergence.data.autosome)
+
+model.body.filtered = lm(DOS.filtered.15 ~ abs(body.log2FC) + SDIU.Body + body.baseMean, weights = DOS.filtered.15.weight, data = polymorphism.divergence.data.autosome)
+model.head.filtered = lm(DOS.filtered.15 ~ abs(head.log2FC) + SDIU.Head + head.baseMean, weights = DOS.filtered.15.weight, data = polymorphism.divergence.data.autosome)
+
+par(mfrow = c(2,2))
+boxplot(DOS.pi ~ log2FC.body.quantile, data = polymorphism.divergence.data.autosome)
+boxplot(DOS.pi ~ log2FC.head.quantile, data = polymorphism.divergence.data.autosome)
+boxplot(DOS.pi ~ SDIU.Body, data = polymorphism.divergence.data.autosome)
+boxplot(DOS.pi ~ SDIU.Head, data = polymorphism.divergence.data.autosome)
+
+model.body = lm(DOS.pi ~  abs(body.log2FC) + SDIU.Body + body.baseMean, weights = AneilGuessAtWeightingFactorForDoS_pi, data = polymorphism.divergence.data.autosome)
+model.head = lm(DOS.pi ~ abs(head.log2FC) + SDIU.Head + head.baseMean, weights = AneilGuessAtWeightingFactorForDoS_pi, data = polymorphism.divergence.data.autosome)
+
+# Merge divergence data with data on SDIU and SBGE
+# Format SDIU file
+# Remove any sites that were not tested
+junctionseq.results.body = junctionseq.results.body[!(is.na(junctionseq.results.body$pvalue)),]
+junctionseq.results.head = junctionseq.results.head[!(is.na(junctionseq.results.head$pvalue)),]
+# Lets remove any rows where the expr in males or females is less than 50 in the junctionseq data
+junctionseq.results.filtered.body = junctionseq.results.body[junctionseq.results.body$expr_male > 50 & junctionseq.results.body$expr_female > 50,]
+junctionseq.results.filtered.head = junctionseq.results.head[junctionseq.results.head$expr_male > 50 & junctionseq.results.head$expr_female > 50,]
+# Remove any untested rows
+junctionseq.results.filtered.body = junctionseq.results.filtered.body[junctionseq.results.filtered.body$testable == "TRUE",]
+junctionseq.results.filtered.head = junctionseq.results.filtered.head[junctionseq.results.filtered.head$testable == "TRUE",]
+# Subset out only fields of interest and remove duplicates
+junctionseq.results.filtered.body = junctionseq.results.filtered.body[,c(2,25)]
+junctionseq.results.filtered.head = junctionseq.results.filtered.head[,c(2,25)]
+junctionseq.results.filtered.body = junctionseq.results.filtered.body[!duplicated(junctionseq.results.filtered.body[1:2]),]
+junctionseq.results.filtered.head = junctionseq.results.filtered.head[!duplicated(junctionseq.results.filtered.head[1:2]),]
+# Retain complete cases
+junctionseq.results.filtered.body=junctionseq.results.filtered.body[complete.cases(junctionseq.results.filtered.body),]
+junctionseq.results.filtered.head=junctionseq.results.filtered.head[complete.cases(junctionseq.results.filtered.head),]
+
+# Assign significant hits
+junctionseq.results.filtered.body$SDIU.Body = NA
+junctionseq.results.filtered.body$SDIU.Body[junctionseq.results.filtered.body$geneWisePadj <= 0.01] = 1
+junctionseq.results.filtered.body$SDIU.Body[!(junctionseq.results.filtered.body$geneWisePadj <= 0.01)] = 0
+junctionseq.results.filtered.head$SDIU.Head = NA
+junctionseq.results.filtered.head$SDIU.Head[junctionseq.results.filtered.head$geneWisePadj <= 0.01] = 1
+junctionseq.results.filtered.head$SDIU.Head[!(junctionseq.results.filtered.head$geneWisePadj <= 0.01)] = 0
+
+# Merge head and body SDIU data and SBGE data
+junctionseq.results = merge(junctionseq.results.filtered.body[,c(1,3)],junctionseq.results.filtered.head[,c(1,3)], by="geneID")
+
+#  Modify SBGE data before merging together
+DGE.data.body = DGE.data.body[,c(1:4)]
+DGE.data.head = DGE.data.head[,c(1:4)]
+colnames(DGE.data.body) = c("geneID", "body.baseMean", "body.log2FC", "body.lfcSE")
+colnames(DGE.data.head) = c("geneID", "head.baseMean", "head.log2FC", "head.lfcSE")
+SBGE.data = merge(DGE.data.body,DGE.data.head, by = "geneID")
+
+# Merge SBGE data to Junctionseq data
+junctionseq.SBGE.data = merge(junctionseq.results, SBGE.data, by = "geneID")
+
+# Merge junctionseq/SBGE results with divergence results and retain geneID and whether the gene exhibits SDIU or not
+polymorphism.divergence.data = merge(junctionseq.SBGE.data,polymorphism.divergence.data, by="geneID")
+
+# Assign quantiles for sex-averaged mean expression
+polymorphism.divergence.data = polymorphism.divergence.data %>% mutate(body.sex.averaged.expression.quantile = ntile(body.baseMean, 3))
+polymorphism.divergence.data = polymorphism.divergence.data %>% mutate(head.sex.averaged.expression.quantile = ntile(head.baseMean, 3))
+
+# Assign quantiles for sex-biased expression
+
+# Separate out genes into male and female biased gene expression per tissue
+male.biased.body = polymorphism.divergence.data[polymorphism.divergence.data$body.log2FC > 0,]
+female.biased.body = polymorphism.divergence.data[polymorphism.divergence.data$body.log2FC < 0,]
+male.biased.head = polymorphism.divergence.data[polymorphism.divergence.data$head.log2FC > 0,]
+female.biased.head = polymorphism.divergence.data[polymorphism.divergence.data$head.log2FC < 0,]
+
+# Remove any rows that have an NA added to them
+male.biased.body = male.biased.body[!(is.na(male.biased.body$body.log2FC)),]
+female.biased.body = female.biased.body[!(is.na(female.biased.body$body.log2FC)),]
+male.biased.head = male.biased.head[!(is.na(male.biased.head$head.log2FC)),]
+female.biased.head = female.biased.head[!(is.na(female.biased.head$head.log2FC)),]
+
+# Assign quantile for both MBG and FBG overall
+male.biased.body = male.biased.body %>% mutate(log2FC.body.quantile = ntile(body.log2FC, 3))
+male.biased.head = male.biased.head %>% mutate(log2FC.head.quantile = ntile(head.log2FC, 3))
+female.biased.body = female.biased.body %>% mutate(log2FC.body.quantile = ntile(body.log2FC, 3))
+female.biased.head = female.biased.head %>% mutate(log2FC.head.quantile = ntile(head.log2FC, 3))
+# Add a value of three to the male-biased gene quantiles
+male.biased.body$log2FC.body.quantile = male.biased.body$log2FC.body.quantile + 3
+male.biased.head$log2FC.head.quantile = male.biased.head$log2FC.head.quantile + 3
+
+
+# Assign quantile for both MBG and FBG within each sex-averaged expression quantile ## Careful in using this variable, it is only relevant when parsed by sex-averaged gene expression!
+male.biased.body.lowexp = male.biased.body[male.biased.body$body.sex.averaged.expression.quantile == 1,] %>% mutate(sex.averaged.body.log2FC.quantile = ntile(body.log2FC, 3))
+male.biased.body.intermediateexp = male.biased.body[male.biased.body$body.sex.averaged.expression.quantile == 2,] %>% mutate(sex.averaged.body.log2FC.quantile = ntile(body.log2FC, 3))
+male.biased.body.highexp = male.biased.body[male.biased.body$body.sex.averaged.expression.quantile == 3,] %>% mutate(sex.averaged.body.log2FC.quantile = ntile(body.log2FC, 3))
+male.biased.head.lowexp = male.biased.head[male.biased.head$head.sex.averaged.expression.quantile == 1,] %>% mutate(sex.averaged.head.log2FC.quantile = ntile(head.log2FC, 3))
+male.biased.head.intermediateexp = male.biased.head[male.biased.head$head.sex.averaged.expression.quantile == 2,] %>% mutate(sex.averaged.head.log2FC.quantile = ntile(head.log2FC, 3))
+male.biased.head.highexp = male.biased.head[male.biased.head$head.sex.averaged.expression.quantile == 3,] %>% mutate(sex.averaged.head.log2FC.quantile = ntile(head.log2FC, 3))
+
+female.biased.body.lowexp = female.biased.body[female.biased.body$body.sex.averaged.expression.quantile == 1,] %>% mutate(sex.averaged.body.log2FC.quantile = ntile(body.log2FC, 3))
+female.biased.body.intermediateexp = female.biased.body[female.biased.body$body.sex.averaged.expression.quantile == 2,] %>% mutate(sex.averaged.body.log2FC.quantile = ntile(body.log2FC, 3))
+female.biased.body.highexp = female.biased.body[female.biased.body$body.sex.averaged.expression.quantile == 3,] %>% mutate(sex.averaged.body.log2FC.quantile = ntile(body.log2FC, 3))
+female.biased.head.lowexp = female.biased.head[female.biased.head$head.sex.averaged.expression.quantile == 1,] %>% mutate(sex.averaged.head.log2FC.quantile = ntile(head.log2FC, 3))
+female.biased.head.intermediateexp = female.biased.head[female.biased.head$head.sex.averaged.expression.quantile == 2,] %>% mutate(sex.averaged.head.log2FC.quantile = ntile(head.log2FC, 3))
+female.biased.head.highexp = female.biased.head[female.biased.head$head.sex.averaged.expression.quantile == 3,] %>% mutate(sex.averaged.head.log2FC.quantile = ntile(head.log2FC, 3))
+
+# For the male genes, lets add 3 to each quantile
+male.biased.body.lowexp$sex.averaged.body.log2FC.quantile = male.biased.body.lowexp$sex.averaged.body.log2FC.quantile + 3
+male.biased.body.intermediateexp$sex.averaged.body.log2FC.quantile = male.biased.body.intermediateexp$sex.averaged.body.log2FC.quantile + 3
+male.biased.body.highexp$sex.averaged.body.log2FC.quantile = male.biased.body.highexp$sex.averaged.body.log2FC.quantile + 3
+male.biased.head.lowexp$sex.averaged.head.log2FC.quantile = male.biased.head.lowexp$sex.averaged.head.log2FC.quantile + 3
+male.biased.head.intermediateexp$sex.averaged.head.log2FC.quantile = male.biased.head.intermediateexp$sex.averaged.head.log2FC.quantile + 3
+male.biased.head.highexp$sex.averaged.head.log2FC.quantile = male.biased.head.highexp$sex.averaged.head.log2FC.quantile + 3
+
+# Combine back into male-biased and female-biased dataframes
+male.biased.body = rbind(male.biased.body.lowexp, male.biased.body.intermediateexp, male.biased.body.highexp)
+male.biased.head = rbind(male.biased.head.lowexp, male.biased.head.intermediateexp, male.biased.head.highexp)
+female.biased.body = rbind(female.biased.body.lowexp, female.biased.body.intermediateexp, female.biased.body.highexp)
+female.biased.head = rbind(female.biased.head.lowexp, female.biased.head.intermediateexp, female.biased.head.highexp)
+
+# Rowbind head and body data between sexes
+body.data = rbind(male.biased.body, female.biased.body)
+head.data = rbind(male.biased.head, female.biased.head)
+
+# Merge head and body data back
+# Take only new columns from head data sets
+head.data = head.data[,c(1,22,23)]
+
+# Combine back with body data
+polymorphism.divergence.data = merge(body.data, head.data, by = "geneID", all = TRUE, sort = FALSE)
+
+# Add two columns to note whether the gene shows evidence of adaptive evolution by two criteria 1.) P-value < 0.05 and 2.) dn/ds > pn/ps
+polymorphism.divergence.data$adaptive = 0
+polymorphism.divergence.data$purifying.balancing = 0
+polymorphism.divergence.data$adaptive[polymorphism.divergence.data$mktest.pvalue.two.tailed <= 0.05 & polymorphism.divergence.data$dN.dS > polymorphism.divergence.data$piN.piS] = 1
+polymorphism.divergence.data$purifying.balancing[polymorphism.divergence.data$mktest.pvalue.two.tailed <= 0.05 & polymorphism.divergence.data$dN.dS > polymorphism.divergence.data$piN.piS] = 1
+
+# Couple more house keeping items
+polymorphism.divergence.data$XorAutosome[polymorphism.divergence.data$CHROM == "X"] = "X"
+polymorphism.divergence.data$XorAutosome[polymorphism.divergence.data$CHROM != "X"] = "Autosome"
+
+# Fitting models to test whether there is an effect of SDIU and SBGE on on adaptive evolution
+# First set of models treat SBGE as a categorical variable
+adaptive.model.body <- glm(adaptive ~ SDIU.Body + log2FC.body.quantile + fixS, family = binomial(), data = polymorphism.divergence.data)
+adaptive.model.head <- glm(adaptive ~ SDIU.Head + log2FC.head.quantile + fixS, family = binomial(), data = polymorphism.divergence.data)
+purifying.balancing.model.body <- glm(purifying.balancing ~ SDIU.Body + log2FC.body.quantile + fixS, family = binomial(), data = polymorphism.divergence.data)
+purifying.balancing.model.head <- glm(purifying.balancing ~ SDIU.Head + log2FC.head.quantile + fixS, family = binomial(), data = polymorphism.divergence.data)
+
+# Second set of models treats SBGE as a continuous variable
+adaptive.model.body <- glm(adaptive ~ SDIU.Body + body.log2FC + fixS, family = binomial(), data = polymorphism.divergence.data)
+adaptive.model.head <- glm(adaptive ~ SDIU.Head + head.log2FC + fixS, family = binomial(), data = polymorphism.divergence.data)
+purifying.balancing.model.body <- glm(purifying.balancing ~ SDIU.Body + body.log2FC + fixS, family = binomial(), data = polymorphism.divergence.data)
+purifying.balancing.model.head <- glm(purifying.balancing ~ SDIU.Head + head.log2FC + fixS, family = binomial(), data = polymorphism.divergence.data)
+
+
+# Write file out to disk
+
+
+## Working with my liftOver Dsim reference sequence
+# lets pull only the sites that are mapping to chr2L, chr2R, chr3L, chr3R and chrX into seperate files for each chromosome
+#   and then we will join all sites on a single arm together and sort
+
+cat Dsim_2L.DmelCoord.bed | grep -w 'chr2L' > filtered/Dsim_2L.DmelCoord.bed.tmp1 &
+cat Dsim_2R.DmelCoord.bed | grep -w 'chr2L' > filtered/Dsim_2L.DmelCoord.bed.tmp2 &
+cat Dsim_3L.DmelCoord.bed | grep -w 'chr2L' > filtered/Dsim_2L.DmelCoord.bed.tmp3 &
+cat Dsim_3R.DmelCoord.bed | grep -w 'chr2L' > filtered/Dsim_2L.DmelCoord.bed.tmp4 &
+cat Dsim_X.DmelCoord.bed | grep -w 'chr2L' > filtered/Dsim_2L.DmelCoord.bed.tmp5 &
+
+cat Dsim_2L.DmelCoord.bed.tmp1 Dsim_2L.DmelCoord.bed.tmp2 Dsim_2L.DmelCoord.bed.tmp3 Dsim_2L.DmelCoord.bed.tmp4 Dsim_2L.DmelCoord.bed.tmp5 | sort -k2 -n > Dsim_2L.filtered.DmelCoord.bed &
+
+cat Dsim_2L.DmelCoord.bed | grep -w 'chr2R' > filtered/Dsim_2R.DmelCoord.bed.tmp1 &
+cat Dsim_2R.DmelCoord.bed | grep -w 'chr2R' > filtered/Dsim_2R.DmelCoord.bed.tmp2 &
+cat Dsim_3L.DmelCoord.bed | grep -w 'chr2R' > filtered/Dsim_2R.DmelCoord.bed.tmp3 &
+cat Dsim_3R.DmelCoord.bed | grep -w 'chr2R' > filtered/Dsim_2R.DmelCoord.bed.tmp4 &
+cat Dsim_X.DmelCoord.bed | grep -w 'chr2R' > filtered/Dsim_2R.DmelCoord.bed.tmp5 &
+
+cat Dsim_2R.DmelCoord.bed.tmp1 Dsim_2R.DmelCoord.bed.tmp2 Dsim_2R.DmelCoord.bed.tmp3 Dsim_2R.DmelCoord.bed.tmp4 Dsim_2R.DmelCoord.bed.tmp5 | sort -k2 -n > Dsim_2R.filtered.DmelCoord.bed &
+
+cat Dsim_2L.DmelCoord.bed | grep -w 'chr3L' > filtered/Dsim_3L.DmelCoord.bed.tmp1 &
+cat Dsim_2R.DmelCoord.bed | grep -w 'chr3L' > filtered/Dsim_3L.DmelCoord.bed.tmp2 &
+cat Dsim_3L.DmelCoord.bed | grep -w 'chr3L' > filtered/Dsim_3L.DmelCoord.bed.tmp3 &
+cat Dsim_3R.DmelCoord.bed | grep -w 'chr3L' > filtered/Dsim_3L.DmelCoord.bed.tmp4 &
+cat Dsim_X.DmelCoord.bed | grep -w 'chr3L' > filtered/Dsim_3L.DmelCoord.bed.tmp5 &
+
+cat Dsim_3L.DmelCoord.bed.tmp1 Dsim_3L.DmelCoord.bed.tmp2 Dsim_3L.DmelCoord.bed.tmp3 Dsim_3L.DmelCoord.bed.tmp4 Dsim_3L.DmelCoord.bed.tmp5 | sort -k2 -n > Dsim_3L.filtered.DmelCoord.bed &
+
+cat Dsim_2L.DmelCoord.bed | grep -w 'chr3R' > filtered/Dsim_3R.DmelCoord.bed.tmp1 &
+cat Dsim_2R.DmelCoord.bed | grep -w 'chr3R' > filtered/Dsim_3R.DmelCoord.bed.tmp2 &
+cat Dsim_3L.DmelCoord.bed | grep -w 'chr3R' > filtered/Dsim_3R.DmelCoord.bed.tmp3 &
+cat Dsim_3R.DmelCoord.bed | grep -w 'chr3R' > filtered/Dsim_3R.DmelCoord.bed.tmp4 &
+cat Dsim_X.DmelCoord.bed | grep -w 'chr3R' > filtered/Dsim_3R.DmelCoord.bed.tmp5 &
+
+cat Dsim_3R.DmelCoord.bed.tmp1 Dsim_3R.DmelCoord.bed.tmp2 Dsim_3R.DmelCoord.bed.tmp3 Dsim_3R.DmelCoord.bed.tmp4 Dsim_3R.DmelCoord.bed.tmp5 | sort -k2 -n > Dsim_3R.filtered.DmelCoord.bed &
+
+cat Dsim_2L.DmelCoord.bed | grep -w 'chrX' > filtered/Dsim_X.DmelCoord.bed.tmp1 &
+cat Dsim_2R.DmelCoord.bed | grep -w 'chrX' > filtered/Dsim_X.DmelCoord.bed.tmp2 &
+cat Dsim_3L.DmelCoord.bed | grep -w 'chrX' > filtered/Dsim_X.DmelCoord.bed.tmp3 &
+cat Dsim_3R.DmelCoord.bed | grep -w 'chrX' > filtered/Dsim_X.DmelCoord.bed.tmp4 &
+cat Dsim_X.DmelCoord.bed | grep -w 'chrX' > filtered/Dsim_X.DmelCoord.bed.tmp5 &
+
+cat Dsim_X.DmelCoord.bed.tmp1 Dsim_X.DmelCoord.bed.tmp2 Dsim_X.DmelCoord.bed.tmp3 Dsim_X.DmelCoord.bed.tmp4 Dsim_X.DmelCoord.bed.tmp5 | sort -k2 -n > Dsim_X.filtered.DmelCoord.bed &
+
+# Combine all bed files into a single file
+cat Dsim_2L.filtered.DmelCoord.bed Dsim_2R.filtered.DmelCoord.bed Dsim_3L.filtered.DmelCoord.bed Dsim_3R.filtered.DmelCoord.bed Dsim_X.filtered.DmelCoord.bed > Dsim.filtered.DmelCoord.bed
+
+
+
+data = begun.data[,c(25:30)]
+data = data[complete.cases(data),]
+
+# Perform M-K test
+for (i in 1:nrow(data)){
+  x=data[i,c(1:4)]
+  contingency.table = matrix(NA, ncol = 2, nrow = 2)
+  contingency.table[2,2] = as.numeric(x[2])
+  contingency.table[2,1] = as.numeric(x[1])
+  contingency.table[1,2] = as.numeric(x[4])
+  contingency.table[1,1] = as.numeric(x[3])
+  data$mktest.1side.alt.pvalue[i] = fisher.test(contingency.table, alternative="less")$p.value
+
+}
+
+#

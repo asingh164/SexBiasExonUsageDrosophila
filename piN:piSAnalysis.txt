@@ -236,9 +236,9 @@ cat vcf.header chr.X.0fold_modified.vcf > chr.X.0fold_modified.vcf.tmp && mv chr
 cat vcf.header chr.X.4fold_modified.vcf > chr.X.4fold_modified.vcf.tmp && mv chr.X.4fold_modified.vcf.tmp chr.X.4fold_modified.vcf &
 
 
-#############################################################################################
-######    Calculating Nucleotide Diversity in the DGRP and Assigning Sites to genes    ######
-#############################################################################################
+###############################################################################################################
+######    NOT MAF FILTERED: Calculating Nucleotide Diversity in the DGRP and Assigning Sites to genes    ######
+###############################################################################################################
 
 cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.2L.4fold_modified.vcf | vcftools --vcf - --site-pi --out  /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/Chr2L.4fold &
 cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.2L.0fold_modified.vcf | vcftools --vcf - --site-pi --out  /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/Chr2L.0fold &
@@ -328,15 +328,386 @@ colnames(diversity.0fold.unique) = c("Chrom", "Site", "Npi", "geneID")
 diversity.4fold.per.gene = summaryBy(Spi ~ geneID, FUN = c(length, mean), data = diversity.4fold.unique)
 diversity.0fold.per.gene = summaryBy(Npi ~ geneID, FUN = c(length, mean), data = diversity.0fold.unique)
 
+# Also get data on the number of polymorphic sites per gene
+# First remove any non-polymorphic site (i.e., Spi and Npi = 0)
+polymorphic.4fold.unique = diversity.4fold.unique[diversity.4fold.unique$Spi != 0,]
+polymorphic.0fold.unique = diversity.0fold.unique[diversity.0fold.unique$Npi != 0,]
+Npolymorphic.4fold.per.gene = as.data.frame(table(polymorphic.4fold.unique$geneID))
+Npolymorphic.0fold.per.gene = as.data.frame(table(polymorphic.0fold.unique$geneID))
+colnames(Npolymorphic.4fold.per.gene) = c("geneID", "NumSynPoly")
+colnames(Npolymorphic.0fold.per.gene) = c("geneID", "NumNonSynPoly")
+
+# Merge back to data set diversity data
+diversity.4fold.per.gene=merge(diversity.4fold.per.gene,Npolymorphic.4fold.per.gene, by="geneID", all = TRUE)
+diversity.0fold.per.gene=merge(diversity.0fold.per.gene,Npolymorphic.0fold.per.gene, by="geneID", all = TRUE)
+# Replace NAs with 0 (i.e., 0 polymoprhic sites in the gene)
+diversity.4fold.per.gene$NumSynPoly[is.na(diversity.4fold.per.gene$NumSynPoly)] = 0
+diversity.0fold.per.gene$NumNonSynPoly[is.na(diversity.0fold.per.gene$NumNonSynPoly)] = 0
+
 # Merge datasets
 nucleotide.diversity.per.gene = merge(diversity.4fold.per.gene,diversity.0fold.per.gene, by = "geneID")
-colnames(nucleotide.diversity.per.gene) = c("geneID", "piS.sites","piS","piN.sites","piN")
+colnames(nucleotide.diversity.per.gene) = c("geneID", "Total.Syn.sites","piS","N.Syn.Polymorphisms","Total.NS.sites","piN","N.NS.Polymorphisms")
 # Calculate piN/piS
 nucleotide.diversity.per.gene$piN.piS = nucleotide.diversity.per.gene$piN / nucleotide.diversity.per.gene$piS
 
 write.table(nucleotide.diversity.per.gene, file = "/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/nucleotide.diversity.per.gene.Aug10.txt", quote = F, sep = "\t", col.name = T, row.name = F)
 
 # ---- R CODE ----
+
+##################################################################################################################
+######    MAF FILTERED at 10%: Calculating Nucleotide Diversity in the DGRP and Assigning Sites to genes    ######
+##################################################################################################################
+
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.2L.4fold_modified.vcf | vcftools --vcf - --site-pi --maf 0.1 --out  /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2L.4fold.maf.filtered &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.2L.0fold_modified.vcf | vcftools --vcf - --site-pi --maf 0.1 --out  /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2L.0fold.maf.filtered &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.2R.4fold_modified.vcf | vcftools --vcf - --site-pi --maf 0.1 --out  /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2R.4fold.maf.filtered &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.2R.0fold_modified.vcf | vcftools --vcf - --site-pi --maf 0.1 --out  /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2R.0fold.maf.filtered &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.3L.4fold_modified.vcf | vcftools --vcf - --site-pi --maf 0.1 --out  /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3L.4fold.maf.filtered &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.3L.0fold_modified.vcf | vcftools --vcf - --site-pi --maf 0.1 --out  /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3L.0fold.maf.filtered &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.3R.4fold_modified.vcf | vcftools --vcf - --site-pi --maf 0.1 --out  /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3R.4fold.maf.filtered &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.3R.0fold_modified.vcf | vcftools --vcf - --site-pi --maf 0.1 --out  /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3R.0fold.maf.filtered &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.X.4fold_modified.vcf | vcftools --vcf - --site-pi --maf 0.1 --out  /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/ChrX.4fold.maf.filtered &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.X.0fold_modified.vcf | vcftools --vcf - --site-pi --maf 0.1 --out  /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/ChrX.0fold.maf.filtered &
+
+
+## Intersect with GFF to identify genes that each site falls into
+# This is probably a roundabout way to do this, but whatever
+# Make separate GFF files for each chromosome arm, correctly formatted to intersect with a BED file that is 0based
+grep '2L' ../Drosophila_melanogaster.BDGP6.28.99.chr.gtf | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2, $3, $4-1, $5,$6,$7,$8,$9}' > Chr2L.gff &
+grep '2R' ../Drosophila_melanogaster.BDGP6.28.99.chr.gtf | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2, $3, $4-1, $5,$6,$7,$8,$9}' > Chr2R.gff &
+grep '3L' ../Drosophila_melanogaster.BDGP6.28.99.chr.gtf | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2, $3, $4-1, $5,$6,$7,$8,$9}' > Chr3L.gff &
+grep '3R' ../Drosophila_melanogaster.BDGP6.28.99.chr.gtf | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2, $3, $4-1, $5,$6,$7,$8,$9}' > Chr3R.gff &
+grep 'X' ../Drosophila_melanogaster.BDGP6.28.99.chr.gtf | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2, $3, $4-1, $5,$6,$7,$8,$9}' > ChrX.gff &
+
+# Format the nucleotide diversity files
+grep '2L' Chr2L.0fold.maf.filtered.sites.pi | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2-1, $2, $3}' > Chr2L.0fold.maf.filtered.sites.pi.for.bedtools &
+grep '2L' Chr2L.4fold.maf.filtered.sites.pi | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2-1, $2, $3}' > Chr2L.4fold.maf.filtered.sites.pi.for.bedtools &
+grep '2R' Chr2R.0fold.maf.filtered.sites.pi | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2-1, $2, $3}' > Chr2R.0fold.maf.filtered.sites.pi.for.bedtools &
+grep '2R' Chr2R.4fold.maf.filtered.sites.pi | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2-1, $2, $3}' > Chr2R.4fold.maf.filtered.sites.pi.for.bedtools &
+grep '3L' Chr3L.0fold.maf.filtered.sites.pi | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2-1, $2, $3}' > Chr3L.0fold.maf.filtered.sites.pi.for.bedtools &
+grep '3L' Chr3L.4fold.maf.filtered.sites.pi | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2-1, $2, $3}' > Chr3L.4fold.maf.filtered.sites.pi.for.bedtools &
+grep '3R' Chr3R.0fold.maf.filtered.sites.pi | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2-1, $2, $3}' > Chr3R.0fold.maf.filtered.sites.pi.for.bedtools &
+grep '3R' Chr3R.4fold.maf.filtered.sites.pi | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2-1, $2, $3}' > Chr3R.4fold.maf.filtered.sites.pi.for.bedtools &
+grep 'X' ChrX.0fold.maf.filtered.sites.pi | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2-1, $2, $3}' > ChrX.0fold.maf.filtered.sites.pi.for.bedtools &
+grep 'X' ChrX.4fold.maf.filtered.sites.pi | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2-1, $2, $3}' > ChrX.4fold.maf.filtered.sites.pi.for.bedtools &
+
+## Intersect files with bedtools
+bedtools intersect  -a Chr2L.0fold.maf.filtered.sites.pi.for.bedtools -b Chr2L.gff -wa -wb > Chr2L.0Fold.maf.filtered.bedtools.out &
+bedtools intersect  -a Chr2L.4fold.maf.filtered.sites.pi.for.bedtools -b Chr2L.gff -wa -wb > Chr2L.4Fold.maf.filtered.bedtools.out &
+bedtools intersect  -a Chr2R.0fold.maf.filtered.sites.pi.for.bedtools -b Chr2R.gff -wa -wb > Chr2R.0Fold.maf.filtered.bedtools.out &
+bedtools intersect  -a Chr2R.4fold.maf.filtered.sites.pi.for.bedtools -b Chr2R.gff -wa -wb > Chr2R.4Fold.maf.filtered.bedtools.out &
+bedtools intersect  -a Chr3L.0fold.maf.filtered.sites.pi.for.bedtools -b Chr3L.gff -wa -wb > Chr3L.0Fold.maf.filtered.bedtools.out &
+bedtools intersect  -a Chr3L.4fold.maf.filtered.sites.pi.for.bedtools -b Chr3L.gff -wa -wb > Chr3L.4Fold.maf.filtered.bedtools.out &
+bedtools intersect  -a Chr3R.0fold.maf.filtered.sites.pi.for.bedtools -b Chr3R.gff -wa -wb > Chr3R.0Fold.maf.filtered.bedtools.out &
+bedtools intersect  -a Chr3R.4fold.maf.filtered.sites.pi.for.bedtools -b Chr3R.gff -wa -wb > Chr3R.4Fold.maf.filtered.bedtools.out &
+bedtools intersect  -a ChrX.0fold.maf.filtered.sites.pi.for.bedtools -b ChrX.gff -wa -wb > ChrX.0Fold.maf.filtered.bedtools.out &
+bedtools intersect  -a ChrX.4fold.maf.filtered.sites.pi.for.bedtools -b ChrX.gff -wa -wb > ChrX.4Fold.maf.filtered.bedtools.out &
+
+## Clean up output files so that they can be read into R
+cat Chr2L.0Fold.maf.filtered.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $3, $4, $13}' > Chr2L.0fold.maf.filtered.final &
+cat Chr2L.4Fold.maf.filtered.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $3, $4, $13}' > Chr2L.4fold.maf.filtered.final &
+cat Chr2R.0Fold.maf.filtered.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $3, $4, $13}' > Chr2R.0fold.maf.filtered.final &
+cat Chr2R.4Fold.maf.filtered.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $3, $4, $13}' > Chr2R.4fold.maf.filtered.final &
+cat Chr3L.0Fold.maf.filtered.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $3, $4, $13}' > Chr3L.0fold.maf.filtered.final &
+cat Chr3L.4Fold.maf.filtered.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $3, $4, $13}' > Chr3L.4fold.maf.filtered.final &
+cat Chr3R.0Fold.maf.filtered.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $3, $4, $13}' > Chr3R.0fold.maf.filtered.final &
+cat Chr3R.4Fold.maf.filtered.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $3, $4, $13}' > Chr3R.4fold.maf.filtered.final &
+cat ChrX.0Fold.maf.filtered.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $3, $4, $13}' > ChrX.0fold.maf.filtered.final &
+cat ChrX.4Fold.maf.filtered.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $3, $4, $13}' > ChrX.4fold.maf.filtered.final &
+
+## Merge 4fold and 0fold files together
+cat Chr2L.0fold.maf.filtered.final Chr2R.0fold.maf.filtered.final Chr3L.0fold.maf.filtered.final Chr3R.0fold.maf.filtered.final ChrX.0fold.maf.filtered.final > diversity.0fold.maf.filtered.sites &
+cat Chr2L.4fold.maf.filtered.final Chr2R.4fold.maf.filtered.final Chr3L.4fold.maf.filtered.final Chr3R.4fold.maf.filtered.final ChrX.4fold.maf.filtered.final > diversity.4fold.maf.filtered.sites &
+
+# Remove intermediate files
+rm Chr*.*Fold.bedtools.out
+rm *.for.bedtools
+rm Chr*.gff
+
+# ---- R CODE ----
+rm(list=ls())
+require(doBy)
+
+# Read in nucleotide diversity data
+diversity.0fold.maf.filtered = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/diversity.0fold.maf.filtered.sites", header = FALSE)
+diversity.4fold.maf.filtered = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/diversity.4fold.maf.filtered.sites", header = FALSE)
+
+# Filter out duplicate sites
+diversity.4fold.unique = unique(diversity.4fold.maf.filtered[,c("V1","V2","V3","V4")])
+diversity.0fold.unique = unique(diversity.0fold.maf.filtered[,c("V1","V2","V3","V4")])
+
+# Fix geneID column
+diversity.4fold.unique$V4 = substr(diversity.4fold.unique$V4, 8,18)
+diversity.0fold.unique$V4 = substr(diversity.0fold.unique$V4, 8,18)
+
+colnames(diversity.4fold.unique) = c("Chrom", "Site", "Spi", "geneID")
+colnames(diversity.0fold.unique) = c("Chrom", "Site", "Npi", "geneID")
+
+# Summarize mean nucleotide diversity per gene
+diversity.4fold.per.gene = summaryBy(Spi ~ geneID, FUN = c(length, mean), data = diversity.4fold.unique)
+diversity.0fold.per.gene = summaryBy(Npi ~ geneID, FUN = c(length, mean), data = diversity.0fold.unique)
+
+# Also get data on the number of polymorphic sites per gene
+# First remove any non-polymorphic site (i.e., Spi and Npi = 0)
+polymorphic.4fold.unique = diversity.4fold.unique[diversity.4fold.unique$Spi != 0,]
+polymorphic.0fold.unique = diversity.0fold.unique[diversity.0fold.unique$Npi != 0,]
+Npolymorphic.4fold.per.gene = as.data.frame(table(polymorphic.4fold.unique$geneID))
+Npolymorphic.0fold.per.gene = as.data.frame(table(polymorphic.0fold.unique$geneID))
+colnames(Npolymorphic.4fold.per.gene) = c("geneID", "NumSynPoly")
+colnames(Npolymorphic.0fold.per.gene) = c("geneID", "NumNonSynPoly")
+
+# Merge back to data set diversity data
+diversity.4fold.per.gene=merge(diversity.4fold.per.gene,Npolymorphic.4fold.per.gene, by="geneID", all = TRUE)
+diversity.0fold.per.gene=merge(diversity.0fold.per.gene,Npolymorphic.0fold.per.gene, by="geneID", all = TRUE)
+# Replace NAs with 0 (i.e., 0 polymoprhic sites in the gene)
+diversity.4fold.per.gene$NumSynPoly[is.na(diversity.4fold.per.gene$NumSynPoly)] = 0
+diversity.0fold.per.gene$NumNonSynPoly[is.na(diversity.0fold.per.gene$NumNonSynPoly)] = 0
+
+# Merge datasets
+nucleotide.diversity.per.gene = merge(diversity.4fold.per.gene,diversity.0fold.per.gene, by = "geneID")
+colnames(nucleotide.diversity.per.gene) = c("geneID", "Total.Syn.sites","piS","N.Syn.Polymorphisms","Total.NS.sites","piN","N.NS.Polymorphisms")
+# Calculate piN/piS
+nucleotide.diversity.per.gene$piN.piS = nucleotide.diversity.per.gene$piN / nucleotide.diversity.per.gene$piS
+
+write.table(nucleotide.diversity.per.gene, file = "/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/nucleotide.diversity.per.gene.MAF.filtered.Jul292021.txt", quote = F, sep = "\t", col.name = T, row.name = F)
+
+
+##################################################################################################################
+######    MAF FILTERED at 15%: Calculating Nucleotide Diversity in the DGRP and Assigning Sites to genes    ######
+##################################################################################################################
+
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.2L.4fold_modified.vcf | vcftools --vcf - --site-pi --maf 0.15 --out  /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2L.4fold.maf.15.filtered &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.2L.0fold_modified.vcf | vcftools --vcf - --site-pi --maf 0.15 --out  /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2L.0fold.maf.15.filtered &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.2R.4fold_modified.vcf | vcftools --vcf - --site-pi --maf 0.15 --out  /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2R.4fold.maf.15.filtered &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.2R.0fold_modified.vcf | vcftools --vcf - --site-pi --maf 0.15 --out  /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2R.0fold.maf.15.filtered &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.3L.4fold_modified.vcf | vcftools --vcf - --site-pi --maf 0.15 --out  /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3L.4fold.maf.15.filtered &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.3L.0fold_modified.vcf | vcftools --vcf - --site-pi --maf 0.15 --out  /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3L.0fold.maf.15.filtered &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.3R.4fold_modified.vcf | vcftools --vcf - --site-pi --maf 0.15 --out  /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3R.4fold.maf.15.filtered &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.3R.0fold_modified.vcf | vcftools --vcf - --site-pi --maf 0.15 --out  /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3R.0fold.maf.15.filtered &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.X.4fold_modified.vcf | vcftools --vcf - --site-pi --maf 0.15 --out  /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/ChrX.4fold.maf.15.filtered &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.X.0fold_modified.vcf | vcftools --vcf - --site-pi --maf 0.15 --out  /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/ChrX.0fold.maf.15.filtered &
+
+
+## Intersect with GFF to identify genes that each site falls into
+# This is probably a roundabout way to do this, but whatever
+# Make separate GFF files for each chromosome arm, correctly formatted to intersect with a BED file that is 0based
+grep '2L' ../Drosophila_melanogaster.BDGP6.28.99.chr.gtf | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2, $3, $4-1, $5,$6,$7,$8,$9}' > Chr2L.gff &
+grep '2R' ../Drosophila_melanogaster.BDGP6.28.99.chr.gtf | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2, $3, $4-1, $5,$6,$7,$8,$9}' > Chr2R.gff &
+grep '3L' ../Drosophila_melanogaster.BDGP6.28.99.chr.gtf | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2, $3, $4-1, $5,$6,$7,$8,$9}' > Chr3L.gff &
+grep '3R' ../Drosophila_melanogaster.BDGP6.28.99.chr.gtf | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2, $3, $4-1, $5,$6,$7,$8,$9}' > Chr3R.gff &
+grep 'X' ../Drosophila_melanogaster.BDGP6.28.99.chr.gtf | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2, $3, $4-1, $5,$6,$7,$8,$9}' > ChrX.gff &
+
+# Format the nucleotide diversity files
+grep '2L' /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2L.0fold.maf.15.filtered.sites.pi | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2-1, $2, $3}' > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2L.0fold.maf.15.filtered.sites.pi.for.bedtools &
+grep '2L' /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2L.4fold.maf.15.filtered.sites.pi | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2-1, $2, $3}' > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2L.4fold.maf.15.filtered.sites.pi.for.bedtools &
+grep '2R' /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2R.0fold.maf.15.filtered.sites.pi | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2-1, $2, $3}' > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2R.0fold.maf.15.filtered.sites.pi.for.bedtools &
+grep '2R' /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2R.4fold.maf.15.filtered.sites.pi | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2-1, $2, $3}' > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2R.4fold.maf.15.filtered.sites.pi.for.bedtools &
+grep '3L' /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3L.0fold.maf.15.filtered.sites.pi | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2-1, $2, $3}' > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3L.0fold.maf.15.filtered.sites.pi.for.bedtools &
+grep '3L' /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3L.4fold.maf.15.filtered.sites.pi | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2-1, $2, $3}' > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3L.4fold.maf.15.filtered.sites.pi.for.bedtools &
+grep '3R' /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3R.0fold.maf.15.filtered.sites.pi | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2-1, $2, $3}' > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3R.0fold.maf.15.filtered.sites.pi.for.bedtools &
+grep '3R' /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3R.4fold.maf.15.filtered.sites.pi | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2-1, $2, $3}' > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3R.4fold.maf.15.filtered.sites.pi.for.bedtools &
+grep 'X' /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/ChrX.0fold.maf.15.filtered.sites.pi | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2-1, $2, $3}' > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/ChrX.0fold.maf.15.filtered.sites.pi.for.bedtools &
+grep 'X' /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/ChrX.4fold.maf.15.filtered.sites.pi | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2-1, $2, $3}' > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/ChrX.4fold.maf.15.filtered.sites.pi.for.bedtools &
+
+## Intersect files with bedtools
+bedtools intersect  -a /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2L.0fold.maf.15.filtered.sites.pi.for.bedtools -b Chr2L.gff -wa -wb > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2L.0Fold.maf.15.filtered.bedtools.out &
+bedtools intersect  -a /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2L.4fold.maf.15.filtered.sites.pi.for.bedtools -b Chr2L.gff -wa -wb > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2L.4Fold.maf.15.filtered.bedtools.out &
+bedtools intersect  -a /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2R.0fold.maf.15.filtered.sites.pi.for.bedtools -b Chr2R.gff -wa -wb > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2R.0Fold.maf.15.filtered.bedtools.out &
+bedtools intersect  -a /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2R.4fold.maf.15.filtered.sites.pi.for.bedtools -b Chr2R.gff -wa -wb > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2R.4Fold.maf.15.filtered.bedtools.out &
+bedtools intersect  -a /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3L.0fold.maf.15.filtered.sites.pi.for.bedtools -b Chr3L.gff -wa -wb > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3L.0Fold.maf.15.filtered.bedtools.out &
+bedtools intersect  -a /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3L.4fold.maf.15.filtered.sites.pi.for.bedtools -b Chr3L.gff -wa -wb > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3L.4Fold.maf.15.filtered.bedtools.out &
+bedtools intersect  -a /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3R.0fold.maf.15.filtered.sites.pi.for.bedtools -b Chr3R.gff -wa -wb > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3R.0Fold.maf.15.filtered.bedtools.out &
+bedtools intersect  -a /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3R.4fold.maf.15.filtered.sites.pi.for.bedtools -b Chr3R.gff -wa -wb > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3R.4Fold.maf.15.filtered.bedtools.out &
+bedtools intersect  -a /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/ChrX.0fold.maf.15.filtered.sites.pi.for.bedtools -b ChrX.gff -wa -wb > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/ChrX.0Fold.maf.15.filtered.bedtools.out &
+bedtools intersect  -a /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/ChrX.4fold.maf.15.filtered.sites.pi.for.bedtools -b ChrX.gff -wa -wb > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/ChrX.4Fold.maf.15.filtered.bedtools.out &
+
+## Clean up output files so that they can be read into R
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2L.0Fold.maf.15.filtered.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $3, $4, $13}' > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2L.0fold.maf.15.filtered.final &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2L.4Fold.maf.15.filtered.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $3, $4, $13}' > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2L.4fold.maf.15.filtered.final &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2R.0Fold.maf.15.filtered.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $3, $4, $13}' > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2R.0fold.maf.15.filtered.final &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2R.4Fold.maf.15.filtered.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $3, $4, $13}' > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2R.4fold.maf.15.filtered.final &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3L.0Fold.maf.15.filtered.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $3, $4, $13}' > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3L.0fold.maf.15.filtered.final &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3L.4Fold.maf.15.filtered.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $3, $4, $13}' > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3L.4fold.maf.15.filtered.final &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3R.0Fold.maf.15.filtered.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $3, $4, $13}' > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3R.0fold.maf.15.filtered.final &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3R.4Fold.maf.15.filtered.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $3, $4, $13}' > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3R.4fold.maf.15.filtered.final &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/ChrX.0Fold.maf.15.filtered.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $3, $4, $13}' > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/ChrX.0fold.maf.15.filtered.final &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/ChrX.4Fold.maf.15.filtered.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $3, $4, $13}' > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/ChrX.4fold.maf.15.filtered.final &
+
+## Merge 4fold and 0fold files together
+cat Chr2L.0fold.maf.15.filtered.final Chr2R.0fold.maf.15.filtered.final Chr3L.0fold.maf.15.filtered.final Chr3R.0fold.maf.15.filtered.final ChrX.0fold.maf.15.filtered.final > diversity.0fold.maf.15.filtered.sites &
+cat Chr2L.4fold.maf.15.filtered.final Chr2R.4fold.maf.15.filtered.final Chr3L.4fold.maf.15.filtered.final Chr3R.4fold.maf.15.filtered.final ChrX.4fold.maf.15.filtered.final > diversity.4fold.maf.15.filtered.sites &
+
+# Remove intermediate files
+rm Chr*.*Fold.bedtools.out
+rm *.for.bedtools
+rm Chr*.gff
+
+# ---- R CODE ----
+rm(list=ls())
+require(doBy)
+
+# Read in nucleotide diversity data
+diversity.0fold.maf.filtered = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/diversity.0fold.maf.15.filtered.sites", header = FALSE)
+diversity.4fold.maf.filtered = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/diversity.4fold.maf.15.filtered.sites", header = FALSE)
+
+# Filter out duplicate sites
+diversity.4fold.unique = unique(diversity.4fold.maf.filtered[,c("V1","V2","V3","V4")])
+diversity.0fold.unique = unique(diversity.0fold.maf.filtered[,c("V1","V2","V3","V4")])
+
+# Fix geneID column
+diversity.4fold.unique$V4 = substr(diversity.4fold.unique$V4, 8,18)
+diversity.0fold.unique$V4 = substr(diversity.0fold.unique$V4, 8,18)
+
+colnames(diversity.4fold.unique) = c("Chrom", "Site", "Spi", "geneID")
+colnames(diversity.0fold.unique) = c("Chrom", "Site", "Npi", "geneID")
+
+# Summarize mean nucleotide diversity per gene
+diversity.4fold.per.gene = summaryBy(Spi ~ geneID, FUN = c(length, mean), data = diversity.4fold.unique)
+diversity.0fold.per.gene = summaryBy(Npi ~ geneID, FUN = c(length, mean), data = diversity.0fold.unique)
+
+# Also get data on the number of polymorphic sites per gene
+# First remove any non-polymorphic site (i.e., Spi and Npi = 0)
+polymorphic.4fold.unique = diversity.4fold.unique[diversity.4fold.unique$Spi != 0,]
+polymorphic.0fold.unique = diversity.0fold.unique[diversity.0fold.unique$Npi != 0,]
+Npolymorphic.4fold.per.gene = as.data.frame(table(polymorphic.4fold.unique$geneID))
+Npolymorphic.0fold.per.gene = as.data.frame(table(polymorphic.0fold.unique$geneID))
+colnames(Npolymorphic.4fold.per.gene) = c("geneID", "NumSynPoly")
+colnames(Npolymorphic.0fold.per.gene) = c("geneID", "NumNonSynPoly")
+
+# Merge back to data set diversity data
+diversity.4fold.per.gene=merge(diversity.4fold.per.gene,Npolymorphic.4fold.per.gene, by="geneID", all = TRUE)
+diversity.0fold.per.gene=merge(diversity.0fold.per.gene,Npolymorphic.0fold.per.gene, by="geneID", all = TRUE)
+# Replace NAs with 0 (i.e., 0 polymoprhic sites in the gene)
+diversity.4fold.per.gene$NumSynPoly[is.na(diversity.4fold.per.gene$NumSynPoly)] = 0
+diversity.0fold.per.gene$NumNonSynPoly[is.na(diversity.0fold.per.gene$NumNonSynPoly)] = 0
+
+# Merge datasets
+nucleotide.diversity.per.gene = merge(diversity.4fold.per.gene,diversity.0fold.per.gene, by = "geneID")
+colnames(nucleotide.diversity.per.gene) = c("geneID", "Total.Syn.sites","piS","N.Syn.Polymorphisms","Total.NS.sites","piN","N.NS.Polymorphisms")
+# Calculate piN/piS
+nucleotide.diversity.per.gene$piN.piS = nucleotide.diversity.per.gene$piN / nucleotide.diversity.per.gene$piS
+
+write.table(nucleotide.diversity.per.gene, file = "/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/nucleotide.diversity.per.gene.MAF.filtered.15perct.Sept92021.txt", quote = F, sep = "\t", col.name = T, row.name = F)
+
+
+###################################################################################################################
+######    MAF FILTERED at 2.5%: Calculating Nucleotide Diversity in the DGRP and Assigning Sites to genes    ######
+###################################################################################################################
+
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.2L.4fold_modified.vcf | vcftools --vcf - --site-pi --maf 0.02 --out  /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2L.4fold.maf.02.filtered &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.2L.0fold_modified.vcf | vcftools --vcf - --site-pi --maf 0.02 --out  /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2L.0fold.maf.02.filtered &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.2R.4fold_modified.vcf | vcftools --vcf - --site-pi --maf 0.02 --out  /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2R.4fold.maf.02.filtered &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.2R.0fold_modified.vcf | vcftools --vcf - --site-pi --maf 0.02 --out  /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2R.0fold.maf.02.filtered &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.3L.4fold_modified.vcf | vcftools --vcf - --site-pi --maf 0.02 --out  /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3L.4fold.maf.02.filtered &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.3L.0fold_modified.vcf | vcftools --vcf - --site-pi --maf 0.02 --out  /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3L.0fold.maf.02.filtered &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.3R.4fold_modified.vcf | vcftools --vcf - --site-pi --maf 0.02 --out  /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3R.4fold.maf.02.filtered &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.3R.0fold_modified.vcf | vcftools --vcf - --site-pi --maf 0.02 --out  /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3R.0fold.maf.02.filtered &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.X.4fold_modified.vcf | vcftools --vcf - --site-pi --maf 0.02 --out  /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/ChrX.4fold.maf.02.filtered &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/chr.X.0fold_modified.vcf | vcftools --vcf - --site-pi --maf 0.02 --out  /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/ChrX.0fold.maf.02.filtered &
+
+
+## Intersect with GFF to identify genes that each site falls into
+# This is probably a roundabout way to do this, but whatever
+# Make separate GFF files for each chromosome arm, correctly formatted to intersect with a BED file that is 0based
+grep '2L' ../Drosophila_melanogaster.BDGP6.28.99.chr.gtf | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2, $3, $4-1, $5,$6,$7,$8,$9}' > Chr2L.gff &
+grep '2R' ../Drosophila_melanogaster.BDGP6.28.99.chr.gtf | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2, $3, $4-1, $5,$6,$7,$8,$9}' > Chr2R.gff &
+grep '3L' ../Drosophila_melanogaster.BDGP6.28.99.chr.gtf | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2, $3, $4-1, $5,$6,$7,$8,$9}' > Chr3L.gff &
+grep '3R' ../Drosophila_melanogaster.BDGP6.28.99.chr.gtf | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2, $3, $4-1, $5,$6,$7,$8,$9}' > Chr3R.gff &
+grep 'X' ../Drosophila_melanogaster.BDGP6.28.99.chr.gtf | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2, $3, $4-1, $5,$6,$7,$8,$9}' > ChrX.gff &
+
+# Format the nucleotide diversity files
+grep '2L' /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2L.0fold.maf.02.filtered.sites.pi | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2-1, $2, $3}' > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2L.0fold.maf.02.filtered.sites.pi.for.bedtools &
+grep '2L' /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2L.4fold.maf.02.filtered.sites.pi | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2-1, $2, $3}' > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2L.4fold.maf.02.filtered.sites.pi.for.bedtools &
+grep '2R' /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2R.0fold.maf.02.filtered.sites.pi | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2-1, $2, $3}' > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2R.0fold.maf.02.filtered.sites.pi.for.bedtools &
+grep '2R' /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2R.4fold.maf.02.filtered.sites.pi | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2-1, $2, $3}' > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2R.4fold.maf.02.filtered.sites.pi.for.bedtools &
+grep '3L' /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3L.0fold.maf.02.filtered.sites.pi | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2-1, $2, $3}' > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3L.0fold.maf.02.filtered.sites.pi.for.bedtools &
+grep '3L' /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3L.4fold.maf.02.filtered.sites.pi | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2-1, $2, $3}' > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3L.4fold.maf.02.filtered.sites.pi.for.bedtools &
+grep '3R' /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3R.0fold.maf.02.filtered.sites.pi | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2-1, $2, $3}' > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3R.0fold.maf.02.filtered.sites.pi.for.bedtools &
+grep '3R' /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3R.4fold.maf.02.filtered.sites.pi | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2-1, $2, $3}' > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3R.4fold.maf.02.filtered.sites.pi.for.bedtools &
+grep 'X' /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/ChrX.0fold.maf.02.filtered.sites.pi | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2-1, $2, $3}' > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/ChrX.0fold.maf.02.filtered.sites.pi.for.bedtools &
+grep 'X' /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/ChrX.4fold.maf.02.filtered.sites.pi | awk 'BEGIN {OFS =FS="\t"} {print "chr" $1, $2-1, $2, $3}' > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/ChrX.4fold.maf.02.filtered.sites.pi.for.bedtools &
+
+## Intersect files with bedtools
+bedtools intersect  -a /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2L.0fold.maf.02.filtered.sites.pi.for.bedtools -b Chr2L.gff -wa -wb > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2L.0Fold.maf.02.filtered.bedtools.out &
+bedtools intersect  -a /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2L.4fold.maf.02.filtered.sites.pi.for.bedtools -b Chr2L.gff -wa -wb > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2L.4Fold.maf.02.filtered.bedtools.out &
+bedtools intersect  -a /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2R.0fold.maf.02.filtered.sites.pi.for.bedtools -b Chr2R.gff -wa -wb > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2R.0Fold.maf.02.filtered.bedtools.out &
+bedtools intersect  -a /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2R.4fold.maf.02.filtered.sites.pi.for.bedtools -b Chr2R.gff -wa -wb > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2R.4Fold.maf.02.filtered.bedtools.out &
+bedtools intersect  -a /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3L.0fold.maf.02.filtered.sites.pi.for.bedtools -b Chr3L.gff -wa -wb > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3L.0Fold.maf.02.filtered.bedtools.out &
+bedtools intersect  -a /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3L.4fold.maf.02.filtered.sites.pi.for.bedtools -b Chr3L.gff -wa -wb > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3L.4Fold.maf.02.filtered.bedtools.out &
+bedtools intersect  -a /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3R.0fold.maf.02.filtered.sites.pi.for.bedtools -b Chr3R.gff -wa -wb > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3R.0Fold.maf.02.filtered.bedtools.out &
+bedtools intersect  -a /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3R.4fold.maf.02.filtered.sites.pi.for.bedtools -b Chr3R.gff -wa -wb > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3R.4Fold.maf.02.filtered.bedtools.out &
+bedtools intersect  -a /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/ChrX.0fold.maf.02.filtered.sites.pi.for.bedtools -b ChrX.gff -wa -wb > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/ChrX.0Fold.maf.02.filtered.bedtools.out &
+bedtools intersect  -a /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/ChrX.4fold.maf.02.filtered.sites.pi.for.bedtools -b ChrX.gff -wa -wb > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/ChrX.4Fold.maf.02.filtered.bedtools.out &
+
+## Clean up output files so that they can be read into R
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2L.0Fold.maf.02.filtered.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $3, $4, $13}' > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2L.0fold.maf.02.filtered.final &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2L.4Fold.maf.02.filtered.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $3, $4, $13}' > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2L.4fold.maf.02.filtered.final &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2R.0Fold.maf.02.filtered.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $3, $4, $13}' > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2R.0fold.maf.02.filtered.final &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2R.4Fold.maf.02.filtered.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $3, $4, $13}' > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr2R.4fold.maf.02.filtered.final &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3L.0Fold.maf.02.filtered.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $3, $4, $13}' > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3L.0fold.maf.02.filtered.final &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3L.4Fold.maf.02.filtered.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $3, $4, $13}' > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3L.4fold.maf.02.filtered.final &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3R.0Fold.maf.02.filtered.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $3, $4, $13}' > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3R.0fold.maf.02.filtered.final &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3R.4Fold.maf.02.filtered.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $3, $4, $13}' > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/Chr3R.4fold.maf.02.filtered.final &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/ChrX.0Fold.maf.02.filtered.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $3, $4, $13}' > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/ChrX.0fold.maf.02.filtered.final &
+cat /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/ChrX.4Fold.maf.02.filtered.bedtools.out | sed 's/;/\t/g' | sed 's/ //g' | awk '{OFS = FS = "\t"} {print $1, $3, $4, $13}' > /plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/ChrX.4fold.maf.02.filtered.final &
+
+## Merge 4fold and 0fold files together
+cat Chr2L.0fold.maf.02.filtered.final Chr2R.0fold.maf.02.filtered.final Chr3L.0fold.maf.02.filtered.final Chr3R.0fold.maf.02.filtered.final ChrX.0fold.maf.02.filtered.final > diversity.0fold.maf.02.filtered.sites &
+cat Chr2L.4fold.maf.02.filtered.final Chr2R.4fold.maf.02.filtered.final Chr3L.4fold.maf.02.filtered.final Chr3R.4fold.maf.02.filtered.final ChrX.4fold.maf.02.filtered.final > diversity.4fold.maf.02.filtered.sites &
+
+# Remove intermediate files
+rm Chr*.*Fold.bedtools.out
+rm *.for.bedtools
+rm Chr*.gff
+
+# ---- R CODE ----
+rm(list=ls())
+require(doBy)
+
+# Read in nucleotide diversity data
+diversity.0fold.maf.filtered = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/diversity.0fold.maf.02.filtered.sites", header = FALSE)
+diversity.4fold.maf.filtered = read.delim("/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/diversity.4fold.maf.02.filtered.sites", header = FALSE)
+
+# Filter out duplicate sites
+diversity.4fold.unique = unique(diversity.4fold.maf.filtered[,c("V1","V2","V3","V4")])
+diversity.0fold.unique = unique(diversity.0fold.maf.filtered[,c("V1","V2","V3","V4")])
+
+# Fix geneID column
+diversity.4fold.unique$V4 = substr(diversity.4fold.unique$V4, 8,18)
+diversity.0fold.unique$V4 = substr(diversity.0fold.unique$V4, 8,18)
+
+colnames(diversity.4fold.unique) = c("Chrom", "Site", "Spi", "geneID")
+colnames(diversity.0fold.unique) = c("Chrom", "Site", "Npi", "geneID")
+
+# Summarize mean nucleotide diversity per gene
+diversity.4fold.per.gene = summaryBy(Spi ~ geneID, FUN = c(length, mean), data = diversity.4fold.unique)
+diversity.0fold.per.gene = summaryBy(Npi ~ geneID, FUN = c(length, mean), data = diversity.0fold.unique)
+
+# Also get data on the number of polymorphic sites per gene
+# First remove any non-polymorphic site (i.e., Spi and Npi = 0)
+polymorphic.4fold.unique = diversity.4fold.unique[diversity.4fold.unique$Spi != 0,]
+polymorphic.0fold.unique = diversity.0fold.unique[diversity.0fold.unique$Npi != 0,]
+Npolymorphic.4fold.per.gene = as.data.frame(table(polymorphic.4fold.unique$geneID))
+Npolymorphic.0fold.per.gene = as.data.frame(table(polymorphic.0fold.unique$geneID))
+colnames(Npolymorphic.4fold.per.gene) = c("geneID", "NumSynPoly")
+colnames(Npolymorphic.0fold.per.gene) = c("geneID", "NumNonSynPoly")
+
+# Merge back to data set diversity data
+diversity.4fold.per.gene=merge(diversity.4fold.per.gene,Npolymorphic.4fold.per.gene, by="geneID", all = TRUE)
+diversity.0fold.per.gene=merge(diversity.0fold.per.gene,Npolymorphic.0fold.per.gene, by="geneID", all = TRUE)
+# Replace NAs with 0 (i.e., 0 polymoprhic sites in the gene)
+diversity.4fold.per.gene$NumSynPoly[is.na(diversity.4fold.per.gene$NumSynPoly)] = 0
+diversity.0fold.per.gene$NumNonSynPoly[is.na(diversity.0fold.per.gene$NumNonSynPoly)] = 0
+
+# Merge datasets
+nucleotide.diversity.per.gene = merge(diversity.4fold.per.gene,diversity.0fold.per.gene, by = "geneID")
+colnames(nucleotide.diversity.per.gene) = c("geneID", "Total.Syn.sites","piS","N.Syn.Polymorphisms","Total.NS.sites","piN","N.NS.Polymorphisms")
+# Calculate piN/piS
+nucleotide.diversity.per.gene$piN.piS = nucleotide.diversity.per.gene$piN / nucleotide.diversity.per.gene$piS
+
+write.table(nucleotide.diversity.per.gene, file = "/plas1/amardeep.singh/RNA.Seq.Data/piNpiS.Analysis/4fold0fold.parsedVCFs/NucelotideDiversityFiles/MAF_Filtered/nucleotide.diversity.per.gene.MAF.filtered.02perct.Sept242021.txt", quote = F, sep = "\t", col.name = T, row.name = F)
+
+
 #######################################################################################################################################
 ######    Calculating Synonymous and Nonsynonymous Nucleotide Diversity in the DGRP at DEU Significant and Nonsignificant Genes  ######
 #######################################################################################################################################
